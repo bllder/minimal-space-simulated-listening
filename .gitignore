@@ -21,6 +21,10 @@ __pycache__/
 # local logs
 *.log
 
+# third-party papers / local reference copies
+*.pdf
+references/papers/
+
 # audio files / copyrighted or local media
 *.wav
 *.mp3
