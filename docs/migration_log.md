@@ -23,6 +23,8 @@ Add one entry only when material from the legacy project is actually reused in t
 
 Do not add an entry if legacy material was only inspected but not imported, rewritten, summarized, or conceptually adopted.
 
+Current-project development notes belong in `docs/project_log.md`, not here.
+
 Each entry should answer:
 
 - Where did it come from?
@@ -74,31 +76,3 @@ Mention anything intentionally not imported from the legacy source.
 ## Migration Entries
 
 No legacy material has been migrated yet.
-
-## 2026-06-15 - V3 temporal-spatial auditory object tracking
-
-### Current source
-Current clean rebuild working copy and the 42s-50s selected validation clip.
-
-### Reused material
-No legacy project structure was imported. This update extends the current V2.2 validation output.
-
-### Migration type
-Conceptual extension + report/schema revision.
-
-### Current destination
-- `scripts/run_first_validation.py`
-- `outputs/mapping_packet.json`
-- `outputs/listening_report.md`
-- `outputs/baseline_features.json`
-- `docs/temporal_spatial_object_tracking.md`
-
-### Why it belongs
-MSSL needs to move from a visualized listening field to trackable auditory objects. Sound objects persist across intervals; they are not isolated single-frame labels.
-
-### What was intentionally not imported
-- No source separation
-- No automatic instrument recognition
-- No voice recognition
-- No old project structure
-- No audio terminology as the primary language
