@@ -1,0 +1,4 @@
+# Optional MIDI-like transcription tools. Not required for default runtime.
+# Install only when testing P1 external adapters.
+# basic-pitch
+# omnizart
