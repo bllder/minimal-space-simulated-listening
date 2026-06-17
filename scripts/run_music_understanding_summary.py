@@ -105,6 +105,20 @@ RELATION_DICTIONARY: dict[str, str] = {
     "appears_or_disappears_between_windows": "appears or disappears between windows / 跨窗出现或消失",
 }
 
+RELATION_EXPLANATIONS: dict[str, str] = {
+    "co_present_candidate": "多个结构在同一批窗口里共同存在，说明这里更像复合层结构，不是单一孤立对象。",
+    "event_against_field_candidate": "事件结构贴着场域出现，说明短促进入点或瞬态不是悬空发生，而是在持续场中被标记出来。",
+    "field_contains_event_candidate": "场域包含事件，说明系统把局部事件放进更大的背景或质地结构中理解。",
+    "pressure_inside_spread_field_candidate": "压力结构处在空间展开场内，说明低频或身体感痕迹被读作整体场的一部分，而不是独立主角。",
+    "spread_field_around_pressure_candidate": "空间展开围绕压力结构，说明接收端扩散感和压力痕迹存在绑定关系。",
+    "harmonic_layer_over_texture_candidate": "和声层压在质地上，说明稳定音高/和声候选被读作比背景团块更靠上的组织层。",
+    "texture_under_harmonic_layer_candidate": "质地垫在和声下，说明背景团块更像承托层，而不是主导的音高结构。",
+    "strengthens_across_windows": "关系跨窗口增强，说明后续窗口里的绑定更明显。",
+    "weakens_across_windows": "关系跨窗口减弱，说明后续窗口里的绑定变弱。",
+    "roughly_stable_across_windows": "关系跨窗口大致稳定，说明这个结构关系不是单窗偶发。",
+    "appears_or_disappears_between_windows": "关系在窗口之间出现或消失，说明结构绑定存在阶段变化。",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -201,8 +215,9 @@ def build_summary(
     windows = [window for window in track_packet.get("windows", []) if isinstance(window, dict)]
 
     structures = build_structure_readings(nodes, tracks)
-    relations = build_relation_readings(edges)
-    overview = build_overview(track_packet, scene_packet, structures, relations, windows)
+    relation_readings = build_relation_readings(edges)
+    relation_summary = build_relation_summary(edges)
+    overview = build_overview(track_packet, scene_packet, structures, relation_readings, windows)
 
     return sanitize(
         {
@@ -228,12 +243,13 @@ def build_summary(
             "overview": overview,
             "machine_understanding": {
                 "primary_structures": structures,
-                "relation_readings": relations,
+                "relation_readings": relation_readings,
+                "relation_summary": relation_summary,
                 "time_flow_reading": infer_time_flow(structures, windows),
                 "space_reading": infer_space_reading(structures),
                 "layer_reading": infer_layer_reading(structures),
             },
-            "module_diagnostics": build_module_diagnostics(structures, relations, windows),
+            "module_diagnostics": build_module_diagnostics(structures, relation_readings, windows),
             "cannot_prove": [
                 "human emotional meaning",
                 "composer or performer intention",
@@ -261,6 +277,7 @@ def build_structure_readings(nodes: list[dict[str, Any]], tracks: list[dict[str,
         dictionary = STRUCTURE_DICTIONARY.get(candidate_type, fallback_structure(candidate_type))
         track = track_by_id.get(node.get("supporting_track")) or track_by_type.get(candidate_type) or {}
         activation_delta = as_float(node.get("activation_delta"))
+        observed_windows = node.get("observed_window_indices", [])
         reading = {
             "candidate_type": candidate_type,
             "scene_role_candidate": node.get("scene_role_candidate"),
@@ -272,13 +289,13 @@ def build_structure_readings(nodes: list[dict[str, Any]], tracks: list[dict[str,
             "confidence_mean": safe_float(node.get("confidence_mean")),
             "activation_delta": safe_float(activation_delta),
             "trend": trend_label(activation_delta),
-            "observed_window_indices": node.get("observed_window_indices", []),
+            "observed_window_indices": observed_windows,
             "window_sequence": track.get("window_sequence", []),
             "structural_question": dictionary["structural_question"],
             "mssl_module_alignment": dictionary["mssl_modules"],
             "can_explain": dictionary["can_explain"],
             "cannot_explain": dictionary["cannot_explain"],
-            "product_readable_sentence": readable_sentence(candidate_type, node, activation_delta),
+            "product_readable_sentence": readable_sentence(candidate_type, node, activation_delta, observed_windows),
         }
         readings.append(reading)
 
@@ -292,7 +309,7 @@ def fallback_structure(candidate_type: str) -> dict[str, Any]:
         "structural_question": "What structural role might this candidate support?",
         "mssl_modules": ["object candidate", "scene graph"],
         "can_explain": ["machine-visible structural candidate"],
-        "cannot_explain": ["human meaning", "source identity", "report wording"],
+        "cannot_explain": ["human meaning", "identity", "music-review judgment"],
     }
 
 
@@ -302,14 +319,80 @@ def node_sort_key(node: dict[str, Any]) -> tuple[float, float, str]:
     return (-persistence, -activation, str(node.get("candidate_type") or ""))
 
 
-def readable_sentence(candidate_type: str, node: dict[str, Any], activation_delta: float | None) -> str:
+def readable_sentence(
+    candidate_type: str,
+    node: dict[str, Any],
+    activation_delta: float | None,
+    observed_windows: list[Any] | None = None,
+) -> str:
     label = STRUCTURE_DICTIONARY.get(candidate_type, fallback_structure(candidate_type))["zh_label"]
     persistence = as_float(node.get("persistence_score")) or 0.0
     activation = as_float(node.get("activation_mean")) or 0.0
-    trend = trend_label(activation_delta)
-    duration_text = "persistent" if persistence >= 0.75 else "local or partial"
-    strength_text = "strong" if activation >= 0.6 else "moderate" if activation >= 0.3 else "weak"
-    return f"{label}: {duration_text} structural candidate, {strength_text} activation, {trend}."
+    window_count = len(observed_windows or [])
+    strength_text = activation_strength_zh(activation)
+    continuity_text = continuity_zh(persistence, window_count)
+    trend_text = trend_zh(activation_delta)
+
+    if candidate_type == "harmonic_layer_candidate":
+        return (
+            f"{label}：这是本段{strength_text}的持续结构，{continuity_text}，"
+            "说明系统把它理解为一个稳定的音高/和声支撑层。"
+        )
+    if candidate_type == "texture_mass_candidate":
+        return (
+            f"{label}：这个结构{strength_text}，{continuity_text}，"
+            "说明系统看到了一层背景质地或场域团块，而不是单个离散事件。"
+        )
+    if candidate_type == "transient_event_candidate":
+        return (
+            f"{label}：这个结构{strength_text}，{continuity_text}，"
+            "说明系统看到稳定的进入点或短促事件锚点，用来标记时间组织。"
+        )
+    if candidate_type == "rhythmic_pulse_candidate":
+        return (
+            f"{label}：这个结构{strength_text}，{continuity_text}，"
+            "说明系统看到节奏脉冲或身体时间锚点，但它还不能证明完整拍号或律动风格。"
+        )
+    if candidate_type == "pressure_body_candidate":
+        return (
+            f"{label}：这个结构存在但{strength_text}，{continuity_text}，"
+            "说明低频压力不是主体，但在整体场里有持续痕迹。"
+        )
+    if candidate_type == "receiver_spread_layer_candidate":
+        return (
+            f"{label}：这个结构{strength_text}，{continuity_text}，"
+            "说明系统看到接收端空间展开的代理证据，但这不是现实三维定位。"
+        )
+
+    return f"{label}：这是一个{strength_text}的结构候选，{continuity_text}，整体趋势为{trend_text}。"
+
+
+def activation_strength_zh(activation: float) -> str:
+    if activation >= 0.6:
+        return "最强或很强"
+    if activation >= 0.3:
+        return "中等强度"
+    return "较弱"
+
+
+def continuity_zh(persistence: float, window_count: int) -> str:
+    if persistence >= 0.75 and window_count >= 2:
+        return f"跨 {window_count} 个窗口都存在"
+    if persistence >= 0.75:
+        return "具有持续性"
+    if window_count >= 2:
+        return f"在 {window_count} 个窗口里出现，但持续性有限"
+    return "更像局部或单窗痕迹"
+
+
+def trend_zh(delta: float | None) -> str:
+    if delta is None:
+        return "趋势未知"
+    if delta > 0.15:
+        return "跨窗增强"
+    if delta < -0.15:
+        return "跨窗减弱"
+    return "跨窗大致稳定"
 
 
 def build_relation_readings(edges: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -328,6 +411,46 @@ def build_relation_readings(edges: list[dict[str, Any]]) -> list[dict[str, Any]]
             }
         )
     return readings
+
+
+def build_relation_summary(edges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for edge in edges:
+        relation = str(edge.get("relation_candidate") or "unknown_relation")
+        entry = grouped.setdefault(
+            relation,
+            {
+                "relation_candidate": relation,
+                "readable_relation": RELATION_DICTIONARY.get(relation, relation.replace("_", " ")),
+                "count": 0,
+                "confidence_values": [],
+                "example_pairs": [],
+                "explanation": RELATION_EXPLANATIONS.get(
+                    relation,
+                    "这类关系说明场景图中存在结构绑定，但当前层不会把它解释成情绪、风格或真实声源位置。",
+                ),
+            },
+        )
+        entry["count"] += 1
+        confidence = as_float(edge.get("confidence"))
+        if confidence is not None:
+            entry["confidence_values"].append(confidence)
+        if len(entry["example_pairs"]) < 3:
+            entry["example_pairs"].append(
+                {
+                    "from_node": edge.get("from_node"),
+                    "to_node": edge.get("to_node"),
+                }
+            )
+
+    summaries = []
+    for relation, entry in grouped.items():
+        confidence_values = entry.pop("confidence_values")
+        entry["mean_confidence"] = safe_float(sum(confidence_values) / len(confidence_values)) if confidence_values else None
+        entry["max_confidence"] = safe_float(max(confidence_values)) if confidence_values else None
+        summaries.append(entry)
+
+    return sorted(summaries, key=lambda item: (-int(item.get("count") or 0), str(item.get("relation_candidate") or "")))
 
 
 def build_overview(
@@ -354,9 +477,9 @@ def build_overview(
 def overview_sentence(structures: list[dict[str, Any]], relations: list[dict[str, Any]]) -> str:
     labels = [str(item.get("zh_label")) for item in structures[:4]]
     if not labels:
-        return "No readable structural candidates were found."
-    relation_text = "with scene relations" if relations else "without explicit scene relations"
-    return "This run contains " + ", ".join(labels) + f", {relation_text}."
+        return "没有发现可读的结构候选。"
+    relation_text = "并带有场景关系" if relations else "但没有显式场景关系"
+    return "本次运行主要看到：" + "、".join(labels) + f"，{relation_text}。"
 
 
 def infer_time_flow(structures: list[dict[str, Any]], windows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -505,18 +628,20 @@ def render_markdown(summary: dict[str, Any]) -> str:
         lines.append("- Cannot explain: " + "; ".join(str(v) for v in item.get("cannot_explain", [])))
         lines.append("")
 
-    relation_readings = summary.get("machine_understanding", {}).get("relation_readings", [])
-    lines.append("## Scene relations")
+    relation_summary = summary.get("machine_understanding", {}).get("relation_summary", [])
+    lines.append("## Scene relations summary")
     lines.append("")
-    if relation_readings:
-        for relation in relation_readings[:24]:
+    if relation_summary:
+        for relation in relation_summary:
+            confidence = relation.get("mean_confidence")
+            confidence_text = f"; mean confidence: {confidence}" if confidence is not None else ""
             lines.append(
                 "- "
-                + str(relation.get("readable_relation"))
-                + f" (confidence: {relation.get('confidence')})"
+                + str(relation.get("relation_candidate"))
+                + f" × {relation.get('count')}"
+                + confidence_text
             )
-        if len(relation_readings) > 24:
-            lines.append(f"- ... {len(relation_readings) - 24} additional relation candidates omitted from markdown view.")
+            lines.append(f"  - {relation.get('explanation')}")
     else:
         lines.append("- No explicit relation candidates found.")
     lines.append("")
