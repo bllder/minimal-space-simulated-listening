@@ -1,0 +1,45 @@
+{
+  "schema": "mssl_reference_probe_manifest_v0_1",
+  "probe_id": "example_major_triad_C4",
+  "probe_family": "harmonic_layer",
+  "status": "template_only",
+  "source": {
+    "origin": "generated_local_reference_probe",
+    "license_boundary": "generated locally; do not commit generated WAV or MIDI outputs"
+  },
+  "audio": {
+    "duration_seconds": 8.0,
+    "sample_rate": 22050,
+    "channels": 2,
+    "wav_path": "outputs/reference_probe_bank/example_major_triad_C4/probe.wav"
+  },
+  "midi": {
+    "may_emit_midi": true,
+    "midi_path": "outputs/reference_probe_bank/example_major_triad_C4/probe.mid",
+    "midi_is_probe_score_not_transcription_truth": true
+  },
+  "music_theory": {
+    "notes": ["C4", "E4", "G4"],
+    "midi_pitches": [60, 64, 67],
+    "chord": "C major",
+    "register": "mid",
+    "arrangement_role": "sustained harmonic layer"
+  },
+  "expected_signal_values": {
+    "onset_density": "low",
+    "harmonic_stability": "high",
+    "spectral_density": "medium",
+    "stereo_width": "low",
+    "pressure_proxy": "low"
+  },
+  "expected_mssl_roles": [
+    "harmonic_layer_candidate",
+    "texture_mass_candidate"
+  ],
+  "comparison_policy": {
+    "expected_roles_are_hints_not_ground_truth": true,
+    "match_does_not_confirm_source_identity": true,
+    "not_a_training_label": true,
+    "not_a_listening_report": true
+  }
+}
