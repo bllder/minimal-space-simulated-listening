@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use or discuss this project, please cite it as below."
+title: "Minimal Space for Simulated Listening"
+type: software
+authors:
+  - alias: "dog bless god"
+repository-code: "https://github.com/bllder/minimal-space-simulated-listening"
+abstract: >
+  Minimal Space for Simulated Listening is an experimental project for building
+  a minimal spatiotemporal domain for simulated listening. It models sound as a
+  source-to-receiver mapping relation and translates audio evidence into an
+  O-space, M-domain, and E-space representation for auditory object tracking
+  and human calibration.
+keywords:
+  - simulated listening
+  - auditory modeling
+  - audio evidence
+  - spatiotemporal mapping
+  - auditory object tracking
+license: MIT
+date-released: "2026-06-17"
