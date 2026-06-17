@@ -29,7 +29,7 @@ recurring event
 pressure body
 receiver-side spread
 texture field
-scene relation
+scene relation summary
 ```
 
 It answers:
@@ -99,6 +99,18 @@ Explicit packet paths are also supported:
   --output-dir outputs\minimal_pipeline_smoke
 ```
 
+To read the generated Markdown on Windows PowerShell, include `-Encoding UTF8` so Chinese labels are not garbled:
+
+```powershell
+Get-Content outputs\reference_probe_bank\harmonic_layer_plus_pulse\mssl_output\music_understanding_summary.md -Raw -Encoding UTF8
+```
+
+The same applies when reading JSON:
+
+```powershell
+Get-Content outputs\reference_probe_bank\harmonic_layer_plus_pulse\mssl_output\music_understanding_summary.json -Raw -Encoding UTF8
+```
+
 ---
 
 ## Outputs
@@ -120,7 +132,8 @@ The summary includes:
 ```text
 overview
 primary structures
-scene relations
+structural reading
+scene relations summary
 time flow reading
 space reading
 layer reading
@@ -149,6 +162,18 @@ rhythmic pulse or body-time anchor
 pressure or low-body candidate
 receiver-side spread field
 ```
+
+Scene relations are aggregated by relation type in Markdown instead of printed as repeated raw edges. For example:
+
+```text
+co_present_candidate × N
+event_against_field_candidate × N
+field_contains_event_candidate × N
+pressure_inside_spread_field_candidate × N
+roughly_stable_across_windows × N
+```
+
+Each relation type receives a short explanation, while the full relation readings remain available in the JSON packet for debugging.
 
 ---
 
@@ -203,7 +228,7 @@ what presses forward
 what spreads in receiver space
 what behaves like a layer
 what behaves like an event
-what relations exist between candidates
+what relation types exist between candidates
 ```
 
 without prematurely claiming that the system understands emotional meaning or musical intention.
