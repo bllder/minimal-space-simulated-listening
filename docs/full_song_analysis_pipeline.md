@@ -172,16 +172,30 @@ The system knows the genre.
 
 ## 8. Local command
 
-On the user's Windows project environment:
+Run from the project root. The audio input may be anywhere on the local machine.
+
+Windows example:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_full_song_analysis.py --input "D:\CloudMusic\01.WAV" --output-dir outputs
+.\.venv\Scripts\python.exe scripts\run_full_song_analysis.py --input "path\to\local_audio.wav" --output-dir outputs
 ```
 
-Optional segment tuning:
+Windows optional segment tuning:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_full_song_analysis.py --input "D:\CloudMusic\01.WAV" --output-dir outputs --min-segment-seconds 8 --max-segment-seconds 45
+.\.venv\Scripts\python.exe scripts\run_full_song_analysis.py --input "path\to\local_audio.wav" --output-dir outputs --min-segment-seconds 8 --max-segment-seconds 45
+```
+
+macOS / Linux example:
+
+```bash
+./.venv/bin/python scripts/run_full_song_analysis.py --input "path/to/local_audio.wav" --output-dir outputs
+```
+
+macOS / Linux optional segment tuning:
+
+```bash
+./.venv/bin/python scripts/run_full_song_analysis.py --input "path/to/local_audio.wav" --output-dir outputs --min-segment-seconds 8 --max-segment-seconds 45
 ```
 
 Outputs:

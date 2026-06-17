@@ -33,7 +33,7 @@ BLOCK_SECONDS = 1.0
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate MSSL V3 audio-object runcheck report.")
     parser.add_argument("--input", required=True, help="Path to the selected WAV clip, e.g. outputs/thz_00m42s_00m50s.wav")
-    parser.add_argument("--source-label", default=None, help="Original source label/path for the report, e.g. D:\\CloudMusic\\thz.wav")
+    parser.add_argument("--source-label", default=None, help="Original source label/path for the report, e.g. path/to/local_audio.wav")
     parser.add_argument("--clip-start", type=float, default=0.0, help="Absolute start time represented by the selected clip.")
     parser.add_argument("--output-dir", default="outputs")
     parser.add_argument("--report-name", default="audio_object_runcheck_report.md")

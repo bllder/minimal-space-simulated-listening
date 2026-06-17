@@ -36,10 +36,18 @@ The output folder is generated local material and should stay ignored by git.
 
 ## Install dependency locally
 
-Use the project venv Python only:
+Use the project venv Python only.
+
+Windows:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install librosa
+```
+
+macOS / Linux:
+
+```bash
+./.venv/bin/python -m pip install librosa
 ```
 
 Do not use global `pip`, `python`, or `python3`.
@@ -48,19 +56,39 @@ Do not use global `pip`, `python`, or `python3`.
 
 ## Run
 
+Windows example, from the project root:
+
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_librosa_baseline_evidence.py `
-  --input "D:\path\to\local_audio.wav" `
+  --input "path\to\local_audio.wav" `
   --output-dir outputs
 ```
 
-Optional windowed run:
+macOS / Linux example, from the project root:
+
+```bash
+./.venv/bin/python ./scripts/run_librosa_baseline_evidence.py \
+  --input "path/to/local_audio.wav" \
+  --output-dir outputs
+```
+
+Optional windowed run on Windows:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_librosa_baseline_evidence.py `
-  --input "D:\path\to\local_audio.wav" `
+  --input "path\to\local_audio.wav" `
   --window-start 42 `
   --window-duration 8 `
+  --output-dir outputs
+```
+
+Optional windowed run on macOS / Linux:
+
+```bash
+./.venv/bin/python ./scripts/run_librosa_baseline_evidence.py \
+  --input "path/to/local_audio.wav" \
+  --window-start 42 \
+  --window-duration 8 \
   --output-dir outputs
 ```
 

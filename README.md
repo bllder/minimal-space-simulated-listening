@@ -1118,53 +1118,65 @@ scripts/run_audio_object_runcheck.py
 
 ---
 
-# 13. Windows Python Environment
+# 13. Python Environment
 
-This project uses Python 3.11.9 in:
+This project should be runnable from any cloned project folder.
+
+Create the virtual environment inside the project root:
 
 ```text
-D:\minimal-space-simulated-listening\.venv
+<project-root>/.venv
 ```
 
-All Python commands must use:
+On Windows, use the project venv Python:
 
 ```powershell
 .\.venv\Scripts\python.exe
+```
+
+On macOS / Linux, use:
+
+```bash
+./.venv/bin/python
 ```
 
 Do not use:
 
 ```text
 bundled Python
-python
-python3
-python3.11
+an unrelated global Python
 global pip
 ```
 
 ---
 
-## 13. Windows Python 环境
+## 13. Python 环境
 
-本项目使用 Python 3.11.9，虚拟环境路径为：
+本项目应当可以从任意 clone 下来的项目文件夹运行。
+
+虚拟环境应创建在项目根目录内：
 
 ```text
-D:\minimal-space-simulated-listening\.venv
+<project-root>/.venv
 ```
 
-所有 Python 命令必须使用：
+Windows 使用项目 venv Python：
 
 ```powershell
 .\.venv\Scripts\python.exe
+```
+
+macOS / Linux 使用：
+
+```bash
+./.venv/bin/python
 ```
 
 不要使用：
 
 ```text
 bundled Python
-python
-python3
-python3.11
+无关的全局 Python
 全局 pip
 ```
 
@@ -1348,7 +1360,7 @@ The default script remains lightweight:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py --input "D:\CloudMusic\01.WAV" --output-dir outputs
+.\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py --input "path\to\local_audio.wav" --output-dir outputs
 ```
 
 Default required dependency:
@@ -1478,7 +1490,7 @@ Example:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py `
-  --input "D:\歌曲\Parodyse,HVRXLD - 莲花园.wav" `
+  --input "path\to\local_audio.wav" `
   --analysis-label "莲花园" `
   --output-dir outputs
 ```
