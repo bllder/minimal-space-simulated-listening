@@ -69,3 +69,43 @@ The project is now public on GitHub. It needs a licensing boundary, citation met
 - No generated outputs
 - No old project structure
 - No script logic changes
+
+---
+
+## 2026-06-17 — Minimal smoke validation
+
+### Source
+
+Current `main` branch after `scripts/run_minimal_pipeline_smoke.py` was merged.
+
+### Change type
+
+Engineering validation record.
+
+### Result
+
+Synthetic smoke run passed.
+
+Local WAV smoke run passed.
+
+The local smoke summary reported:
+
+```text
+schema: mssl_minimal_pipeline_smoke_summary_v0_1
+status: passed
+window_count: 2
+checks: 8 / 8 passed
+```
+
+### Why it belongs
+
+This records the first end-to-end proof that the current minimal MSSL chain can run from local audio to `auditory_scene_graph_packet.json`.
+
+### What was intentionally not imported
+
+- No audio files
+- No generated outputs
+- No listening report
+- No human calibration
+- No optional adapter runtime
+- No external datasets
