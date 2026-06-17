@@ -27,11 +27,8 @@ For every task, follow this order:
 1. Read `AGENTS.md`.
 2. Read `README.md` to understand the current project baseline.
 3. Read `references/legacy_index.md` before consulting any legacy material.
-4. If legacy reference is needed, inspect the legacy project at:
-
-   `D:\groove-ear`
-
-5. Treat `D:\groove-ear` as read-only background material.
+4. If legacy reference is needed, ask for or use the local legacy archive path recorded in `references/legacy_index.md`.
+5. Treat any legacy archive as read-only background material.
 6. Extract only the useful essence from legacy materials.
 7. Rewrite, simplify, or adapt legacy ideas into the new project.
 8. Do not directly revive old project structure, old architecture, or old output sprawl.
@@ -42,13 +39,18 @@ For every task, follow this order:
 
 ## Legacy Project Rules
 
-The legacy project is located at:
+The legacy project is an optional local reference archive.
 
-`D:\groove-ear`
+It is not required to run this repository.
 
-It is a reference archive only.
+If a local legacy archive is available, record its path in `references/legacy_index.md` using a machine-specific placeholder such as:
 
-Codex may read files under this path for:
+```text
+<legacy-project-path>
+```
+
+Codex may read files under that path for:
+
 - historical concepts
 - terminology
 - earlier experiments
@@ -56,12 +58,13 @@ Codex may read files under this path for:
 - useful background context
 
 Codex must not:
-- modify anything under `D:\groove-ear`
-- delete anything under `D:\groove-ear`
-- rename anything under `D:\groove-ear`
-- reformat anything under `D:\groove-ear`
-- write new files under `D:\groove-ear`
-- treat `D:\groove-ear` as the current project root
+
+- modify anything under the local legacy archive
+- delete anything under the local legacy archive
+- rename anything under the local legacy archive
+- reformat anything under the local legacy archive
+- write new files under the local legacy archive
+- treat the local legacy archive as the current project root
 - continue the old architecture by default
 - restore old V1/V2/V3 structures
 - copy large legacy files directly into the new project
@@ -103,33 +106,49 @@ The new project should stay minimal, readable, and structurally clean.
 
 ---
 
-## Windows Python Environment Rules
+## Python Environment Rules
 
-This project uses Python 3.11.9.
+This project should be runnable from any cloned project folder.
 
-The project virtual environment path is:
+Create the virtual environment inside the project root:
 
-`D:\minimal-space-simulated-listening\.venv`
+```text
+<project-root>/.venv
+```
 
-All Python commands must use:
+On Windows, prefer:
 
-`.\.venv\Scripts\python.exe`
+```powershell
+.\.venv\Scripts\python.exe
+```
+
+On macOS / Linux, prefer:
+
+```bash
+./.venv/bin/python
+```
 
 Do not use:
 
 - bundled Python
-- `python`
-- `python3`
-- `python3.11`
+- an unrelated global Python
 - global `pip`
 
-Use this test command:
+Use the venv Python for tests and checks.
 
-`.\.venv\Scripts\python.exe -m pytest`
+Windows examples:
 
-Use this compile check:
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m compileall scripts
+```
 
-`.\.venv\Scripts\python.exe -m compileall src`
+macOS / Linux examples:
+
+```bash
+./.venv/bin/python -m pytest
+./.venv/bin/python -m compileall scripts
+```
 
 If Windows sandbox reports:
 
@@ -146,7 +165,7 @@ Before making changes, state briefly:
 
 1. which current files will be edited
 2. whether `references/legacy_index.md` will be used
-3. whether `D:\groove-ear` will be inspected
+3. whether a local legacy archive will be inspected
 4. what legacy material will not be imported
 
 Then proceed with the smallest useful change.

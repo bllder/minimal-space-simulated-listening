@@ -4,11 +4,16 @@ This file records legacy material that has been intentionally reused in the clea
 
 **Minimal Space for Simulated Listening**
 
-The legacy project is located at:
+The legacy project, if available, is an optional local reference archive.
 
-`D:\groove-ear`
+Use a machine-specific placeholder when recording legacy sources:
+
+```text
+<legacy-project-path>
+```
 
 Legacy materials are reference only.
+They are not required to run this repository.
 
 The current project source of truth remains:
 
@@ -42,7 +47,7 @@ Each entry should answer:
 
 ### Legacy source
 
-`D:\groove-ear\path\to\legacy_file.md`
+`<legacy-project-path>/path/to/legacy_file.md`
 
 ### Reused material
 
@@ -64,7 +69,7 @@ Explain why this legacy material belongs in the clean rebuild.
 
 ### Target file
 
-`path\to\current_project_file.md`
+`path/to/current_project_file.md`
 
 ### Notes
 

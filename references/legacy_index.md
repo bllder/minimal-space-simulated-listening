@@ -2,11 +2,17 @@
 
 ## Legacy Project Location
 
-The legacy project is located at:
+The legacy project is an optional local reference archive.
 
-`D:\groove-ear`
+This repository does not require the legacy archive to run.
 
-This directory is a read-only reference archive.
+If a contributor has a local copy of the legacy Groove Ear archive, record it as a machine-specific path outside git, or refer to it in this document using:
+
+```text
+<legacy-project-path>
+```
+
+This directory, when available, must be treated as a read-only reference archive.
 
 It is not the current project root.
 
@@ -37,7 +43,7 @@ When working on the new project, use this authority order:
 1. `README.md`
 2. current files in the new repository
 3. this file, `references/legacy_index.md`
-4. selected legacy files under `D:\groove-ear`
+4. selected legacy files under `<legacy-project-path>`, only when such an archive is available and explicitly needed
 
 If any legacy material conflicts with the new `README.md`, the new `README.md` wins.
 
@@ -45,9 +51,7 @@ If any legacy material conflicts with the new `README.md`, the new `README.md` w
 
 ## Allowed Legacy Use
 
-Codex may read legacy files under:
-
-`D:\groove-ear`
+Codex may read legacy files under an explicitly provided local legacy archive path.
 
 Allowed use includes:
 
@@ -67,12 +71,12 @@ Direct copying should be rare and must be explicitly justified.
 
 Codex must not:
 
-- modify anything under `D:\groove-ear`
-- delete anything under `D:\groove-ear`
-- rename anything under `D:\groove-ear`
-- reformat anything under `D:\groove-ear`
-- write new files under `D:\groove-ear`
-- treat `D:\groove-ear` as the current project root
+- modify anything under the local legacy archive
+- delete anything under the local legacy archive
+- rename anything under the local legacy archive
+- reformat anything under the local legacy archive
+- write new files under the local legacy archive
+- treat the local legacy archive as the current project root
 - rebuild the old folder structure
 - continue old V1/V2/V3 architecture by default
 - import old debug outputs
@@ -87,8 +91,9 @@ Codex must not:
 Before reading legacy files, Codex should state:
 
 1. why legacy reference is needed
-2. which part of the legacy project may be relevant
-3. what will not be imported from the old project
+2. which local legacy archive path will be used
+3. which part of the legacy project may be relevant
+4. what will not be imported from the old project
 
 After reading legacy files, Codex should state:
 

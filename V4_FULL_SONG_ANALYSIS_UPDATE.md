@@ -95,14 +95,30 @@ The spatial output is receiver-side perceived-space proxy, not physical room rec
 
 ## Local command
 
+Run from the project root. The audio input may be anywhere on the local machine.
+
+Windows:
+
 ```powershell
-.\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py --input "D:\CloudMusic\01.WAV" --output-dir outputs
+.\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py --input "path\to\local_audio.wav" --output-dir outputs
 ```
 
-Optional:
+Windows optional tuning:
 
 ```powershell
-.\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py --input "D:\CloudMusic\01.WAV" --output-dir outputs --min-segment-seconds 8 --max-segment-seconds 45
+.\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py --input "path\to\local_audio.wav" --output-dir outputs --min-segment-seconds 8 --max-segment-seconds 45
+```
+
+macOS / Linux:
+
+```bash
+./.venv/bin/python ./scripts/run_full_song_analysis.py --input "path/to/local_audio.wav" --output-dir outputs
+```
+
+macOS / Linux optional tuning:
+
+```bash
+./.venv/bin/python ./scripts/run_full_song_analysis.py --input "path/to/local_audio.wav" --output-dir outputs --min-segment-seconds 8 --max-segment-seconds 45
 ```
 
 ## Related docs

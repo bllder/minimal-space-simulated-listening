@@ -41,13 +41,13 @@ These are candidate object tracks, not source separation and not automatic instr
 
 ## Current 8s run
 
-The script was run on:
+The script was run on a local user-owned clip, for example:
 
 `outputs/thz_00m42s_00m50s.wav`
 
 with source label:
 
-`D:\CloudMusic\thz.wav`
+`path/to/local_audio.wav`
 
 absolute window:
 
