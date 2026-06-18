@@ -37,6 +37,110 @@ For every task, follow this order:
 
 ---
 
+## MSSL Core Boundary
+
+This project builds structural understanding for simulated listening.
+
+It must not be silently converted into:
+
+- a music review generator
+- a genre classifier
+- an emotion classifier
+- a taste or recommendation system
+- a singer or instrument identity system
+- a lyrics / ASR / semantic song-meaning system
+- a scraped comment analysis system
+- a music generation system
+- a human calibration layer unless explicitly requested
+
+Allowed core language:
+
+- O / M / E source-to-receiver mapping
+- audio evidence
+- structural candidate
+- auditory hypothesis
+- temporal-spatial object tracking
+- scene relation
+- structural summary
+- sustained layer
+- transient event
+- texture mass
+- pressure body
+- receiver spread field
+- rhythmic anchor
+- dominant / supporting / weak
+- persistent / recurring / local / background
+- relation / containment / co-presence / support
+
+Readable language is allowed only when it is a bounded rendering of packet evidence.
+
+Do not add free-form listening-report language unless the task explicitly asks for a separate listening-report layer.
+
+---
+
+## Output Boundary
+
+Generated summaries and Markdown outputs must clearly distinguish:
+
+- structural understanding
+- readable structural rendering
+- listening report
+- human calibration
+- comment-data analysis
+
+Default project outputs must remain structural-only.
+
+If a task adds a human-readable renderer, it must state:
+
+```text
+Status: structural summary only. This is not a listening report.
+```
+
+Any major natural-language claim should be traceable to packet evidence such as:
+
+- `audio_evidence_packet.json`
+- `ome_mapping_packet.json`
+- `object_candidate_packet.json`
+- `auditory_hypothesis_packet.json`
+- `object_track_packet.json`
+- `auditory_scene_graph_packet.json`
+- `music_understanding_summary.json`
+
+---
+
+## Repository Hygiene
+
+Do not commit:
+
+- `outputs/`
+- audio files
+- generated WAV / MP3 / FLAC files
+- datasets
+- scraped comments
+- local cache files
+- temporary validation artifacts
+- local environment folders outside the intended project `.venv`
+
+Generated files may be used for local validation, but they should not be committed unless the task explicitly requests a small reference fixture.
+
+---
+
+## Validation Report Requirements
+
+Every implementation task must end with a short report containing:
+
+1. changed files
+2. commands run
+3. generated files, if any
+4. validation result
+5. boundary check result
+6. what was not done
+7. known risks or follow-up tasks
+
+If no tests exist, report that explicitly instead of inventing a test result.
+
+---
+
 ## Legacy Project Rules
 
 The legacy project is an optional local reference archive.
