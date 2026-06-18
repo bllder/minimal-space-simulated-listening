@@ -1,5 +1,0 @@
-# Optional vocal transcription / lyric alignment tools. Not required for default runtime.
-# Install only when testing P3 external adapters.
-# funasr
-# whisperx
-# Qwen3-ASR currently requires following its project-specific installation instructions.
