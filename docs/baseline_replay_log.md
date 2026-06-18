@@ -8,8 +8,8 @@ Status: passed.
 
 This replay validates the current main baseline after the music understanding summary layer was merged.
 
-This is not a listening report.
-This is not human calibration.
+This is not a listening report.  
+This is not human calibration.  
 This does not use copyrighted audio, scraped comments, or local song-specific profiles.
 
 ### Commands
@@ -23,36 +23,38 @@ This does not use copyrighted audio, scraped comments, or local song-specific pr
 
 Get-Content outputs\reference_probe_bank\harmonic_layer_plus_pulse\mssl_output\music_understanding_summary.md -Raw -Encoding UTF8
 
+git status --short
+```
 
 ### Results
 
-Minimal pipeline smoke: passed.
-Reference probe bank: completed.
-Music understanding summary: generated.
-Git working tree after generated outputs: clean.
+- Minimal pipeline smoke: passed.
+- Reference probe bank: completed.
+- Music understanding summary: generated.
+- Git working tree after generated outputs: clean.
 
 ### Reference probe summary
 
-For harmonic_layer_plus_pulse:
+For `harmonic_layer_plus_pulse`:
 
-Window count: 2
-Track count: 6
-Scene node count: 6
-Scene relation count: 26
-Dominant structure: harmonic_layer_candidate
-Report boundary: stopped before listening report generation.
+- Window count: 2
+- Track count: 6
+- Scene node count: 6
+- Scene relation count: 26
+- Dominant structure: `harmonic_layer_candidate`
+- Report boundary: stopped before listening report generation.
 
 ### Boundary
 
 The replay confirms that the current pipeline remains structural-only:
 
-no final listening report
-no human calibration
-no music review
-no genre judgment
-no instrument or singer identity
-no lyrics or ASR
-no music generation
+- no final listening report
+- no human calibration
+- no music review
+- no genre judgment
+- no instrument or singer identity
+- no lyrics or ASR
+- no music generation
 
 ### Notes
 
