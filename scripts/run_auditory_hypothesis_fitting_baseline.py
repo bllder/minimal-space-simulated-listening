@@ -270,12 +270,12 @@ def confidence_reason(score: float, candidate: dict[str, Any]) -> str:
 def downstream_use(permission: str) -> list[str]:
     if permission == "allowed":
         return [
-            "temporal_spatial_object_tracking_input",
-            "auditory_scene_graph_candidate_input",
+            "future_temporal_spatial_object_tracking_input",
+            "future_auditory_scene_graph_candidate_input",
         ]
     if permission == "weak_allowed":
         return [
-            "weak_temporal_spatial_object_tracking_input",
+            "future_weak_temporal_spatial_object_tracking_input",
             "requires_later_continuity_check",
         ]
     return ["diagnostic_review_only"]

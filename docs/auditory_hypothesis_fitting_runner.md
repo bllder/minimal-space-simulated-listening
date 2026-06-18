@@ -94,6 +94,8 @@ blocked
 
 This permission only marks whether a hypothesis may be useful as a later tracking input. It does not run tracking.
 
+`downstream_use` is advisory only and must not trigger report generation, tracking execution, scene graph generation, or listening-report language.
+
 ## Boundary
 
 The runner is structural-only.
