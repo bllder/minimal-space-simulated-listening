@@ -5,6 +5,30 @@
 > We do not train taste. We build a minimal spatiotemporal domain for simulated listening.  
 > 我们不训练品味；我们保留模拟听觉所需的最小时空结构。
 
+## O/M/E frame
+
+```text
+O = source-centered wave-expansion space
+M = source-to-receiver spatiotemporal mapping domain
+E = receiver-centered auditory modeling space
+```
+
+MSSL treats sound as a bounded propagation relation from **O** through **M** into **E**, not as a single-point waveform-to-label conversion.
+
+## Visual overview
+
+The two diagrams below are the human entry point for the project: one explains the modeling frame, and one explains the current runtime frame.
+
+### Modeling framework of sound / 声的建模框架
+
+![Modeling Framework of Sound](./声的建模框架图解.png)
+
+### Overall runtime framework / 总程序运行框架
+
+![Overall Runtime Framework](./总体框架流程图.png)
+
+For the detailed execution-rule diagram, see [`docs/detailed_runtime_flow.md`](docs/detailed_runtime_flow.md).
+
 ## Structural-only boundary
 
 The repository currently stops at structural evidence and structural summaries.
