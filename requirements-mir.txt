@@ -1,6 +1,0 @@
-# Optional MIR / music-structure tools. Not required for default runtime.
-# Install only when testing P0 external adapters.
-# librosa
-# msaf
-# madmom
-# allin1
