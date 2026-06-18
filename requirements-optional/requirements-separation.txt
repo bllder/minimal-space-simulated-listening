@@ -1,0 +1,4 @@
+# Optional source separation tools. Not required for default runtime.
+# Install only when testing P2 external adapters.
+# audio-separator
+# demucs
