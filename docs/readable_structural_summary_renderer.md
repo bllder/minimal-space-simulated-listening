@@ -41,9 +41,9 @@ The first line of the Markdown output is always:
 Status: structural summary only. This is not a listening report.
 ```
 
-The output includes packet input status, structural rendering, relation
-rendering, optional auditory hypothesis support, a boundary note, and an
-`Evidence anchors` section.
+The output includes packet input status, a `Field sketch`, structural
+rendering, relation rendering, optional auditory hypothesis support, a boundary
+note, and an `Evidence anchors` section.
 
 ## Insertion Position
 
@@ -81,6 +81,9 @@ relation / containment / co-presence / support
 Every major rendered statement carries an evidence anchor that points back to a
 packet and field path. The renderer does not add free-form listening-report
 language or human-calibrated interpretation.
+
+Field sketch is still packet-backed structural rendering, not a listening
+report.
 
 ## How To Run Locally
 

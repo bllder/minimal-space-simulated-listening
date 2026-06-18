@@ -174,10 +174,15 @@ def read_optional_json(path: Path) -> dict[str, Any] | None:
 def render_markdown(title: str, paths: PacketPaths, packets: dict[str, dict[str, Any] | None]) -> str:
     anchors: list[Anchor] = []
     lines: list[str] = [STATUS_LINE, "", f"# {title}", ""]
+    structures = collect_structures(packets)
+    relations = collect_relations(packets)
 
     lines.extend(render_input_section(paths, packets, anchors))
-    lines.extend(render_structure_section(packets, anchors))
-    lines.extend(render_relation_section(packets, anchors))
+    add_structure_anchors(structures, anchors)
+    add_relation_anchors(relations, anchors)
+    lines.extend(render_field_sketch_section(structures, relations))
+    lines.extend(render_structure_section(structures))
+    lines.extend(render_relation_section(relations))
     lines.extend(render_hypothesis_section(packets, anchors))
     lines.extend(render_boundary_section())
     lines.extend(render_anchor_section(anchors))
@@ -211,11 +216,18 @@ def render_input_section(
     return lines
 
 
-def render_structure_section(
-    packets: dict[str, dict[str, Any] | None],
-    anchors: list[Anchor],
-) -> list[str]:
-    structures = collect_structures(packets)
+def render_field_sketch_section(structures: list[dict[str, Any]], relations: list[dict[str, Any]]) -> list[str]:
+    lines = ["## Field sketch", ""]
+    sentences = build_field_sketch(structures, relations)
+    if sentences:
+        lines.extend(sentences)
+    else:
+        lines.append("- Not enough packet-backed structure evidence to render a field sketch.")
+    lines.append("")
+    return lines
+
+
+def render_structure_section(structures: list[dict[str, Any]]) -> list[str]:
     lines = ["## Structural rendering", ""]
     if not structures:
         lines.append("- No structural candidates were available in the input packets.")
@@ -223,12 +235,7 @@ def render_structure_section(
         return lines
 
     for index, structure in enumerate(structures, start=1):
-        anchor_id = add_anchor(
-            anchors,
-            structure["packet_name"],
-            structure["field_path"],
-            structure_anchor_detail(structure),
-        )
+        anchor_id = structure["anchor_id"]
         structural_type = structure["structural_type"]
         rank = dominance_label(structure.get("activation"))
         continuity = continuity_label(
@@ -247,11 +254,7 @@ def render_structure_section(
     return lines
 
 
-def render_relation_section(
-    packets: dict[str, dict[str, Any] | None],
-    anchors: list[Anchor],
-) -> list[str]:
-    relations = collect_relations(packets)
+def render_relation_section(relations: list[dict[str, Any]]) -> list[str]:
     lines = ["## Relation rendering", ""]
     if not relations:
         lines.append("- No relation, containment, co-presence, or support candidates were available.")
@@ -259,12 +262,7 @@ def render_relation_section(
         return lines
 
     for relation in relations:
-        anchor_id = add_anchor(
-            anchors,
-            relation["packet_name"],
-            relation["field_path"],
-            relation_anchor_detail(relation),
-        )
+        anchor_id = relation["anchor_id"]
         relation_type = relation["relation_type"]
         strength = dominance_label(relation.get("confidence"))
         count = relation.get("count")
@@ -341,6 +339,90 @@ def render_anchor_section(anchors: list[Anchor]) -> list[str]:
             f"`{anchor.field_path}` -> {anchor.detail}"
         )
     return lines
+
+
+def add_structure_anchors(structures: list[dict[str, Any]], anchors: list[Anchor]) -> None:
+    for structure in structures:
+        structure["anchor_id"] = add_anchor(
+            anchors,
+            structure["packet_name"],
+            structure["field_path"],
+            structure_anchor_detail(structure),
+        )
+
+
+def add_relation_anchors(relations: list[dict[str, Any]], anchors: list[Anchor]) -> None:
+    for relation in relations:
+        relation["anchor_id"] = add_anchor(
+            anchors,
+            relation["packet_name"],
+            relation["field_path"],
+            relation_anchor_detail(relation),
+        )
+
+
+def build_field_sketch(structures: list[dict[str, Any]], relations: list[dict[str, Any]]) -> list[str]:
+    sentences: list[str] = []
+
+    sustained = first_structure(structures, "sustained layer")
+    if sustained:
+        sentences.append(
+            field_sentence(
+                f"{rank_title(sustained)} sustained layer is {structure_continuity(sustained)} in the field",
+                [sustained],
+            )
+        )
+
+    event_structures = [
+        item
+        for item in [
+            first_structure(structures, "transient event"),
+            first_structure(structures, "rhythmic anchor"),
+        ]
+        if item is not None and structure_continuity(item) == "recurring"
+    ]
+    if event_structures:
+        event_text = joined_structure_labels(event_structures)
+        event_verb = "recurs" if len(event_structures) == 1 else "recur"
+        sentences.append(
+            field_sentence(
+                f"{event_text} {event_verb} across observed windows",
+                event_structures,
+            )
+        )
+
+    texture = first_structure(structures, "texture mass")
+    if texture:
+        sentences.append(
+            field_sentence(
+                f"{rank_title(texture)} texture mass remains {structure_continuity(texture)} structural mass",
+                [texture],
+            )
+        )
+
+    pressure_spread = [
+        item
+        for item in [
+            first_structure(structures, "pressure body"),
+            first_structure(structures, "receiver spread field"),
+        ]
+        if item is not None
+    ]
+    if pressure_spread:
+        body_text = joined_structure_labels(pressure_spread)
+        body_verb = "stays" if len(pressure_spread) == 1 else "stay"
+        sentences.append(
+            field_sentence(
+                f"{body_text} {body_verb} as bounded structural support",
+                pressure_spread,
+            )
+        )
+
+    relation_sentence = build_relation_sentence(relations)
+    if relation_sentence:
+        sentences.append(relation_sentence)
+
+    return sentences[:5]
 
 
 def collect_structures(packets: dict[str, dict[str, Any] | None]) -> list[dict[str, Any]]:
@@ -494,6 +576,20 @@ def relation_type_for_candidate(relation_candidate: str) -> str:
     return RELATION_TYPE_BY_CANDIDATE.get(relation_candidate, "relation")
 
 
+def first_structure(structures: list[dict[str, Any]], structural_type: str) -> dict[str, Any] | None:
+    for structure in structures:
+        if structure.get("structural_type") == structural_type and structure.get("anchor_id"):
+            return structure
+    return None
+
+
+def first_relation(relations: list[dict[str, Any]], relation_type: str) -> dict[str, Any] | None:
+    for relation in relations:
+        if relation.get("relation_type") == relation_type and relation.get("anchor_id"):
+            return relation
+    return None
+
+
 def normalize_structural_type(value: str) -> str:
     normalized = value.replace("_candidate", "").replace("_", " ").strip()
     return normalized or "relation"
@@ -510,13 +606,78 @@ def dominance_label(value: Any) -> str:
     return "weak"
 
 
+def rank_title(structure: dict[str, Any]) -> str:
+    return dominance_label(structure.get("activation")).title()
+
+
+def rank_lower(structure: dict[str, Any]) -> str:
+    return dominance_label(structure.get("activation"))
+
+
+def structure_continuity(structure: dict[str, Any]) -> str:
+    return continuity_label(
+        candidate_type=str(structure.get("candidate_type") or ""),
+        persistence=structure.get("persistence"),
+        windows=structure.get("windows") or [],
+    )
+
+
+def joined_structure_labels(structures: list[dict[str, Any]]) -> str:
+    labels = [
+        f"{rank_lower(structure)} {structure.get('structural_type')}"
+        for structure in structures
+        if structure.get("anchor_id")
+    ]
+    if not labels:
+        return ""
+    if len(labels) == 1:
+        return labels[0].title()
+    return (", ".join(labels[:-1]) + f" and {labels[-1]}").capitalize()
+
+
+def field_sentence(text: str, evidence_items: list[dict[str, Any]]) -> str:
+    anchor_ids = [
+        str(item.get("anchor_id"))
+        for item in evidence_items
+        if item.get("anchor_id")
+    ]
+    if not anchor_ids:
+        return ""
+    return f"{text}. " + " ".join(f"[{anchor_id}]" for anchor_id in anchor_ids)
+
+
+def build_relation_sentence(relations: list[dict[str, Any]]) -> str:
+    selected: list[dict[str, Any]] = []
+    labels: list[str] = []
+    for relation_type in ["co-presence", "support", "containment"]:
+        relation = first_relation(relations, relation_type)
+        if relation is not None:
+            selected.append(relation)
+            labels.append(relation_type)
+    if not selected:
+        return ""
+    relation_text = joined_relation_labels(labels)
+    return field_sentence(
+        f"{relation_text} relations bind the rendered structures",
+        selected,
+    )
+
+
+def joined_relation_labels(labels: list[str]) -> str:
+    if len(labels) == 1:
+        return labels[0].title()
+    if len(labels) == 2:
+        return f"{labels[0].title()} and {labels[1]}"
+    return f"{labels[0].title()}, {labels[1]}, and {labels[2]}"
+
+
 def continuity_label(candidate_type: str, persistence: Any, windows: list[Any]) -> str:
     persistence_value = as_float(persistence)
     window_count = len(windows)
-    if persistence_value is not None and persistence_value >= 0.75 and window_count >= 2:
-        return "persistent"
     if ("pulse" in candidate_type or "transient" in candidate_type) and window_count >= 2:
         return "recurring"
+    if persistence_value is not None and persistence_value >= 0.75 and window_count >= 2:
+        return "persistent"
     if "texture" in candidate_type or "spread" in candidate_type:
         return "background"
     return "local"
