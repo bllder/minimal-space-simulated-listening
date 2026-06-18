@@ -1,0 +1,68 @@
+{
+  "schema_name": "auditory_hypothesis_packet",
+  "schema_version": "0.1.0",
+  "status": "structural_hypothesis_only",
+  "purpose": "Fit object candidates into structural auditory hypotheses before temporal-spatial tracking.",
+  "pipeline_position": {
+    "after": "object_candidate_packet",
+    "before": "object_track_packet"
+  },
+  "input_packets": [
+    "audio_evidence_packet.json",
+    "ome_mapping_packet.json",
+    "object_candidate_packet.json"
+  ],
+  "output_packet": "auditory_hypothesis_packet.json",
+  "hypothesis_types": [
+    "sustained_layer",
+    "transient_event",
+    "texture_mass",
+    "pressure_body",
+    "receiver_spread_field",
+    "rhythmic_anchor"
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "hypothesis_001",
+      "candidate_source": "harmonic_layer_candidate",
+      "hypothesis_type": "sustained_layer",
+      "fit_score": 0.0,
+      "tracking_permission": "allowed",
+      "supported_by": [
+        {
+          "evidence_source": "object_candidate_packet.json",
+          "evidence_field": "candidate_type",
+          "evidence_value": "harmonic_layer_candidate",
+          "interpretation": "The candidate may behave like a sustained pitch-oriented layer."
+        },
+        {
+          "evidence_source": "ome_mapping_packet.json",
+          "evidence_field": "cross_window_continuity",
+          "evidence_value": "present",
+          "interpretation": "The structure may persist across windows rather than appear as a single-frame event."
+        }
+      ],
+      "not_supported_by": [
+        "instrument identity",
+        "melody meaning",
+        "human emotion",
+        "genre judgment",
+        "lyrics or semantic content"
+      ],
+      "confidence_reason": "Multiple structural signals may support a sustained layer hypothesis, but this does not prove source identity, human meaning, genre, or taste.",
+      "downstream_use": [
+        "temporal_spatial_object_tracking",
+        "auditory_scene_graph"
+      ]
+    }
+  ],
+  "boundary": {
+    "not_a_listening_report": true,
+    "not_human_calibrated": true,
+    "does_not_prove_emotion": true,
+    "does_not_prove_instrument_identity": true,
+    "does_not_prove_genre": true,
+    "does_not_prove_lyrics": true,
+    "does_not_generate_music": true
+  }
+}
