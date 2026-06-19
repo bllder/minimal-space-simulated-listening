@@ -44,6 +44,7 @@ This project builds structural understanding for simulated listening.
 It must not be silently converted into:
 
 - a music review generator
+- a fixed listening-report renderer
 - a genre classifier
 - an emotion classifier
 - a taste or recommendation system
@@ -74,7 +75,9 @@ Allowed core language:
 
 Readable language is allowed only when it is a bounded rendering of packet evidence.
 
-Do not add free-form listening-report language unless the task explicitly asks for a separate listening-report layer.
+Do not add free-form listening-report language, fixed listening-report renderers, or report outputs inside the default repository pipeline.
+
+Only when explicitly requested, `docs/listening_translation_prompt.md` may be used as a manual external LLM translation layer. That layer translates existing MSSL evidence; it is not a default renderer and must not write final reports into the repository unless separately requested.
 
 ---
 
@@ -90,7 +93,9 @@ Generated summaries and Markdown outputs must clearly distinguish:
 
 Default project outputs must remain structural-only.
 
-If a task adds a human-readable renderer, it must state:
+The default pipeline must STOP before listening-report generation. Optional listening translation lives only as a manually enabled external LLM prompt protocol, not as an automatic pipeline / smoke / full-song runner step.
+
+If a task adds a human-readable structural renderer, it must state:
 
 ```text
 Status: structural summary only. This is not a listening report.
