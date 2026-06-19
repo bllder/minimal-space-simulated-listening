@@ -79,6 +79,21 @@ listening_experience_evidence_pack.json
 original_song_listening_prompt_input.md
 ```
 
+To automate final prose generation, pass an LLM command that reads the prompt from stdin and writes Markdown to stdout:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_listening_experience_pipeline.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --llm-command "your-local-llm-command"
+```
+
+With `--llm-command`, the continuation also writes:
+
+```text
+original_song_listening_experience_report.md
+```
+
 The continuation covers these bounded claim layers:
 
 ```text
