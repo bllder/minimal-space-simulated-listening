@@ -17,10 +17,11 @@ local PCM WAV
 -> O/M/E listening-space simulation
 -> object / relation / scene evidence
 -> listening-experience evidence pack
+-> online AI handoff
 -> human-readable song listening analysis
 ```
 
-MSSL does not need to rebuild every music-recognition capability itself. External model outputs, optional adapters, or LLM backends may be introduced as evidence sources or language backends, but MSSL is responsible for organizing claim boundaries, evidence traceability, and the final listening-experience pipeline.
+MSSL does not need to rebuild every music-recognition capability itself. External model outputs, optional adapters, online AI accounts, or local LLM backends may be introduced as evidence sources or language backends, but MSSL is responsible for organizing claim boundaries, evidence traceability, and the listening-experience pipeline.
 
 ## O/M/E frame
 
@@ -59,7 +60,7 @@ The default structural layer does **not** produce or claim truth labels for:
 - source-separation truth
 - music generation
 
-The listening-experience layer may use genre-like, emotion-like, or instrument-family language when the claim is bounded by evidence, adapter output, or an explicit LLM/backend stage. These words belong in the language simulation layer, not as unbounded structural truth.
+The listening-experience layer may use genre-like, emotion-like, or instrument-family language when the claim is bounded by evidence, adapter output, online AI reasoning, or an explicit backend stage. These words belong in the language simulation layer, not as unbounded structural truth.
 
 Any generated Markdown under `outputs/` is a local inspection artifact unless a future task explicitly promotes a curated example.
 
@@ -82,9 +83,18 @@ WAV
 -> full_song_profile.json
 -> listening_experience_evidence_pack.json
 -> original_song_listening_prompt_input.md
+-> online_ai_listening_handoff.md
 ```
 
-To generate the final prose report automatically, provide an LLM command that reads prompt text from stdin and writes Markdown to stdout:
+If you do not have a local LLM or API key, use this file:
+
+```text
+online_ai_listening_handoff.md
+```
+
+Copy or upload it to an online AI account. It is the MSSL data report that replaces sending the audio file. Ask the online AI to generate the final song listening analysis from it.
+
+Advanced optional path: to generate the final prose report locally, provide an LLM command that reads prompt text from stdin and writes Markdown to stdout:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_mssl.py `
