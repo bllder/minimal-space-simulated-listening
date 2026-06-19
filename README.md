@@ -33,7 +33,7 @@ For the detailed execution-rule diagram, see [`docs/detailed_runtime_flow.md`](d
 
 The repository currently stops at structural evidence and structural summaries.
 
-It does **not** produce or claim:
+The default repository does **not** produce or claim:
 
 - taste judgment
 - genre truth
@@ -50,6 +50,24 @@ Any generated Markdown under `outputs/` is a local inspection artifact unless a 
 External adapters are optional and not part of the default structural-only pipeline. See `docs/optional_adapters.md`.
 
 Optional listening translation is a manual external LLM layer only: use `docs/listening_translation_prompt.md` only when explicitly requested. The default pipeline does not generate listening reports.
+
+## Future manual listening-experience layer
+
+A future original-song listening-experience layer may be added only as an explicitly requested, manual layer outside the default pipeline.
+
+That future layer would require evidence adapters before it can responsibly describe original-song listening experience, including:
+
+```text
+source-family / instrument-family evidence
+melody or pitch-contour evidence
+vocal-object locking evidence
+style-behavior hypotheses
+affective-listening hypotheses
+```
+
+It must not be a fixed report renderer. It must not treat stems as instrument truth, style candidates as genre truth, vocal objects as singer identity, or affective tendencies as emotion truth.
+
+Any future report-like language must be evidence-bounded, claim-level aware, and generated only after the user explicitly requests the external LLM/report layer.
 
 ## Current minimal chain
 
