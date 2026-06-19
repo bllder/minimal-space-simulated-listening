@@ -16,15 +16,23 @@ Default mode:
 experience
 ```
 
-It runs the complete current project path:
+It runs the complete current project path for users without a local LLM or API:
 
 ```text
 WAV
 -> structural profile
 -> listening-experience evidence pack
--> prompt input
--> optional LLM report
+-> technical prompt input
+-> online AI handoff Markdown
 ```
+
+The main human-facing local artifact is:
+
+```text
+online_ai_listening_handoff.md
+```
+
+Copy or upload that file to an online AI account to generate the final song listening analysis.
 
 ## Active scripts
 
@@ -40,13 +48,13 @@ Single human entry point. Use this for normal work.
 scripts/run_listening_experience_pipeline.py
 ```
 
-Continuation pipeline. It connects full-song structural analysis to listening-experience input generation, and can call an external LLM command when configured.
+Continuation pipeline. It connects full-song structural analysis to listening-experience handoff generation. It can also call an external LLM command when configured, but that is not required for the default online-AI workflow.
 
 ```text
 scripts/build_listening_experience_prompt.py
 ```
 
-Builds the evidence pack and prompt input for the language simulation layer.
+Builds the evidence pack, technical prompt input, and online-AI handoff file for the language simulation layer.
 
 ```text
 scripts/run_full_song_analysis.py
