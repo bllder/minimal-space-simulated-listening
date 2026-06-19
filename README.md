@@ -51,28 +51,35 @@ External adapters are optional and not part of the default structural-only pipel
 
 Optional listening translation is a manual external LLM layer only: use `docs/listening_translation_prompt.md` only when explicitly requested. The default pipeline does not generate listening reports.
 
-## Manual listening-experience layer
+## Listening-experience continuation pipeline
 
-Original-song listening-experience language is available now only as an explicitly requested, manual external LLM/report layer outside the default pipeline.
+Original-song listening-experience language is available now as an explicitly requested continuation pipeline outside the default structural chain.
 
-This manual layer reads existing MSSL structural evidence and translates it into bounded listening-experience language. It may describe only what the available evidence supports.
+This continuation reads existing MSSL structural evidence, builds bounded claim layers, and prepares the language-layer input automatically. It may describe only what the available evidence supports.
 
-Build a local prompt input pack from an existing full-song profile:
+Run the continuation directly from a WAV file:
 
 ```powershell
-.\.venv\Scripts\python.exe .\scripts\build_listening_experience_prompt.py `
-  --profile "outputs\your_song\your_song_full_song_profile.json" `
-  --output-dir "outputs\your_song"
+.\.venv\Scripts\python.exe .\scripts\run_listening_experience_pipeline.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs
 ```
 
-This writes local prompt inputs only:
+Or continue from an existing full-song profile:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_listening_experience_pipeline.py `
+  --profile "outputs\your_song\your_song_full_song_profile.json"
+```
+
+This writes local prompt inputs:
 
 ```text
 listening_experience_evidence_pack.json
 original_song_listening_prompt_input.md
 ```
 
-Richer original-song claims require corresponding evidence adapters, including:
+The continuation covers these bounded claim layers:
 
 ```text
 source-family / instrument-family evidence
@@ -84,7 +91,7 @@ affective-listening hypotheses
 
 It must not be a fixed report renderer. It must not treat stems as instrument truth, style candidates as genre truth, vocal objects as singer identity, or affective tendencies as emotion truth.
 
-Report-like language must be evidence-bounded, claim-level aware, and generated only after the user explicitly requests the external LLM/report layer.
+Report-like language must be evidence-bounded and claim-level aware.
 
 ## Current minimal chain
 
@@ -124,6 +131,7 @@ Smoke-check the current Python entry points without writing outputs:
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py --help
 .\.venv\Scripts\python.exe .\scripts\run_music_understanding_summary.py --help
+.\.venv\Scripts\python.exe .\scripts\run_listening_experience_pipeline.py --help
 ```
 
 Run a full-song structural pass on a local PCM WAV:
