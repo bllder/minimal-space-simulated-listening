@@ -49,6 +49,8 @@ Any generated Markdown under `outputs/` is a local inspection artifact unless a 
 
 External adapters are optional and not part of the default structural-only pipeline. See `docs/optional_adapters.md`.
 
+Optional listening translation is a manual external LLM layer only: use `docs/listening_translation_prompt.md` only when explicitly requested. The default pipeline does not generate listening reports.
+
 ## Current minimal chain
 
 The current minimal structural chain is:
