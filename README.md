@@ -64,6 +64,16 @@ local PCM WAV / local synthetic probe
 -> STOP before human calibration or listening-report generation
 ```
 
+A separate manual bridge can be explicitly invoked after a full-song profile exists:
+
+```text
+MSSL segment evidence
+-> critical_listening_brief
+-> external LLM close-listening criticism
+```
+
+This bridge is not part of the default structural-only pipeline and does not generate a final review inside MSSL.
+
 Default dependency file:
 
 ```text
@@ -87,6 +97,7 @@ Smoke-check the current Python entry points without writing outputs:
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py --help
 .\.venv\Scripts\python.exe .\scripts\run_music_understanding_summary.py --help
+.\.venv\Scripts\python.exe .\scripts\build_critical_listening_brief.py --help
 ```
 
 Run a full-song structural pass on a local PCM WAV:
@@ -103,6 +114,16 @@ After packet-chain outputs exist in a run directory, generate the structural und
 .\.venv\Scripts\python.exe .\scripts\run_music_understanding_summary.py `
   --run-dir outputs\your_run_dir
 ```
+
+When explicitly needed for external close-listening writing, build a critical listening brief from the full-song profile:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\build_critical_listening_brief.py `
+  --input outputs\your_run_dir\your_song_full_song_profile.json `
+  --output-dir outputs\your_run_dir
+```
+
+This writes `critical_listening_brief.json` and `critical_listening_prompt_input.md` for manual use with an external LLM. It does not read audio, run ASR, identify singers or instruments, assert genre or emotion truth, or generate the final music criticism.
 
 macOS / Linux use the same commands with `./.venv/bin/python`.
 
