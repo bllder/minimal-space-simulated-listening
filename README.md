@@ -1,9 +1,26 @@
 # Minimal Space for Simulated Listening
 
-**Minimal Space for Simulated Listening (MSSL)** is a structural-only audio project that maps local WAV evidence into bounded O/M/E listening-space packets and summaries.
+**Minimal Space for Simulated Listening (MSSL)** is a project for building the smallest useful simulation space between audio evidence and human-readable listening experience.
 
 > We do not train taste. We build a minimal spatiotemporal domain for simulated listening.  
-> 我们不训练品味；我们保留模拟听觉所需的最小时空结构。
+> 我们不训练品味；我们构造模拟听觉所需的最小时空与语言承接结构。
+
+## Project goal
+
+MSSL is not only O/M/E packet generation. O/M/E is the spatial simulation layer; language simulation is the output layer that lets AI and humans read the modeled listening experience.
+
+Current target path:
+
+```text
+local PCM WAV
+-> structural audio evidence
+-> O/M/E listening-space simulation
+-> object / relation / scene evidence
+-> listening-experience evidence pack
+-> human-readable song listening analysis
+```
+
+MSSL does not need to rebuild every music-recognition capability itself. External model outputs, optional adapters, or LLM backends may be introduced as evidence sources or language backends, but MSSL is responsible for organizing claim boundaries, evidence traceability, and the final listening-experience pipeline.
 
 ## O/M/E frame
 
@@ -29,11 +46,9 @@ The two diagrams below are the human entry point for the project: one explains t
 
 For the detailed execution-rule diagram, see [`docs/detailed_runtime_flow.md`](docs/detailed_runtime_flow.md).
 
-## Structural-only boundary
+## Boundaries
 
-The repository currently stops at structural evidence and structural summaries.
-
-The default repository does **not** produce or claim:
+The default structural layer does **not** produce or claim truth labels for:
 
 - taste judgment
 - genre truth
@@ -42,59 +57,60 @@ The default repository does **not** produce or claim:
 - instrument identity
 - lyric recognition or ASR
 - source-separation truth
-- human-calibrated listening reports
 - music generation
+
+The listening-experience layer may use genre-like, emotion-like, or instrument-family language when the claim is bounded by evidence, adapter output, or an explicit LLM/backend stage. These words belong in the language simulation layer, not as unbounded structural truth.
 
 Any generated Markdown under `outputs/` is a local inspection artifact unless a future task explicitly promotes a curated example.
 
-External adapters are optional and not part of the default structural-only pipeline. See `docs/optional_adapters.md`.
+External adapters are optional and not part of the minimal default dependency set. See `docs/optional_adapters.md`.
 
-Optional listening translation is a manual external LLM layer only: use `docs/listening_translation_prompt.md` only when explicitly requested. The default pipeline does not generate listening reports.
+## One-command entry point
 
-## Listening-experience continuation pipeline
-
-Original-song listening-experience language is available now as an explicitly requested continuation pipeline outside the default structural chain.
-
-This continuation reads existing MSSL structural evidence, builds bounded claim layers, and prepares the language-layer input automatically. It may describe only what the available evidence supports.
-
-Run the continuation directly from a WAV file:
+Use this first:
 
 ```powershell
-.\.venv\Scripts\python.exe .\scripts\run_listening_experience_pipeline.py `
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
   --input "path\to\local_audio.wav" `
   --output-dir outputs
 ```
 
-Or continue from an existing full-song profile:
-
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_listening_experience_pipeline.py `
-  --profile "outputs\your_song\your_song_full_song_profile.json"
-```
-
-This writes local prompt inputs:
+By default this runs `experience` mode:
 
 ```text
-listening_experience_evidence_pack.json
-original_song_listening_prompt_input.md
+WAV
+-> full_song_profile.json
+-> listening_experience_evidence_pack.json
+-> original_song_listening_prompt_input.md
 ```
 
-To automate final prose generation, pass an LLM command that reads the prompt from stdin and writes Markdown to stdout:
+To generate the final prose report automatically, provide an LLM command that reads prompt text from stdin and writes Markdown to stdout:
 
 ```powershell
-.\.venv\Scripts\python.exe .\scripts\run_listening_experience_pipeline.py `
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
   --input "path\to\local_audio.wav" `
   --output-dir outputs `
   --llm-command "your-local-llm-command"
 ```
 
-With `--llm-command`, the continuation also writes:
+With `--llm-command`, the pipeline also writes:
 
 ```text
 original_song_listening_experience_report.md
 ```
 
-The continuation covers these bounded claim layers:
+Other modes:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py structural --input "path\to\local_audio.wav"
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py smoke --generate-synthetic
+```
+
+For script status and cleanup notes, see [`docs/scripts_inventory.md`](docs/scripts_inventory.md).
+
+## Listening-experience claim layers
+
+The current experience pipeline organizes these bounded claim layers:
 
 ```text
 source-family / instrument-family evidence
@@ -104,13 +120,11 @@ style-behavior hypotheses
 affective-listening hypotheses
 ```
 
-It must not be a fixed report renderer. It must not treat stems as instrument truth, style candidates as genre truth, vocal objects as singer identity, or affective tendencies as emotion truth.
+It must not treat stems as instrument truth, style candidates as genre truth, vocal objects as singer identity, or affective tendencies as emotion truth. But it may translate these bounded claims into readable music-listening language.
 
-Report-like language must be evidence-bounded and claim-level aware.
+## Current structural chain
 
-## Current minimal chain
-
-The current minimal structural chain is:
+The structural chain is:
 
 ```text
 local PCM WAV / local synthetic probe
@@ -120,8 +134,9 @@ local PCM WAV / local synthetic probe
 -> object track packet
 -> auditory scene graph packet
 -> structural summary
--> STOP before human calibration or listening-report generation
 ```
+
+Language simulation continues after this chain in `experience` mode.
 
 Default dependency file:
 
@@ -141,27 +156,11 @@ Create and activate a project-local virtual environment, then install the defaul
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Smoke-check the current Python entry points without writing outputs:
+Smoke-check entry points without writing music outputs:
 
 ```powershell
-.\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py --help
-.\.venv\Scripts\python.exe .\scripts\run_music_understanding_summary.py --help
-.\.venv\Scripts\python.exe .\scripts\run_listening_experience_pipeline.py --help
-```
-
-Run a full-song structural pass on a local PCM WAV:
-
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_full_song_analysis.py `
-  --input "path\to\local_audio.wav" `
-  --output-dir outputs
-```
-
-After packet-chain outputs exist in a run directory, generate the structural understanding summary:
-
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_music_understanding_summary.py `
-  --run-dir outputs\your_run_dir
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py --help
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py smoke --generate-synthetic
 ```
 
 macOS / Linux use the same commands with `./.venv/bin/python`.
