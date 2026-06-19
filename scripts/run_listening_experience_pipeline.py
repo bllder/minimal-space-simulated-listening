@@ -4,21 +4,25 @@
 This entry point keeps the default structural pipeline unchanged while providing
 an explicit continuation path:
 
-WAV -> full_song_profile.json -> listening_experience_evidence_pack.json -> original_song_listening_prompt_input.md
+WAV -> full_song_profile.json -> listening_experience_evidence_pack.json -> original_song_listening_prompt_input.md -> optional LLM report
 
-It prepares the language-layer input automatically. It does not call an online
-model and does not write a completed prose report.
+It prepares the language-layer input automatically. When --llm-command is
+provided, it also pipes the prompt input to that command and writes a bounded
+listening-experience report.
 """
 
 from __future__ import annotations
 
 import argparse
+import shlex
 import subprocess
 import sys
 from pathlib import Path
 
 
 DEFAULT_MAX_PROMPT_SEGMENTS = 24
+DEFAULT_REPORT_NAME = "original_song_listening_experience_report.md"
+DEFAULT_PROMPT_INPUT_NAME = "original_song_listening_prompt_input.md"
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,6 +40,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--structural-summary", default=None)
     parser.add_argument("--translation-prompt", default="docs/original_song_listening_experience_prompt.md")
     parser.add_argument("--keep-structural-md", action="store_true")
+    parser.add_argument(
+        "--llm-command",
+        default=None,
+        help=(
+            "Optional command that reads the generated prompt input from stdin and writes the final report to stdout. "
+            "Example: --llm-command \"ollama run qwen2.5\""
+        ),
+    )
+    parser.add_argument(
+        "--report-output",
+        default=DEFAULT_REPORT_NAME,
+        help=f"Final report filename when --llm-command is provided. Default: {DEFAULT_REPORT_NAME}.",
+    )
     return parser.parse_args()
 
 
@@ -61,6 +78,25 @@ def main() -> None:
     if not prompt_path.is_absolute():
         prompt_path = repo_root / prompt_path
 
+    run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path)
+
+    prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
+    if args.llm_command:
+        report_path = output_dir / args.report_output
+        run_llm_report(args.llm_command, prompt_input_path, report_path)
+        print(f"Wrote {report_path}")
+    else:
+        print(f"Prepared {prompt_input_path}")
+        print("No --llm-command provided; final prose report was not generated.")
+
+
+def run_prompt_builder(
+    script_dir: Path,
+    args: argparse.Namespace,
+    profile_path: Path,
+    output_dir: Path,
+    prompt_path: Path,
+) -> None:
     cmd = [
         sys.executable,
         str(script_dir / "build_listening_experience_prompt.py"),
@@ -76,6 +112,31 @@ def main() -> None:
     if args.structural_summary:
         cmd.extend(["--structural-summary", args.structural_summary])
     subprocess.run(cmd, check=True)
+
+
+def run_llm_report(llm_command: str, prompt_input_path: Path, report_path: Path) -> None:
+    if not prompt_input_path.exists():
+        raise FileNotFoundError(f"Prompt input not found: {prompt_input_path}")
+    prompt_text = prompt_input_path.read_text(encoding="utf-8-sig")
+    command = shlex.split(llm_command)
+    if not command:
+        raise ValueError("--llm-command was empty")
+    completed = subprocess.run(
+        command,
+        input=prompt_text,
+        text=True,
+        encoding="utf-8",
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"LLM command failed with exit code {completed.returncode}: {completed.stderr.strip()}"
+        )
+    report_text = completed.stdout.strip()
+    if not report_text:
+        raise RuntimeError("LLM command returned empty output")
+    report_path.write_text(report_text + "\n", encoding="utf-8")
 
 
 def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) -> tuple[Path, Path, Path]:
