@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Build a manual LLM input pack for original-song listening experience.
+"""Build online-AI handoff files for MSSL listening experience.
 
-This script is not a listening-report renderer. It reads existing MSSL JSON /
-structural Markdown and prepares bounded evidence for an external LLM layer.
+This script turns existing MSSL full-song profile data into files that can be
+pasted or uploaded to an online AI account instead of sending the audio file.
 
-It does not:
-- read audio
-- run source separation, ASR, genre classification, or emotion classification
-- write a final listening report
-- integrate with the default MSSL pipeline
+It writes:
+- listening_experience_evidence_pack.json
+- original_song_listening_prompt_input.md
+- online_ai_listening_handoff.md
+
+It does not read audio, call online APIs, or invent a finished report locally.
 """
 
 from __future__ import annotations
@@ -21,29 +22,27 @@ from typing import Any
 
 DEFAULT_JSON_NAME = "listening_experience_evidence_pack.json"
 DEFAULT_MD_NAME = "original_song_listening_prompt_input.md"
+DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Build an evidence-bounded LLM prompt input pack from existing MSSL outputs. "
-            "This does not generate a final listening report."
-        )
+        description="Build MSSL listening-experience evidence and online-AI handoff files."
     )
     parser.add_argument(
         "--profile",
         required=True,
-        help="Path to an existing MSSL profile JSON, usually *_full_song_profile.json.",
+        help="Path to an existing MSSL *_full_song_profile.json file.",
     )
     parser.add_argument(
         "--structural-summary",
         default=None,
-        help="Optional readable structural summary Markdown to include as quoted evidence.",
+        help="Optional readable structural summary Markdown to include as evidence.",
     )
     parser.add_argument(
         "--translation-prompt",
         default="docs/original_song_listening_experience_prompt.md",
-        help="Prompt protocol to prepend when building the Markdown input pack.",
+        help="Prompt protocol to prepend when building the technical prompt input.",
     )
     parser.add_argument(
         "--output-dir",
@@ -54,18 +53,11 @@ def parse_args() -> argparse.Namespace:
         "--max-segments",
         type=int,
         default=24,
-        help="Maximum number of segments to include in the Markdown prompt input.",
+        help="Maximum number of segments to include in Markdown handoff files.",
     )
-    parser.add_argument(
-        "--json-name",
-        default=DEFAULT_JSON_NAME,
-        help=f"Evidence pack JSON filename. Default: {DEFAULT_JSON_NAME}.",
-    )
-    parser.add_argument(
-        "--md-name",
-        default=DEFAULT_MD_NAME,
-        help=f"Markdown prompt input filename. Default: {DEFAULT_MD_NAME}.",
-    )
+    parser.add_argument("--json-name", default=DEFAULT_JSON_NAME)
+    parser.add_argument("--md-name", default=DEFAULT_MD_NAME)
+    parser.add_argument("--handoff-name", default=DEFAULT_HANDOFF_NAME)
     return parser.parse_args()
 
 
@@ -78,32 +70,42 @@ def main() -> None:
     profile = read_json(profile_path)
     structural_summary = read_text_optional(args.structural_summary)
     prompt_protocol = read_text_optional(args.translation_prompt)
+    max_segments = max(1, args.max_segments)
 
     evidence_pack = build_evidence_pack(
         profile=profile,
         profile_path=profile_path,
         structural_summary_path=args.structural_summary,
-        max_segments=max(1, args.max_segments),
+        max_segments=max_segments,
     )
 
     json_path = output_dir / args.json_name
     md_path = output_dir / args.md_name
+    handoff_path = output_dir / args.handoff_name
 
     json_path.write_text(json.dumps(evidence_pack, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(
         render_prompt_input(
             evidence_pack=evidence_pack,
-            profile=profile,
             prompt_protocol=prompt_protocol,
             structural_summary=structural_summary,
-            max_segments=max(1, args.max_segments),
+            max_segments=max_segments,
+        ),
+        encoding="utf-8",
+    )
+    handoff_path.write_text(
+        render_online_ai_handoff(
+            evidence_pack=evidence_pack,
+            structural_summary=structural_summary,
+            max_segments=max_segments,
         ),
         encoding="utf-8",
     )
 
     print(f"Wrote {json_path}")
     print(f"Wrote {md_path}")
-    print("Boundary: prompt input only; no final listening report generated.")
+    print(f"Wrote {handoff_path}")
+    print("Use online_ai_listening_handoff.md as the file/text to paste into an online AI account.")
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -131,28 +133,19 @@ def build_evidence_pack(
     max_segments: int,
 ) -> dict[str, Any]:
     segments = list_dicts(profile.get("segments"))
-    limited_segments = segments[:max_segments]
-
-    segment_packets = [segment_to_listening_evidence(seg) for seg in limited_segments]
-
+    segment_packets = [segment_to_listening_evidence(seg) for seg in segments[:max_segments]]
     return {
-        "version": "mssl_manual_listening_experience_input_v0_1",
-        "status": "manual_external_llm_input_pack_not_final_report",
+        "version": "mssl_online_ai_listening_handoff_v0_2",
+        "status": "evidence_pack_for_online_ai_not_audio_not_final_report",
         "source_profile": str(profile_path),
         "structural_summary": structural_summary_path,
-        "boundary": {
-            "default_pipeline": "unchanged_structural_only",
-            "this_script": "extracts bounded evidence and builds an LLM input pack",
-            "not_a_renderer": True,
-            "does_not_generate_final_report": True,
-            "does_not_run_audio_or_external_adapters": True,
-        },
+        "how_to_use": "Paste or upload online_ai_listening_handoff.md to an online AI account to generate the human-readable listening analysis.",
         "claim_policy": {
-            "source_family": "hypothesis unless stem-backed adapter evidence is present",
-            "melody": "proxy unless transcription-backed adapter evidence is present",
-            "vocal_object": "object lock hypothesis; never singer identity",
-            "style_behavior": "behavioral hypothesis; never genre truth",
-            "affective_listening": "listening tendency; never emotion truth",
+            "source_family": "may be translated into instrument-family words when bounded as hypothesis",
+            "melody": "may be translated into melody-line movement when bounded as proxy",
+            "vocal_object": "may be translated into vocal-like listening object, not singer identity",
+            "style_behavior": "may be translated into genre-like behavior, not genre truth",
+            "affective_listening": "may be translated into emotion-like reading, not emotion truth",
         },
         "global_context": build_global_context(profile),
         "available_layers": summarize_available_layers(segment_packets),
@@ -169,7 +162,6 @@ def build_global_context(profile: dict[str, Any]) -> dict[str, Any]:
     style_profile = as_dict(profile.get("style_profile"))
     music_structure = as_dict(profile.get("music_structure"))
     policy = as_dict(profile.get("policy"))
-
     return {
         "analysis_label": profile.get("analysis_label"),
         "profile_version": profile.get("version"),
@@ -189,7 +181,6 @@ def build_global_context(profile: dict[str, Any]) -> dict[str, Any]:
 
 
 def segment_to_listening_evidence(segment: dict[str, Any]) -> dict[str, Any]:
-    seg_id = str(segment.get("segment_id") or "segment")
     time_range = as_dict(segment.get("time_range"))
     e_space = as_dict(as_dict(segment.get("ome_mapping")).get("e_space_receiver_side"))
     relative = as_dict(as_dict(segment.get("ome_mapping")).get("relative_to_previous_segment"))
@@ -203,7 +194,7 @@ def segment_to_listening_evidence(segment: dict[str, Any]) -> dict[str, Any]:
     style_tags = list_strings(segment.get("style_tags"))
 
     return {
-        "segment_id": seg_id,
+        "segment_id": str(segment.get("segment_id") or "segment"),
         "time_range": {
             "label": time_range.get("label"),
             "start_seconds": time_range.get("start_seconds"),
@@ -224,12 +215,10 @@ def segment_to_listening_evidence(segment: dict[str, Any]) -> dict[str, Any]:
             "relations": compact_relations(relations),
             "section_role": musical_structure,
         },
-        "red_lines": [
-            "Do not identify real singer identity.",
-            "Do not treat source-family hypotheses as instrument truth.",
-            "Do not treat style behavior as genre truth.",
-            "Do not treat affective tendencies as emotion truth.",
-            "Do not infer lyrics or song meaning from this pack.",
+        "report_guidance": [
+            "Use human listening words, not raw machine field names.",
+            "Emotion-like, genre-like, and instrument-family words are allowed only as bounded readings.",
+            "Make uncertainty explicit where evidence is weak.",
         ],
     }
 
@@ -241,33 +230,24 @@ def source_family_claims(source: dict[str, Any]) -> list[dict[str, Any]]:
     for item in hypotheses:
         name = str(item.get("source") or "source_family_candidate")
         support = to_float(item.get("support"))
-        basis = str(item.get("basis") or "existing MSSL source-family evidence")
-        claims.append(
-            claim(
-                "source_family",
-                "hypothesis",
-                support,
-                f"{name} may support a listening object in this segment.",
-                basis,
-                [
-                    "not instrument truth",
-                    "not physical source identity",
-                    "not singer identity",
-                    "requires stem-backed adapter for stronger claim",
-                ],
-            )
-        )
+        basis = str(item.get("basis") or "full-mix source-family evidence")
+        claims.append(claim(
+            "source_family",
+            "hypothesis",
+            support,
+            f"{name} may support a listening object in this segment.",
+            basis,
+            ["not exact instrument truth", "not singer identity", "stronger claim requires stem-backed adapter"],
+        ))
     if not claims:
-        claims.append(
-            claim(
-                "source_family",
-                "missing_or_weak",
-                0.0,
-                "No source-family hypothesis is strong enough in this segment.",
-                f"source_instrument_evidence.status={status}",
-                ["do not invent instruments"],
-            )
-        )
+        claims.append(claim(
+            "source_family",
+            "missing_or_weak",
+            0.0,
+            "No source-family hypothesis is strong enough in this segment.",
+            f"source_instrument_evidence.status={status}",
+            ["do not invent instruments"],
+        ))
     return claims
 
 
@@ -278,7 +258,6 @@ def melody_claims(midi: dict[str, Any]) -> list[dict[str, Any]]:
     density = str(midi.get("note_density_proxy") or "unknown")
     harmony = str(midi.get("harmony_block_proxy") or "unknown")
     bass = str(midi.get("bass_motion_proxy") or "unknown")
-
     support = 0.35
     if status != "missing":
         support += 0.10
@@ -286,25 +265,14 @@ def melody_claims(midi: dict[str, Any]) -> list[dict[str, Any]]:
         support += 0.12
     if phrase != "unknown":
         support += 0.08
-
-    return [
-        claim(
-            "melody_or_pitch_contour",
-            "proxy",
-            clamp(support),
-            (
-                f"Melody/main-line contour proxy is {melody}; phrase shape is {phrase}; "
-                f"density is {density}."
-            ),
-            f"midi_like_skeleton.status={status}; bass={bass}; harmony={harmony}",
-            [
-                "not full transcription",
-                "not exact notes",
-                "not lyric meaning",
-                "use Basic Pitch / Omnizart / MT3 adapter for stronger claim",
-            ],
-        )
-    ]
+    return [claim(
+        "melody_or_pitch_contour",
+        "proxy",
+        clamp(support),
+        f"Main-line contour proxy is {melody}; phrase shape is {phrase}; density is {density}.",
+        f"midi_like_skeleton.status={status}; bass={bass}; harmony={harmony}",
+        ["not full transcription", "not exact notes", "not lyric meaning"],
+    )]
 
 
 def vocal_lock_claims(
@@ -321,45 +289,30 @@ def vocal_lock_claims(
         name = str(item.get("source") or "")
         if "vocal" in name:
             source_support = max(source_support, to_float(item.get("support")))
-
     support = clamp(max(vocal_score, lyric_activity, source_support))
     if support >= 0.68:
         level = "medium_object_lock_hypothesis"
-        statement = "A voice-like object is relatively trackable in this segment."
+        statement = "A vocal-like object is relatively trackable in this segment."
     elif support >= 0.42:
         level = "weak_object_lock_hypothesis"
-        statement = "Voice-like evidence exists, but the vocal object is not strongly locked."
+        statement = "Vocal-like evidence exists, but the object is not strongly locked."
     else:
         level = "missing_or_weak"
         statement = "No reliable vocal-object lock is available for this segment."
-
     masking = [
         str(rel.get("relation"))
         for rel in relations
         if "mask" in str(rel.get("relation") or "").lower()
         or "press" in str(rel.get("relation") or "").lower()
     ]
-
-    return [
-        claim(
-            "vocal_object_locking",
-            level,
-            support,
-            statement,
-            (
-                f"object_04_vocal_contour_candidate={vocal_score}; "
-                f"vocal_activity_candidate={lyric_activity}; "
-                f"vocal source support={source_support}; near_far={e_space.get('near_far')}; "
-                f"masking_or_pressure_relations={masking}"
-            ),
-            [
-                "not singer identity",
-                "not ASR",
-                "not lyric interpretation",
-                "requires vocal stem / VAD / F0 / timbre / spatial continuity for strong lock",
-            ],
-        )
-    ]
+    return [claim(
+        "vocal_object_locking",
+        level,
+        support,
+        statement,
+        f"vocal_candidate={vocal_score}; vocal_activity={lyric_activity}; source_support={source_support}; near_far={e_space.get('near_far')}; masking_or_pressure={masking}",
+        ["not singer identity", "not ASR", "not lyric interpretation"],
+    )]
 
 
 def style_behavior_claims(style_tags: list[str], musical_structure: dict[str, Any]) -> list[dict[str, Any]]:
@@ -367,30 +320,17 @@ def style_behavior_claims(style_tags: list[str], musical_structure: dict[str, An
     function = str(musical_structure.get("section_function") or "continues the current field")
     confidence = to_float(musical_structure.get("role_confidence"))
     tags = style_tags or ["no strong style behavior tag"]
-
-    return [
-        claim(
-            "style_behavior",
-            "behavioral_hypothesis",
-            clamp(max(confidence, 0.30)),
-            f"Style behavior tags: {', '.join(tags)}. Section role hypothesis: {role}.",
-            f"section_function={function}",
-            [
-                "not genre truth",
-                "not historical style identity",
-                "not artist identity",
-                "style behavior must be described through evidence, not genre labels alone",
-            ],
-        )
-    ]
+    return [claim(
+        "style_behavior",
+        "behavioral_hypothesis",
+        clamp(max(confidence, 0.30)),
+        f"Style behavior tags: {', '.join(tags)}. Section role hypothesis: {role}.",
+        f"section_function={function}",
+        ["not genre truth", "describe behavior before genre label"],
+    )]
 
 
-def affective_claims(
-    e_space: dict[str, Any],
-    relative: dict[str, Any],
-    scores: dict[str, Any],
-    relations: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+def affective_claims(e_space: dict[str, Any], relative: dict[str, Any], scores: dict[str, Any], relations: list[dict[str, Any]]) -> list[dict[str, Any]]:
     pressure = to_float(e_space.get("perceived_pressure"))
     width = to_float(e_space.get("perceived_width"))
     spread = to_float(e_space.get("perceived_spread"))
@@ -398,7 +338,6 @@ def affective_claims(
     high_low = to_float(e_space.get("high_low"))
     low_body = to_float(scores.get("object_02_low_end_body"))
     rhythm = to_float(scores.get("object_01_near_rhythmic_pulse"))
-
     tendencies: list[str] = []
     if pressure >= 0.62 and near_far >= 0.45:
         tendencies.append("forward pressure / body-near tendency")
@@ -416,37 +355,21 @@ def affective_claims(
         tendencies.append("pulse-driven tension or forward drive")
     if low_body >= 0.55 and pressure >= 0.50:
         tendencies.append("bottom-supported pressure tendency")
-
     if not tendencies:
         tendencies.append("no strong affective-listening tendency from current evidence")
-
     rel_names = [str(rel.get("relation") or "") for rel in relations]
     relative_keys = ", ".join(f"{k}={v}" for k, v in sorted(relative.items())[:8])
-
-    return [
-        claim(
-            "affective_listening",
-            "listening_tendency",
-            clamp(max(pressure, width, spread, rhythm, low_body, 0.25)),
-            "; ".join(tendencies),
-            f"e_space pressure={pressure}, width={width}, spread={spread}, near_far={near_far}; relations={rel_names}; relative={relative_keys}",
-            [
-                "not emotion truth",
-                "do not directly output sadness/loneliness/healing/etc.",
-                "translate as tension/release/openness/closure/pressure/retreat unless human calibration allows emotion words",
-            ],
-        )
-    ]
+    return [claim(
+        "affective_listening",
+        "listening_tendency",
+        clamp(max(pressure, width, spread, rhythm, low_body, 0.25)),
+        "; ".join(tendencies),
+        f"pressure={pressure}, width={width}, spread={spread}, near_far={near_far}; relations={rel_names}; relative={relative_keys}",
+        ["not emotion truth", "emotion words should be bounded readings"],
+    )]
 
 
-def claim(
-    layer: str,
-    claim_level: str,
-    support: float,
-    statement: str,
-    evidence: str,
-    not_proven: list[str],
-) -> dict[str, Any]:
+def claim(layer: str, claim_level: str, support: float, statement: str, evidence: str, not_proven: list[str]) -> dict[str, Any]:
     return {
         "layer": layer,
         "claim_level": claim_level,
@@ -470,113 +393,101 @@ def summarize_available_layers(segment_packets: list[dict[str, Any]]) -> dict[st
         for layer_name, claims in layers.items():
             if any(cl.get("claim_level") not in ("missing_or_weak", "missing") for cl in list_dicts(claims)):
                 layer_counts[layer_name] = layer_counts.get(layer_name, 0) + 1
-    return {
-        "layer_segment_support_counts": layer_counts,
-        "note": "Counts indicate segments with at least weak bounded evidence, not truth labels.",
-    }
+    return {"layer_segment_support_counts": layer_counts, "note": "Counts are bounded evidence support, not truth labels."}
 
 
 def find_missing_or_weak_layers(segment_packets: list[dict[str, Any]]) -> list[str]:
     missing: set[str] = set()
     for segment in segment_packets:
-        layers = as_dict(segment.get("claim_layers"))
-        for layer_name, claims in layers.items():
+        for layer_name, claims in as_dict(segment.get("claim_layers")).items():
             if all(cl.get("claim_level") in ("missing_or_weak", "missing") for cl in list_dicts(claims)):
                 missing.add(layer_name)
     return sorted(missing)
 
 
-def render_prompt_input(
-    evidence_pack: dict[str, Any],
-    profile: dict[str, Any],
-    prompt_protocol: str | None,
-    structural_summary: str | None,
-    max_segments: int,
-) -> str:
-    lines: list[str] = []
-    lines.append("# MSSL Original-Song Listening Experience Prompt Input")
-    lines.append("")
-    lines.append("Status: manual external LLM/report input pack. This is not a final listening report.")
-    lines.append("")
-    lines.append("## 1. Prompt protocol")
-    lines.append("")
-    if prompt_protocol:
-        lines.append(prompt_protocol.strip())
-    else:
-        lines.append(
-            "Use the evidence pack below. Write only evidence-bounded listening-experience language. "
-            "Do not treat hypotheses as truth."
-        )
-    lines.append("")
-    lines.append("---")
-    lines.append("")
-    lines.append("## 2. Evidence pack overview")
-    lines.append("")
+def render_prompt_input(evidence_pack: dict[str, Any], prompt_protocol: str | None, structural_summary: str | None, max_segments: int) -> str:
+    lines = [
+        "# MSSL Original-Song Listening Experience Prompt Input",
+        "",
+        "Status: technical prompt input. Prefer `online_ai_listening_handoff.md` for copy/paste into an online AI account.",
+        "",
+        "## Prompt protocol",
+        "",
+        prompt_protocol.strip() if prompt_protocol else "Write an evidence-bounded listening analysis from the pack below.",
+        "",
+        "## Evidence pack",
+        "",
+        "```json",
+        json.dumps(evidence_pack, ensure_ascii=False, indent=2),
+        "```",
+    ]
+    if structural_summary:
+        lines.extend(["", "## Structural summary", "", "```markdown", structural_summary.strip(), "```"])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_online_ai_handoff(evidence_pack: dict[str, Any], structural_summary: str | None, max_segments: int) -> str:
     overview = {
-        "version": evidence_pack.get("version"),
-        "status": evidence_pack.get("status"),
-        "global_context": evidence_pack.get("global_context"),
+        "song_context": evidence_pack.get("global_context"),
         "available_layers": evidence_pack.get("available_layers"),
         "missing_or_weak_layers": evidence_pack.get("missing_or_weak_layers"),
         "segments_included": evidence_pack.get("segments_included"),
         "segments_total": evidence_pack.get("segments_total"),
     }
-    lines.append("```json")
-    lines.append(json.dumps(overview, ensure_ascii=False, indent=2))
-    lines.append("```")
-    lines.append("")
+    segment_evidence = evidence_pack.get("segment_evidence", [])[:max_segments]
+    lines: list[str] = []
+    lines.extend([
+        "# Online AI Handoff: MSSL Song Listening Analysis",
+        "",
+        "请你根据下面的 MSSL 数据，生成一份人能看懂的歌曲听感分析报告。",
+        "",
+        "你没有收到音频文件；下面的数据是音频经过 MSSL 转换后的听觉空间、对象、段落和关系证据。请把这些证据转成人话听感分析。",
+        "",
+        "可以写：空间感、层次、节奏推动、旋律线条、声源/乐器家族倾向、人声样对象、风格行为、情绪倾向。",
+        "",
+        "注意边界：情绪词、乐器词、流派词可以出现，但要写成由证据支持的听感判断，不要写成绝对真值。不要评分，不要营销文案，不要歌词解读，不要假装你听到了原始音频。",
+        "",
+        "## 你需要输出",
+        "",
+        "一份中文为主的歌曲听感分析报告。不要套固定模板。优先写整体听感，再写明显的段落变化和关键对象。证据不足的地方要说明不确定。",
+        "",
+        "## MSSL overview",
+        "",
+        "```json",
+        json.dumps(overview, ensure_ascii=False, indent=2),
+        "```",
+    ])
     if structural_summary:
-        lines.append("## 3. Structural summary evidence")
-        lines.append("")
-        lines.append("```markdown")
-        lines.append(structural_summary.strip())
-        lines.append("```")
-        lines.append("")
-    lines.append("## 4. Segment claim evidence")
-    lines.append("")
-    for segment in evidence_pack.get("segment_evidence", [])[:max_segments]:
-        lines.append(f"### {segment.get('segment_id')} / {as_dict(segment.get('time_range')).get('label')}")
-        lines.append("")
-        lines.append("```json")
-        lines.append(json.dumps(segment, ensure_ascii=False, indent=2))
-        lines.append("```")
-        lines.append("")
-    lines.append("## 5. Final instruction")
-    lines.append("")
-    lines.append(
-        "Write listening-experience language only from the evidence above. "
-        "Use claim levels. Downgrade weak claims. Mention missing evidence when needed. "
-        "Do not produce fixed-template prose."
-    )
+        lines.extend(["", "## Structural summary", "", "```markdown", structural_summary.strip(), "```"])
+    lines.extend(["", "## Segment evidence", ""])
+    for segment in segment_evidence:
+        label = as_dict(segment.get("time_range")).get("label")
+        lines.extend([
+            f"### {segment.get('segment_id')} / {label}",
+            "",
+            "```json",
+            json.dumps(segment, ensure_ascii=False, indent=2),
+            "```",
+            "",
+        ])
+    lines.extend([
+        "## Final reminder for the AI",
+        "",
+        "请把上面的机器证据翻译成可读的听感报告。可以使用情绪、乐器家族、风格行为词，但必须保留不确定性和证据边界。",
+    ])
     return "\n".join(lines).rstrip() + "\n"
 
 
 def compact_e_space(e_space: dict[str, Any]) -> dict[str, Any]:
-    keys = [
-        "left_right",
-        "near_far",
-        "high_low",
-        "perceived_pressure",
-        "perceived_width",
-        "perceived_spread",
-        "perceived_motion",
-        "envelopment",
-    ]
+    keys = ["left_right", "near_far", "high_low", "perceived_pressure", "perceived_width", "perceived_spread", "perceived_motion", "envelopment"]
     return {key: e_space.get(key) for key in keys if key in e_space}
 
 
 def compact_relations(relations: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    compacted: list[dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for rel in relations[:12]:
-        compacted.append(
-            {
-                "relation": rel.get("relation"),
-                "from": rel.get("from"),
-                "to": rel.get("to"),
-                "strength": rel.get("strength"),
-            }
-        )
-    return compacted
+        result.append({"relation": rel.get("relation"), "from": rel.get("from"), "to": rel.get("to"), "strength": rel.get("strength")})
+    return result
 
 
 def as_dict(value: Any) -> dict[str, Any]:
@@ -599,10 +510,7 @@ def to_float(value: Any) -> float:
     if isinstance(value, bool):
         return float(value)
     if isinstance(value, (int, float)):
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return 0.0
+        return float(value)
     if isinstance(value, str):
         try:
             return float(value)
