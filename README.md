@@ -57,6 +57,21 @@ Original-song listening-experience language is available now only as an explicit
 
 This manual layer reads existing MSSL structural evidence and translates it into bounded listening-experience language. It may describe only what the available evidence supports.
 
+Build a local prompt input pack from an existing full-song profile:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\build_listening_experience_prompt.py `
+  --profile "outputs\your_song\your_song_full_song_profile.json" `
+  --output-dir "outputs\your_song"
+```
+
+This writes local prompt inputs only:
+
+```text
+listening_experience_evidence_pack.json
+original_song_listening_prompt_input.md
+```
+
 Richer original-song claims require corresponding evidence adapters, including:
 
 ```text
