@@ -125,6 +125,8 @@ When explicitly needed for external close-listening writing, build a critical li
 
 This writes `critical_listening_brief.json` and `critical_listening_prompt_input.md` for manual use with an external LLM. It does not read audio, run ASR, identify singers or instruments, assert genre or emotion truth, or generate the final music criticism.
 
+The generated prompt does not ask an external LLM to search for lyrics. Lyrics may only be used when the user supplies them as separate external material.
+
 macOS / Linux use the same commands with `./.venv/bin/python`.
 
 ## Outputs policy
