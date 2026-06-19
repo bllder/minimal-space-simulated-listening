@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-This entry point keeps the default structural pipeline unchanged while providing
-an explicit continuation path:
+Default local path for users without a local LLM/API:
 
-WAV -> full_song_profile.json -> listening_experience_evidence_pack.json -> original_song_listening_prompt_input.md -> optional LLM report
+WAV -> full_song_profile.json -> listening_experience_evidence_pack.json -> online_ai_listening_handoff.md
 
-It prepares the language-layer input automatically. When --llm-command is
-provided, it also pipes the prompt input to that command and writes a bounded
-listening-experience report.
+The handoff Markdown can be pasted or uploaded to an online AI account instead
+of sending the audio file.
+
+If --llm-command is provided, the pipeline can also pipe the technical prompt
+input to that command and write a local final report.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from pathlib import Path
 DEFAULT_MAX_PROMPT_SEGMENTS = 24
 DEFAULT_REPORT_NAME = "original_song_listening_experience_report.md"
 DEFAULT_PROMPT_INPUT_NAME = "original_song_listening_prompt_input.md"
+DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,7 +32,7 @@ def parse_args() -> argparse.Namespace:
         description="Run the MSSL listening-experience continuation chain."
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--input", help="PCM WAV file to analyze before building the listening-experience input pack.")
+    source.add_argument("--input", help="PCM WAV file to analyze before building the online-AI handoff.")
     source.add_argument("--profile", help="Existing *_full_song_profile.json to use directly.")
     parser.add_argument("--output-dir", default="outputs", help="Base output directory.")
     parser.add_argument("--output-folder-name", default=None)
@@ -45,7 +47,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional command that reads the generated prompt input from stdin and writes the final report to stdout. "
-            "Example: --llm-command \"ollama run qwen2.5\""
+            "Most users can ignore this and use online_ai_listening_handoff.md with an online AI account."
         ),
     )
     parser.add_argument(
@@ -80,23 +82,18 @@ def main() -> None:
 
     run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path)
 
+    handoff_path = output_dir / DEFAULT_HANDOFF_NAME
     prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
+    print(f"Prepared online AI handoff: {handoff_path}")
+    print("Use this Markdown as the text/file to give to an online AI account instead of uploading audio.")
+
     if args.llm_command:
         report_path = output_dir / args.report_output
         run_llm_report(args.llm_command, prompt_input_path, report_path)
         print(f"Wrote {report_path}")
-    else:
-        print(f"Prepared {prompt_input_path}")
-        print("No --llm-command provided; final prose report was not generated.")
 
 
-def run_prompt_builder(
-    script_dir: Path,
-    args: argparse.Namespace,
-    profile_path: Path,
-    output_dir: Path,
-    prompt_path: Path,
-) -> None:
+def run_prompt_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path, prompt_path: Path) -> None:
     cmd = [
         sys.executable,
         str(script_dir / "build_listening_experience_prompt.py"),
@@ -130,9 +127,7 @@ def run_llm_report(llm_command: str, prompt_input_path: Path, report_path: Path)
         check=False,
     )
     if completed.returncode != 0:
-        raise RuntimeError(
-            f"LLM command failed with exit code {completed.returncode}: {completed.stderr.strip()}"
-        )
+        raise RuntimeError(f"LLM command failed with exit code {completed.returncode}: {completed.stderr.strip()}")
     report_text = completed.stdout.strip()
     if not report_text:
         raise RuntimeError("LLM command returned empty output")
@@ -147,14 +142,7 @@ def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) 
     output_dir = output_base if args.flat_output else output_base / safe_folder
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        sys.executable,
-        str(script_dir / "run_full_song_analysis.py"),
-        "--input",
-        str(input_path),
-        "--output-dir",
-        str(output_base),
-    ]
+    cmd = [sys.executable, str(script_dir / "run_full_song_analysis.py"), "--input", str(input_path), "--output-dir", str(output_base)]
     if args.output_folder_name:
         cmd.extend(["--output-folder-name", args.output_folder_name])
     if args.flat_output:
