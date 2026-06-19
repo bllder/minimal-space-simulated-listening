@@ -51,11 +51,13 @@ External adapters are optional and not part of the default structural-only pipel
 
 Optional listening translation is a manual external LLM layer only: use `docs/listening_translation_prompt.md` only when explicitly requested. The default pipeline does not generate listening reports.
 
-## Future manual listening-experience layer
+## Manual listening-experience layer
 
-A future original-song listening-experience layer may be added only as an explicitly requested, manual layer outside the default pipeline.
+Original-song listening-experience language is available now only as an explicitly requested, manual external LLM/report layer outside the default pipeline.
 
-That future layer would require evidence adapters before it can responsibly describe original-song listening experience, including:
+This manual layer reads existing MSSL structural evidence and translates it into bounded listening-experience language. It may describe only what the available evidence supports.
+
+Richer original-song claims require corresponding evidence adapters, including:
 
 ```text
 source-family / instrument-family evidence
@@ -67,7 +69,7 @@ affective-listening hypotheses
 
 It must not be a fixed report renderer. It must not treat stems as instrument truth, style candidates as genre truth, vocal objects as singer identity, or affective tendencies as emotion truth.
 
-Any future report-like language must be evidence-bounded, claim-level aware, and generated only after the user explicitly requests the external LLM/report layer.
+Report-like language must be evidence-bounded, claim-level aware, and generated only after the user explicitly requests the external LLM/report layer.
 
 ## Current minimal chain
 
