@@ -7,6 +7,7 @@ WAV
 -> full_song_profile.json
 -> listening_experience_evidence_pack.json
 -> critical_listening_brief.json
+-> aesthetic context handoff section
 -> online_ai_listening_handoff.md
 
 The handoff Markdown can be pasted or uploaded to an online AI account instead
@@ -51,6 +52,25 @@ def parse_args() -> argparse.Namespace:
         "--translation-prompt",
         default="docs/original_song_listening_experience_prompt.md",
         help="Prompt protocol used for the online-AI handoff. Kept as a compatibility flag name.",
+    )
+    parser.add_argument("--playlist-context", default=None, help="Optional playlist/context name. Classified before interpretation.")
+    parser.add_argument(
+        "--context-note",
+        action="append",
+        default=[],
+        help="Optional user-supplied listening/context note. Repeatable.",
+    )
+    parser.add_argument(
+        "--aesthetic-context",
+        action="append",
+        default=[],
+        help="User aesthetic seed file to inject into the handoff. Repeatable.",
+    )
+    parser.add_argument(
+        "--external-context",
+        action="append",
+        default=[],
+        help="Lyrics, comments, review, MIR, metadata, or other external context file. Repeatable.",
     )
     parser.add_argument(
         "--keep-structural-md",
@@ -110,6 +130,13 @@ def main() -> None:
     handoff_path = output_dir / DEFAULT_HANDOFF_NAME
     prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
 
+    run_aesthetic_context_builder(
+        script_dir=script_dir,
+        args=args,
+        handoff_path=handoff_path,
+        prompt_input_path=prompt_input_path,
+    )
+
     if args.experimental_object_personality:
         run_object_personality_builder(
             script_dir=script_dir,
@@ -145,6 +172,32 @@ def run_prompt_builder(script_dir: Path, args: argparse.Namespace, profile_path:
     ]
     if args.structural_summary:
         cmd.extend(["--structural-summary", args.structural_summary])
+    if args.playlist_context:
+        cmd.extend(["--playlist-context", args.playlist_context])
+    for note in args.context_note:
+        cmd.extend(["--context-note", note])
+    subprocess.run(cmd, check=True)
+
+
+def run_aesthetic_context_builder(script_dir: Path, args: argparse.Namespace, handoff_path: Path, prompt_input_path: Path) -> None:
+    if not args.playlist_context and not args.context_note and not args.aesthetic_context and not args.external_context:
+        return
+    cmd = [
+        sys.executable,
+        str(script_dir / "build_aesthetic_context_handoff.py"),
+        "--handoff-md",
+        str(handoff_path),
+        "--prompt-input-md",
+        str(prompt_input_path),
+    ]
+    if args.playlist_context:
+        cmd.extend(["--playlist-context", args.playlist_context])
+    for note in args.context_note:
+        cmd.extend(["--context-note", note])
+    for path in args.aesthetic_context:
+        cmd.extend(["--aesthetic-context", path])
+    for path in args.external_context:
+        cmd.extend(["--external-context", path])
     subprocess.run(cmd, check=True)
 
 
