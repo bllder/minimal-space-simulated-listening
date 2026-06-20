@@ -6,6 +6,7 @@ pasted or uploaded to an online AI account instead of sending the audio file.
 
 It writes:
 - listening_experience_evidence_pack.json
+- critical_listening_brief.json
 - original_song_listening_prompt_input.md
 - online_ai_listening_handoff.md
 
@@ -21,13 +22,57 @@ from typing import Any
 
 
 DEFAULT_JSON_NAME = "listening_experience_evidence_pack.json"
+DEFAULT_BRIEF_NAME = "critical_listening_brief.json"
 DEFAULT_MD_NAME = "original_song_listening_prompt_input.md"
 DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
+
+PLAYLIST_CONTEXTS: dict[str, dict[str, str]] = {
+    "没有意义": {
+        "type": "private_aesthetic_state",
+        "reading": "虚无、意义抽空、残留重量；不是单一流派标签。",
+    },
+    "我是文盲": {
+        "type": "private_aesthetic_state_or_mandarin_indie_entry",
+        "reading": "拒绝装懂，用人话听；可作为华语独立入口，但不能过度诗化。",
+    },
+    "电气混沌": {
+        "type": "personal_electronic_selection",
+        "reading": "个人电子乐摘选，内部曲风可能混合；不要当成统一 genre truth。",
+    },
+    "肥皂泡泡": {
+        "type": "style_cluster",
+        "reading": "dream pop + post-punk + trip-hop 的歌单语境。",
+    },
+    "诗性赫兹": {
+        "type": "material_type",
+        "reading": "旁白采样、诗歌朗诵、人在说话；非传统演唱/rap。",
+    },
+    "催眠芬达": {
+        "type": "private_style_state",
+        "reading": "睡着的、降速的、氛围型迷幻；不是醒着的刺激迷幻。",
+    },
+    "神圣骨头": {
+        "type": "label_entry",
+        "reading": "Sacred Bones Records 厂牌入口。",
+    },
+    "Starless": {
+        "type": "single_work_research",
+        "reading": "King Crimson《Starless》的版本/材料研究。",
+    },
+    "Test.py": {
+        "type": "test_probe_set",
+        "reading": "测试/探针集，不等于普通偏好。",
+    },
+    "Math AI": {
+        "type": "test_probe_set",
+        "reading": "测试/探针集，不等于普通偏好。",
+    },
+}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build MSSL listening-experience evidence and online-AI handoff files."
+        description="Build MSSL listening-experience evidence, critical brief, and online-AI handoff files."
     )
     parser.add_argument(
         "--profile",
@@ -55,7 +100,19 @@ def parse_args() -> argparse.Namespace:
         default=24,
         help="Maximum number of segments to include in Markdown handoff files.",
     )
+    parser.add_argument(
+        "--playlist-context",
+        default=None,
+        help="Optional user-supplied playlist/context name. This is used for context disambiguation, not as genre truth.",
+    )
+    parser.add_argument(
+        "--context-note",
+        action="append",
+        default=[],
+        help="Optional user-supplied listening/context note. Repeatable. Treated as contextual material, not evidence truth.",
+    )
     parser.add_argument("--json-name", default=DEFAULT_JSON_NAME)
+    parser.add_argument("--brief-name", default=DEFAULT_BRIEF_NAME)
     parser.add_argument("--md-name", default=DEFAULT_MD_NAME)
     parser.add_argument("--handoff-name", default=DEFAULT_HANDOFF_NAME)
     return parser.parse_args()
@@ -78,15 +135,23 @@ def main() -> None:
         structural_summary_path=args.structural_summary,
         max_segments=max_segments,
     )
+    critical_brief = build_critical_brief(
+        evidence_pack=evidence_pack,
+        playlist_context=args.playlist_context,
+        context_notes=args.context_note,
+    )
 
     json_path = output_dir / args.json_name
+    brief_path = output_dir / args.brief_name
     md_path = output_dir / args.md_name
     handoff_path = output_dir / args.handoff_name
 
     json_path.write_text(json.dumps(evidence_pack, ensure_ascii=False, indent=2), encoding="utf-8")
+    brief_path.write_text(json.dumps(critical_brief, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(
         render_prompt_input(
             evidence_pack=evidence_pack,
+            critical_brief=critical_brief,
             prompt_protocol=prompt_protocol,
             structural_summary=structural_summary,
             max_segments=max_segments,
@@ -96,6 +161,7 @@ def main() -> None:
     handoff_path.write_text(
         render_online_ai_handoff(
             evidence_pack=evidence_pack,
+            critical_brief=critical_brief,
             structural_summary=structural_summary,
             max_segments=max_segments,
         ),
@@ -103,6 +169,7 @@ def main() -> None:
     )
 
     print(f"Wrote {json_path}")
+    print(f"Wrote {brief_path}")
     print(f"Wrote {md_path}")
     print(f"Wrote {handoff_path}")
     print("Use online_ai_listening_handoff.md as the file/text to paste into an online AI account.")
@@ -135,7 +202,7 @@ def build_evidence_pack(
     segments = list_dicts(profile.get("segments"))
     segment_packets = [segment_to_listening_evidence(seg) for seg in segments[:max_segments]]
     return {
-        "version": "mssl_online_ai_listening_handoff_v0_2",
+        "version": "mssl_online_ai_listening_handoff_v0_3",
         "status": "evidence_pack_for_online_ai_not_audio_not_final_report",
         "source_profile": str(profile_path),
         "structural_summary": structural_summary_path,
@@ -146,6 +213,7 @@ def build_evidence_pack(
             "vocal_object": "may be translated into vocal-like listening object, not singer identity",
             "style_behavior": "may be translated into genre-like behavior, not genre truth",
             "affective_listening": "may be translated into emotion-like reading, not emotion truth",
+            "cross_modal_context": "may be used as interpretive context only when user-supplied or clearly bounded",
         },
         "global_context": build_global_context(profile),
         "available_layers": summarize_available_layers(segment_packets),
@@ -219,6 +287,7 @@ def segment_to_listening_evidence(segment: dict[str, Any]) -> dict[str, Any]:
             "Use human listening words, not raw machine field names.",
             "Emotion-like, genre-like, and instrument-family words are allowed only as bounded readings.",
             "Make uncertainty explicit where evidence is weak.",
+            "Segment evidence is not the final writing order; compress it into listening movements before criticism.",
         ],
     }
 
@@ -369,6 +438,332 @@ def affective_claims(e_space: dict[str, Any], relative: dict[str, Any], scores: 
     )]
 
 
+def build_critical_brief(
+    evidence_pack: dict[str, Any],
+    playlist_context: str | None,
+    context_notes: list[str],
+) -> dict[str, Any]:
+    segments = list_dicts(evidence_pack.get("segment_evidence"))
+    profiles = [derive_segment_profile(segment) for segment in segments]
+    stats = aggregate_profiles(profiles)
+    context = resolve_context(
+        playlist_context=playlist_context,
+        context_notes=context_notes,
+        evidence_pack=evidence_pack,
+    )
+    return {
+        "version": "mssl_critical_listening_brief_v0_1",
+        "status": "critical_bridge_not_final_report",
+        "role": (
+            "Compress MSSL evidence into close-listening decisions before an online LLM writes criticism. "
+            "This is the explicit translation interface between spatial/acoustic structure and human listening language."
+        ),
+        "core_correction": [
+            "Music is not an isolated spatial-auditory object.",
+            "MSSL is the acoustic/spatial foundation, not the final human listening report.",
+            "Human-facing criticism should ask: this song opens what?",
+        ],
+        "central_thesis_candidates": build_central_thesis_candidates(stats, profiles, context),
+        "macro_movements": build_macro_movements(profiles),
+        "cross_modal_entry_points": build_cross_modal_entry_points(stats, context),
+        "playlist_context": context,
+        "critical_axes": build_critical_axes(stats, profiles),
+        "writing_rules": [
+            "Do not walk segment by segment unless the segment boundary is musically meaningful.",
+            "Start from a contestable listening judgment, then use evidence to support it.",
+            "Use body, image, scene, memory, medium/version, and social context only through bounded interfaces.",
+            "Translate object names into natural prose after the first boundary note.",
+            "Do not over-poeticize playlist names; classify context type first.",
+            "Do not treat private or NetEase comments as current crisis signals; check timestamp and context first.",
+        ],
+        "not_allowed": [
+            "unsupported genre truth",
+            "unsupported exact instrument identity",
+            "singer identity",
+            "lyric interpretation without ASR/lyric evidence",
+            "treating memory comments as present-tense diagnosis",
+            "claiming the model personally heard the audio file",
+        ],
+        "final_report_question": "这首歌打开了什么？",
+    }
+
+
+def derive_segment_profile(segment: dict[str, Any]) -> dict[str, Any]:
+    time_range = as_dict(segment.get("time_range"))
+    support = as_dict(segment.get("structural_support"))
+    e_space = as_dict(support.get("e_space"))
+    objects = as_dict(support.get("dominant_object_candidates"))
+    section = as_dict(support.get("section_role"))
+    claims = as_dict(segment.get("claim_layers"))
+    return {
+        "segment_id": segment.get("segment_id"),
+        "time_label": time_range.get("label"),
+        "start_seconds": time_range.get("start_seconds"),
+        "end_seconds": time_range.get("end_seconds"),
+        "pressure": to_float(e_space.get("perceived_pressure")),
+        "width": to_float(e_space.get("perceived_width")),
+        "spread": to_float(e_space.get("perceived_spread")),
+        "near_far": to_float(e_space.get("near_far")),
+        "high_low": to_float(e_space.get("high_low")),
+        "motion": to_float(e_space.get("perceived_motion")),
+        "envelopment": to_float(e_space.get("envelopment")),
+        "dominant_objects": list_strings(objects.get("object_ids") or objects.get("ids") or objects.get("candidates")),
+        "section_role": section.get("role_label"),
+        "section_function": section.get("section_function"),
+        "source_terms": collect_claim_terms(claims, "source_family"),
+        "style_terms": collect_claim_terms(claims, "style_behavior"),
+        "affective_terms": collect_claim_terms(claims, "affective_listening"),
+        "vocal_support": max_claim_support(claims, "vocal_object_locking"),
+        "melody_support": max_claim_support(claims, "melody_or_pitch_contour"),
+    }
+
+
+def collect_claim_terms(claim_layers: dict[str, Any], layer_name: str) -> list[str]:
+    terms: list[str] = []
+    for item in list_dicts(claim_layers.get(layer_name)):
+        statement = str(item.get("statement") or "").strip()
+        if statement:
+            terms.append(statement)
+    return terms
+
+
+def max_claim_support(claim_layers: dict[str, Any], layer_name: str) -> float:
+    values = [to_float(item.get("support")) for item in list_dicts(claim_layers.get(layer_name))]
+    return max(values) if values else 0.0
+
+
+def aggregate_profiles(profiles: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "segment_count": len(profiles),
+        "avg_pressure": avg(profiles, "pressure"),
+        "avg_width": avg(profiles, "width"),
+        "avg_spread": avg(profiles, "spread"),
+        "avg_near_far": avg(profiles, "near_far"),
+        "avg_high_low": avg(profiles, "high_low"),
+        "avg_motion": avg(profiles, "motion"),
+        "avg_envelopment": avg(profiles, "envelopment"),
+        "vocal_supported_segments": sum(1 for item in profiles if to_float(item.get("vocal_support")) >= 0.42),
+        "melody_supported_segments": sum(1 for item in profiles if to_float(item.get("melody_support")) >= 0.45),
+        "style_terms": most_common_terms(term for item in profiles for term in list_strings(item.get("style_terms"))),
+        "source_terms": most_common_terms(term for item in profiles for term in list_strings(item.get("source_terms"))),
+    }
+
+
+def build_central_thesis_candidates(stats: dict[str, Any], profiles: list[dict[str, Any]], context: dict[str, Any]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    pressure = to_float(stats.get("avg_pressure"))
+    width = max(to_float(stats.get("avg_width")), to_float(stats.get("avg_spread")))
+    near = to_float(stats.get("avg_near_far"))
+    high = to_float(stats.get("avg_high_low"))
+    if pressure >= 0.55 and width >= 0.45:
+        candidates.append(thesis(
+            "wide-field pressure",
+            "The song may work by holding bodily pressure inside an expanded field, rather than by treating space as decoration.",
+            ["avg_pressure", "avg_width/avg_spread"],
+        ))
+    if pressure >= 0.55 and near >= 0.45:
+        candidates.append(thesis(
+            "body-near push",
+            "The main listening action may be a push toward the body: close, pressing, and physically insistent.",
+            ["avg_pressure", "avg_near_far"],
+        ))
+    if stats.get("vocal_supported_segments", 0) >= max(1, len(profiles) // 3):
+        candidates.append(thesis(
+            "foreground line as object",
+            "A foreground vocal/flow-like line can be written as an object that is tracked through space, not as singer identity or lyric meaning.",
+            ["vocal_object_locking claim counts"],
+        ))
+    if high <= -0.20:
+        candidates.append(thesis(
+            "lowered room",
+            "The piece may open a lower, heavier room: weight and residual pressure matter more than brightness.",
+            ["avg_high_low", "avg_pressure"],
+        ))
+    elif high >= 0.20:
+        candidates.append(thesis(
+            "upper edge / light",
+            "The piece may open through upper light or bright edge, with height becoming part of the scene.",
+            ["avg_high_low"],
+        ))
+    if as_dict(context.get("resolved_playlist_context")).get("type"):
+        candidates.append(thesis(
+            "context-aware listening",
+            "The playlist/context name should be used as a disambiguated entry point, not as automatic poetic proof.",
+            ["playlist_context"],
+        ))
+    if not candidates:
+        candidates.append(thesis(
+            "evidence-bounded close listening",
+            "The safest thesis is to describe what the track opens through pressure, width, objects, and movement, while refusing unsupported genre/emotion truth.",
+            ["MSSL evidence pack"],
+        ))
+    return candidates[:5]
+
+
+def thesis(label: str, statement: str, evidence_handles: list[str]) -> dict[str, Any]:
+    return {"label": label, "statement": statement, "evidence_handles": evidence_handles}
+
+
+def build_macro_movements(profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not profiles:
+        return []
+    group_count = min(5, max(1, round(len(profiles) ** 0.5) + 1))
+    chunks: list[list[dict[str, Any]]] = []
+    for index in range(group_count):
+        start = round(index * len(profiles) / group_count)
+        end = round((index + 1) * len(profiles) / group_count)
+        chunk = profiles[start:end]
+        if chunk:
+            chunks.append(chunk)
+    movements: list[dict[str, Any]] = []
+    for index, chunk in enumerate(chunks, start=1):
+        label, action = describe_movement(chunk, index, len(chunks))
+        movements.append({
+            "movement_id": f"movement_{index:02d}",
+            "time_range": f"{chunk[0].get('time_label')} -> {chunk[-1].get('time_label')}",
+            "label": label,
+            "listening_action": action,
+            "evidence_summary": {
+                "pressure": round(avg(chunk, "pressure"), 3),
+                "width_or_spread": round(max(avg(chunk, "width"), avg(chunk, "spread")), 3),
+                "near_far": round(avg(chunk, "near_far"), 3),
+                "high_low": round(avg(chunk, "high_low"), 3),
+                "motion": round(avg(chunk, "motion"), 3),
+                "section_roles": sorted({str(item.get("section_role")) for item in chunk if item.get("section_role")}),
+            },
+            "writing_note": "Use this as a prose movement, not as a mandatory timestamp paragraph.",
+        })
+    return movements
+
+
+def describe_movement(chunk: list[dict[str, Any]], index: int, total: int) -> tuple[str, str]:
+    pressure = avg(chunk, "pressure")
+    width = max(avg(chunk, "width"), avg(chunk, "spread"))
+    near = avg(chunk, "near_far")
+    high = avg(chunk, "high_low")
+    motion = avg(chunk, "motion")
+    if index == 1:
+        prefix = "field establishment"
+    elif index == total:
+        prefix = "late-field result"
+    else:
+        prefix = "field turn"
+    if pressure >= 0.60 and width >= 0.45:
+        return prefix, "wide space stays active while pressure remains bodily present"
+    if pressure >= 0.60 and near >= 0.45:
+        return prefix, "center pressure moves closer and can be written as push or compression"
+    if width >= 0.50:
+        return prefix, "the field opens laterally; scene/image language can be used carefully"
+    if pressure <= 0.34:
+        return prefix, "pressure drops back; write as loosen, retreat, residue, or afterimage if supported"
+    if high >= 0.20:
+        return prefix, "upper edge becomes salient; light/height image language is available"
+    if high <= -0.25:
+        return prefix, "lower weight dominates; body/heaviness language is available"
+    if motion >= 0.45:
+        return prefix, "movement itself carries the listening action more than a fixed object label"
+    return prefix, "stable continuation; do not overstate change if the evidence is flat"
+
+
+def build_cross_modal_entry_points(stats: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    pressure = to_float(stats.get("avg_pressure"))
+    width = max(to_float(stats.get("avg_width")), to_float(stats.get("avg_spread")))
+    high = to_float(stats.get("avg_high_low"))
+    motion = to_float(stats.get("avg_motion"))
+    body: list[str] = []
+    if pressure >= 0.60:
+        body.extend(["压", "被推近", "胸口/身体前方的压力"])
+    elif pressure <= 0.34:
+        body.extend(["松", "退开", "低压漂浮"])
+    if width >= 0.50:
+        body.extend(["被托住", "展开", "身体周围变宽"])
+    if motion >= 0.45:
+        body.append("被带着走")
+    if not body:
+        body.append("身体反应证据不强，少写身体词")
+
+    image: list[str] = []
+    if width >= 0.50:
+        image.extend(["房间变宽", "横向光带", "开放场景"])
+    else:
+        image.extend(["窄房间", "中心走廊", "贴近画面"])
+    if high >= 0.20:
+        image.extend(["上方亮边", "冷光", "抬起的空气"])
+    elif high <= -0.25:
+        image.extend(["暗低处", "地面重量", "低矮空间"])
+
+    return {
+        "body_response_language": body,
+        "image_scene_language": image,
+        "memory_timestamp_interface": {
+            "allowed_inputs": [
+                "NetEase comments as timestamped memory material",
+                "private comments when date/context are visible",
+                "version or medium memories, such as live/studio/remaster/vinyl/streaming",
+            ],
+            "use_policy": "Use memory material to ask what the song opens, not to diagnose the commenter or the current listener.",
+            "user_supplied_context_notes": context.get("context_notes", []),
+        },
+        "social_or_medium_context_interface": {
+            "allowed": "label, playlist, version, platform-comment, medium, and scene context may enter as bounded context.",
+            "not_allowed": "Do not turn context into proof of genre, emotion, or biography.",
+        },
+    }
+
+
+def resolve_context(
+    playlist_context: str | None,
+    context_notes: list[str],
+    evidence_pack: dict[str, Any],
+) -> dict[str, Any]:
+    global_context = as_dict(evidence_pack.get("global_context"))
+    candidates = [playlist_context or "", str(global_context.get("analysis_label") or ""), str(evidence_pack.get("source_profile") or "")]
+    matched_name = ""
+    for value in candidates:
+        for name in PLAYLIST_CONTEXTS:
+            if name and name in value:
+                matched_name = name
+                break
+        if matched_name:
+            break
+    resolved = PLAYLIST_CONTEXTS.get(matched_name, {})
+    return {
+        "input_playlist_context": playlist_context,
+        "resolved_playlist_name": matched_name or None,
+        "resolved_playlist_context": resolved or {
+            "type": "unknown_or_not_supplied",
+            "reading": "No trusted playlist context was resolved; do not infer one from poetic naming alone.",
+        },
+        "context_notes": [note for note in context_notes if str(note).strip()],
+        "disambiguation_rule": "First classify playlist/context as private naming, style cluster, label entry, single-work research, material type, test set, memory anchor, or unknown before writing criticism.",
+    }
+
+
+def build_critical_axes(stats: dict[str, Any], profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "axis": "structure -> body",
+            "question": "Which pressures, releases, widths, and distances become bodily sensations?",
+            "evidence_handles": ["pressure", "near_far", "width/spread", "motion"],
+        },
+        {
+            "axis": "structure -> image/scene",
+            "question": "What room, light, weather, road, face, or medium image can be responsibly opened by the evidence?",
+            "evidence_handles": ["width/spread", "high_low", "envelopment", "context_notes"],
+        },
+        {
+            "axis": "structure -> memory/version",
+            "question": "Is there a user-supplied comment, playlist, version, or medium memory that changes the listening frame?",
+            "evidence_handles": ["playlist_context", "context_notes", "medium/version notes"],
+        },
+        {
+            "axis": "structure -> criticism",
+            "question": "Where does the piece work, where is it limited, and what tradeoff does it make?",
+            "evidence_handles": ["macro_movements", "object relations", "missing_or_weak_layers"],
+        },
+    ]
+
+
 def claim(layer: str, claim_level: str, support: float, statement: str, evidence: str, not_proven: list[str]) -> dict[str, Any]:
     return {
         "layer": layer,
@@ -405,15 +800,27 @@ def find_missing_or_weak_layers(segment_packets: list[dict[str, Any]]) -> list[s
     return sorted(missing)
 
 
-def render_prompt_input(evidence_pack: dict[str, Any], prompt_protocol: str | None, structural_summary: str | None, max_segments: int) -> str:
+def render_prompt_input(
+    evidence_pack: dict[str, Any],
+    critical_brief: dict[str, Any],
+    prompt_protocol: str | None,
+    structural_summary: str | None,
+    max_segments: int,
+) -> str:
     lines = [
-        "# MSSL Original-Song Listening Experience Prompt Input",
+        "# MSSL Original-Song Close-Listening Prompt Input",
         "",
         "Status: technical prompt input. Prefer `online_ai_listening_handoff.md` for copy/paste into an online AI account.",
         "",
         "## Prompt protocol",
         "",
-        prompt_protocol.strip() if prompt_protocol else "Write an evidence-bounded listening analysis from the pack below.",
+        prompt_protocol.strip() if prompt_protocol else "Write evidence-bounded close-listening criticism from the brief and pack below.",
+        "",
+        "## Critical listening brief",
+        "",
+        "```json",
+        json.dumps(critical_brief, ensure_ascii=False, indent=2),
+        "```",
         "",
         "## Evidence pack",
         "",
@@ -426,7 +833,12 @@ def render_prompt_input(evidence_pack: dict[str, Any], prompt_protocol: str | No
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_online_ai_handoff(evidence_pack: dict[str, Any], structural_summary: str | None, max_segments: int) -> str:
+def render_online_ai_handoff(
+    evidence_pack: dict[str, Any],
+    critical_brief: dict[str, Any],
+    structural_summary: str | None,
+    max_segments: int,
+) -> str:
     overview = {
         "song_context": evidence_pack.get("global_context"),
         "available_layers": evidence_pack.get("available_layers"),
@@ -437,19 +849,33 @@ def render_online_ai_handoff(evidence_pack: dict[str, Any], structural_summary: 
     segment_evidence = evidence_pack.get("segment_evidence", [])[:max_segments]
     lines: list[str] = []
     lines.extend([
-        "# Online AI Handoff: MSSL Song Listening Analysis",
+        "# Online AI Handoff: MSSL Close-Listening Criticism",
         "",
-        "请你根据下面的 MSSL 数据，生成一份人能看懂的歌曲听感分析报告。",
+        "请你根据下面的 MSSL 数据，生成一份中文为主的 close-listening 乐评 / 听觉细读。",
         "",
-        "你没有收到音频文件；下面的数据是音频经过 MSSL 转换后的听觉空间、对象、段落和关系证据。请把这些证据转成人话听感分析。",
+        "你没有收到音频文件；下面的数据是音频经过 MSSL 转换后的听觉空间、对象、段落、关系证据，以及一份 critical listening brief。",
         "",
-        "可以写：空间感、层次、节奏推动、旋律线条、声源/乐器家族倾向、人声样对象、风格行为、情绪倾向。",
+        "核心修正：音乐不是与世隔绝的空间听觉。MSSL 是声学/空间结构底座，不是最终听感。人类听感报告最终要问：这首歌打开了什么？",
         "",
-        "注意边界：情绪词、乐器词、流派词可以出现，但要写成由证据支持的听感判断，不要写成绝对真值。不要评分，不要营销文案，不要歌词解读，不要假装你听到了原始音频。",
+        "可以进入：身体反应、图像/场景、记忆/时间戳、介质/版本、歌单语境、社会语境。但这些只能作为有边界的听感入口，不能写成未经证实的事实。",
         "",
         "## 你需要输出",
         "",
-        "一份中文为主的歌曲听感分析报告。不要套固定模板。优先写整体听感，再写明显的段落变化和关键对象。证据不足的地方要说明不确定。",
+        "一份有判断的中文听觉细读。不要逐段复述机器字段，不要套固定模板。先提出一个可争论的核心听感判断，再用 3–5 个听感运动、关键对象和上下文入口来支撑。",
+        "",
+        "可以写：空间感、层次、节奏推动、旋律线条、声源/乐器家族倾向、人声/flow 样对象、风格行为、情绪倾向、身体感、图像感、记忆触发、介质/版本语境。",
+        "",
+        "注意边界：情绪词、乐器词、流派词、记忆词可以出现，但要写成由证据或用户上下文支持的听感判断，不要写成绝对真值。不要评分，不要营销文案，不要歌词解读，不要假装你听到了原始音频。",
+        "",
+        "私人评论 / 网易云评论如果出现，先看时间戳和语境。它们常常是私人记忆时间戳，不是当下危机信号。",
+        "",
+        "歌单名如果出现，先判断它是私人命名、流派/风格簇、厂牌入口、单曲研究、材料类型、测试集还是记忆锚点；不要直接诗化。",
+        "",
+        "## Critical listening brief",
+        "",
+        "```json",
+        json.dumps(critical_brief, ensure_ascii=False, indent=2),
+        "```",
         "",
         "## MSSL overview",
         "",
@@ -473,7 +899,7 @@ def render_online_ai_handoff(evidence_pack: dict[str, Any], structural_summary: 
     lines.extend([
         "## Final reminder for the AI",
         "",
-        "请把上面的机器证据翻译成可读的听感报告。可以使用情绪、乐器家族、风格行为词，但必须保留不确定性和证据边界。",
+        "请写 close-listening criticism，不是技术说明书。证据是地基，critical brief 是压缩层，最终文本要回答：这首歌打开了什么？",
     ])
     return "\n".join(lines).rstrip() + "\n"
 
@@ -528,6 +954,24 @@ def first_nonempty(*values: Any) -> Any:
         if value not in (None, "", [], {}):
             return value
     return None
+
+
+def avg(items: list[dict[str, Any]], key: str) -> float:
+    values = [to_float(item.get(key)) for item in items if item.get(key) is not None]
+    return sum(values) / len(values) if values else 0.0
+
+
+def most_common_terms(terms: Any) -> list[dict[str, Any]]:
+    counts: dict[str, int] = {}
+    for raw in terms:
+        term = str(raw).strip()
+        if not term:
+            continue
+        counts[term] = counts.get(term, 0) + 1
+    return [
+        {"term": term, "count": count}
+        for term, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:8]
+    ]
 
 
 if __name__ == "__main__":
