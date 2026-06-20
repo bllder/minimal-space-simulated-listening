@@ -74,9 +74,10 @@ Allowed core language:
 - structural summary
 - listening-experience evidence pack
 - critical listening brief
+- aesthetic context handoff
 - bounded close-listening criticism
 
-The listening-experience layer may use human listening language only when it is a bounded rendering of evidence, adapter output, user-supplied context, or explicit backend reasoning.
+The listening-experience layer may use human listening language only when it is a bounded rendering of evidence, adapter output, user-supplied context, external context, or explicit backend reasoning.
 
 ---
 
@@ -91,13 +92,42 @@ local PCM WAV
 -> object / relation / scene evidence
 -> listening-experience evidence pack
 -> critical_listening_brief.json
+-> aesthetic context handoff section when context is provided
 -> online AI handoff
 -> bounded human-readable close-listening criticism
 ```
 
-The repository prepares evidence and handoff material. It does not claim that the local script has personally heard the song, and it does not turn genre-like, emotion-like, source-family, memory, or playlist-context language into truth labels.
+The repository prepares evidence and handoff material. It does not claim that the local script has personally heard the song, and it does not turn genre-like, emotion-like, source-family, memory, comment, or playlist-context language into truth labels.
 
 Final prose may be generated only by a clearly enabled LLM/backend stage or by pasting `online_ai_listening_handoff.md` into an online AI account.
+
+---
+
+## Aesthetic Context Boundary
+
+MSSL must not try to make human listening language emerge from denser internal structure.
+
+The human-facing layer may start from:
+
+- user aesthetic seed files
+- playlist names and playlist type
+- user notes, comments, or memory anchors
+- platform comments with timestamp/context boundaries
+- lyrics or lyric alignment when available
+- reviews, metadata, label/version context
+- MIR or external adapter notes
+
+MSSL then constrains the interpretation.
+
+Do not poetically interpret playlist names before classification. First classify the context as private naming, style cluster, label entry, single-work research, test/probe set, memory anchor, external metadata, or unknown.
+
+Examples:
+
+```text
+神圣骨头 = Sacred Bones Records label entry
+Starless = King Crimson "Starless" version/material research
+Test.py / Math AI = test/probe set
+```
 
 ---
 
@@ -129,6 +159,7 @@ Generated summaries and Markdown outputs must clearly distinguish:
 - structural understanding
 - readable structural rendering
 - critical listening brief
+- aesthetic context handoff
 - bounded close-listening criticism
 - human calibration
 - comment-data analysis
