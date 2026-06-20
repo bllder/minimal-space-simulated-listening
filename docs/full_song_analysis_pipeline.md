@@ -1,15 +1,15 @@
-# Full Song Analysis Pipeline
+# Full Song Structural Pipeline
 
 Project: **Minimal Space for Simulated Listening**  
 Codename: **Groove Ear / 给 AI 耳朵**  
 Script: `scripts/run_full_song_analysis.py`  
-Status: full-song runtime v1
+Status: structural front half of the current experience pipeline
 
 ---
 
 ## 1. Purpose
 
-This document defines how MSSL moves from the earlier 5-10 second validation clip into a local full-song run.
+This document defines how MSSL moves from the earlier 5-10 second validation clip into a local full-song structural run.
 
 Target use:
 
@@ -22,10 +22,20 @@ Output:
   per-segment audio evidence
   per-segment O/M/E spatial dynamics
   per-segment auditory object candidates
-  per-segment listening report notes
+  structural inspection material for downstream handoff
 ```
 
-This is not a return to conventional music information retrieval. The script keeps common audio terms, but the report center is still receiver-side spatial listening.
+This is not a return to conventional music information retrieval. The script keeps common audio terms as evidence, but the project ontology remains receiver-side simulated listening.
+
+The final human-facing close-listening text is not produced here. It is produced only after:
+
+```text
+full_song_profile.json
+-> listening_experience_evidence_pack.json
+-> critical_listening_brief.json
+-> online_ai_listening_handoff.md
+-> bounded LLM close-listening criticism
+```
 
 ---
 
@@ -36,7 +46,7 @@ The old validation path used one-second and sub-second windows to inspect whethe
 Full-song analysis uses:
 
 ```text
-structural segment = main report unit
+structural segment = main evidence unit
 frame evidence = internal support layer
 beat / bar grid = rhythm reference layer
 ```
@@ -57,14 +67,15 @@ A one-second block may still be useful for debugging, but it must not become the
 7. Translate segment evidence into O/M/E proxies
 8. Build auditory object candidates
 9. Track relative spatial change from segment to segment
-10. Write JSON profile and Markdown listening report
+10. Write JSON structural profile
+11. Downstream experience pipeline builds evidence pack, critical brief, and online-AI handoff
 ```
 
 ---
 
 ## 4. Audio evidence retained
 
-The full-song script keeps common audio information because the user needs general song analysis as well as MSSL listening-space analysis.
+The full-song script keeps common audio information because the user needs general song structure evidence as well as MSSL listening-space evidence.
 
 Current evidence fields include:
 
@@ -120,13 +131,13 @@ E-space:
   envelopment
 ```
 
-The segment also records `relative_to_previous_segment`, so the report can describe motion across the song rather than freezing each segment as an isolated picture.
+The segment also records `relative_to_previous_segment`, so downstream layers can describe motion across the song rather than freezing each segment as an isolated picture.
 
 ---
 
 ## 6. Object candidates
 
-The first full-song script uses broad object candidates:
+The full-song structural profiler uses broad object candidates:
 
 ```text
 object_01_near_rhythmic_pulse
@@ -139,6 +150,8 @@ object_05_noise_or_texture_mass
 These are not confirmed instruments.
 
 They are listening-space hypotheses supported by audio evidence.
+
+The next mainline extension should turn these labels into bounded object behavior / personality signals before the critical brief reads them.
 
 ---
 
@@ -172,7 +185,7 @@ The system knows the genre.
 
 ## 8. Local command
 
-Run from the project root. The audio input may be anywhere on the local machine.
+Normal users should start from `scripts/run_mssl.py`. Use `run_full_song_analysis.py` directly only for structural profiling.
 
 Windows example:
 
@@ -198,12 +211,13 @@ macOS / Linux optional segment tuning:
 ./.venv/bin/python scripts/run_full_song_analysis.py --input "path/to/local_audio.wav" --output-dir outputs --min-segment-seconds 8 --max-segment-seconds 45
 ```
 
-Outputs:
+Primary output:
 
 ```text
-outputs/<song>_full_song_profile.json
-outputs/<song>_full_song_report.md
+outputs/<song>/<song>_full_song_profile.json
 ```
+
+If Markdown inspection material is produced or retained by a wrapper, it is local structural inspection only, not final listening criticism.
 
 ---
 
@@ -220,3 +234,11 @@ optional stem evidence
 ```
 
 They must not replace the MSSL object model.
+
+Mainline next step:
+
+```text
+object candidates
+-> object personality / behavior layer
+-> critical listening brief
+```
