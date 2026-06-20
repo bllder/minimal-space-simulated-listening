@@ -7,7 +7,6 @@ WAV
 -> full_song_profile.json
 -> listening_experience_evidence_pack.json
 -> critical_listening_brief.json
--> object_personality_layer.json
 -> online_ai_listening_handoff.md
 
 The handoff Markdown can be pasted or uploaded to an online AI account instead
@@ -59,6 +58,11 @@ def parse_args() -> argparse.Namespace:
         help="Keep the temporary full-song Markdown as *_full_song_structural_inspection.md. It is not final criticism.",
     )
     parser.add_argument(
+        "--experimental-object-personality",
+        action="store_true",
+        help="Also build experimental object_personality_layer.json. Not part of the default listening handoff path.",
+    )
+    parser.add_argument(
         "--llm-command",
         default=None,
         help=(
@@ -106,16 +110,17 @@ def main() -> None:
     handoff_path = output_dir / DEFAULT_HANDOFF_NAME
     prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
 
-    run_object_personality_builder(
-        script_dir=script_dir,
-        evidence_pack_path=evidence_pack_path,
-        critical_brief_path=critical_brief_path,
-        object_personality_path=object_personality_path,
-        handoff_path=handoff_path,
-        prompt_input_path=prompt_input_path,
-    )
+    if args.experimental_object_personality:
+        run_object_personality_builder(
+            script_dir=script_dir,
+            evidence_pack_path=evidence_pack_path,
+            critical_brief_path=critical_brief_path,
+            object_personality_path=object_personality_path,
+            handoff_path=handoff_path,
+            prompt_input_path=prompt_input_path,
+        )
+        print(f"Prepared experimental object personality layer: {object_personality_path}")
 
-    print(f"Prepared object personality layer: {object_personality_path}")
     print(f"Prepared online AI handoff: {handoff_path}")
     print("Use this Markdown as the text/file to give to an online AI account instead of uploading audio.")
 
