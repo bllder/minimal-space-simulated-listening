@@ -3,13 +3,17 @@
 
 Default local path for users without a local LLM/API:
 
-WAV -> full_song_profile.json -> listening_experience_evidence_pack.json -> online_ai_listening_handoff.md
+WAV
+-> full_song_profile.json
+-> listening_experience_evidence_pack.json
+-> critical_listening_brief.json
+-> online_ai_listening_handoff.md
 
 The handoff Markdown can be pasted or uploaded to an online AI account instead
 of sending the audio file.
 
-If --llm-command is provided, the pipeline can also pipe the technical prompt
-input to that command and write a local final report.
+If --llm-command is provided, the pipeline can pipe the prompt input to that
+command and write bounded close-listening criticism locally.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ from pathlib import Path
 
 
 DEFAULT_MAX_PROMPT_SEGMENTS = 24
-DEFAULT_REPORT_NAME = "original_song_listening_experience_report.md"
+DEFAULT_CRITICISM_NAME = "original_song_close_listening_criticism.md"
 DEFAULT_PROMPT_INPUT_NAME = "original_song_listening_prompt_input.md"
 DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
 
@@ -40,20 +44,31 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--analysis-label", default=None)
     parser.add_argument("--max-prompt-segments", type=int, default=DEFAULT_MAX_PROMPT_SEGMENTS)
     parser.add_argument("--structural-summary", default=None)
-    parser.add_argument("--translation-prompt", default="docs/original_song_listening_experience_prompt.md")
-    parser.add_argument("--keep-structural-md", action="store_true")
+    parser.add_argument(
+        "--translation-prompt",
+        default="docs/original_song_listening_experience_prompt.md",
+        help="Prompt protocol used for the online-AI handoff. Kept as a compatibility flag name.",
+    )
+    parser.add_argument(
+        "--keep-structural-md",
+        action="store_true",
+        help="Keep the temporary full-song Markdown as *_full_song_structural_inspection.md. It is not final criticism.",
+    )
     parser.add_argument(
         "--llm-command",
         default=None,
         help=(
-            "Optional command that reads the generated prompt input from stdin and writes the final report to stdout. "
+            "Optional command that reads the generated prompt input from stdin and writes bounded close-listening criticism to stdout. "
             "Most users can ignore this and use online_ai_listening_handoff.md with an online AI account."
         ),
     )
     parser.add_argument(
         "--report-output",
-        default=DEFAULT_REPORT_NAME,
-        help=f"Final report filename when --llm-command is provided. Default: {DEFAULT_REPORT_NAME}.",
+        default=DEFAULT_CRITICISM_NAME,
+        help=(
+            "Compatibility flag for the local criticism filename when --llm-command is provided. "
+            f"Default: {DEFAULT_CRITICISM_NAME}."
+        ),
     )
     return parser.parse_args()
 
@@ -72,9 +87,8 @@ def main() -> None:
         input_path = Path(args.input)
         if not input_path.exists():
             raise FileNotFoundError(f"WAV file not found: {input_path}")
-        output_dir, profile_path, structural_md = run_full_song(script_dir, args, input_path)
-        if structural_md.exists() and not args.keep_structural_md:
-            structural_md.unlink()
+        output_dir, profile_path, legacy_md, structural_inspection_md = run_full_song(script_dir, args, input_path)
+        normalize_structural_markdown(legacy_md, structural_inspection_md, args.keep_structural_md)
 
     prompt_path = Path(args.translation_prompt)
     if not prompt_path.is_absolute():
@@ -88,9 +102,9 @@ def main() -> None:
     print("Use this Markdown as the text/file to give to an online AI account instead of uploading audio.")
 
     if args.llm_command:
-        report_path = output_dir / args.report_output
-        run_llm_report(args.llm_command, prompt_input_path, report_path)
-        print(f"Wrote {report_path}")
+        criticism_path = output_dir / args.report_output
+        run_llm_criticism(args.llm_command, prompt_input_path, criticism_path)
+        print(f"Wrote {criticism_path}")
 
 
 def run_prompt_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path, prompt_path: Path) -> None:
@@ -111,7 +125,7 @@ def run_prompt_builder(script_dir: Path, args: argparse.Namespace, profile_path:
     subprocess.run(cmd, check=True)
 
 
-def run_llm_report(llm_command: str, prompt_input_path: Path, report_path: Path) -> None:
+def run_llm_criticism(llm_command: str, prompt_input_path: Path, criticism_path: Path) -> None:
     if not prompt_input_path.exists():
         raise FileNotFoundError(f"Prompt input not found: {prompt_input_path}")
     prompt_text = prompt_input_path.read_text(encoding="utf-8-sig")
@@ -128,13 +142,13 @@ def run_llm_report(llm_command: str, prompt_input_path: Path, report_path: Path)
     )
     if completed.returncode != 0:
         raise RuntimeError(f"LLM command failed with exit code {completed.returncode}: {completed.stderr.strip()}")
-    report_text = completed.stdout.strip()
-    if not report_text:
+    criticism_text = completed.stdout.strip()
+    if not criticism_text:
         raise RuntimeError("LLM command returned empty output")
-    report_path.write_text(report_text + "\n", encoding="utf-8")
+    criticism_path.write_text(criticism_text + "\n", encoding="utf-8")
 
 
-def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) -> tuple[Path, Path, Path]:
+def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) -> tuple[Path, Path, Path, Path]:
     output_base = Path(args.output_dir)
     safe_stem = safe_filename(input_path.stem)
     folder_source = args.output_folder_name or args.analysis_label or input_path.stem
@@ -152,10 +166,22 @@ def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) 
     subprocess.run(cmd, check=True)
 
     profile_path = output_dir / f"{safe_stem}_full_song_profile.json"
-    structural_md = output_dir / f"{safe_stem}_full_song_report.md"
+    legacy_md = output_dir / f"{safe_stem}_full_song_report.md"
+    structural_inspection_md = output_dir / f"{safe_stem}_full_song_structural_inspection.md"
     if not profile_path.exists():
         raise FileNotFoundError(f"Expected full-song profile not found: {profile_path}")
-    return output_dir, profile_path, structural_md
+    return output_dir, profile_path, legacy_md, structural_inspection_md
+
+
+def normalize_structural_markdown(legacy_md: Path, structural_inspection_md: Path, keep: bool) -> None:
+    if not legacy_md.exists():
+        return
+    if keep:
+        if structural_inspection_md.exists():
+            structural_inspection_md.unlink()
+        legacy_md.replace(structural_inspection_md)
+        return
+    legacy_md.unlink()
 
 
 def safe_filename(value: str) -> str:
