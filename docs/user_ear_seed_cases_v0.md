@@ -1,7 +1,7 @@
 # User-Ear Seed Cases v0
 
 Status: human-calibration notes for MSSL listening-language work.  
-Scope: song-first listening cases, comment-alignment examples, and transfer guards.  
+Scope: song-first listening cases, comment-alignment examples, transfer guards, and reuse protocol.  
 Non-scope: this is not a label schema, not a universal taxonomy, not a final listening report, and not raw comment storage.
 
 ## Why this document exists
@@ -31,7 +31,7 @@ The original comments are intentionally not stored. They may contain private mem
 - Do not use a seed case as a report template for future songs.
 - Do not treat comments as song truth.
 - Do not store raw comment text in this repository.
-- Do not treat meme, memory, or emotion as automatically useful or automatically useless.
+- Do not treat lyrics, professional reviews, memes, memory, or emotion as automatically useful or automatically useless.
 - A useful comment does not have to reconstruct sound directly. It must reconstruct a listening field.
 - Every future song must receive its own song-first profile before comment alignment is judged.
 
@@ -47,6 +47,41 @@ Failure: does it detach into platform behavior, fandom, generic emotion, private
 ```
 
 This is an audit mechanism, not a generator.
+
+## Reuse protocol: search + MSSL + MIR + human listening language
+
+When this document is reused for a new song, do not start from one of the six cases. Start from the new song.
+
+Use the seed cases as a method for assembling evidence:
+
+```text
+1. Song-first listening profile
+2. Lyric axis
+3. Music / arrangement axis
+4. Public / professional-review-derived axis
+5. Comment-to-song alignment
+6. Transfer guard
+7. Human listening-language synthesis
+```
+
+The evidence bundle may include:
+
+- MSSL machine-listening packets and numeric / structural reports: object candidates, spatial movement, pressure, density, width, masking, persistence, and critical listening brief.
+- Relevant professional audio-analysis dimensions: melody, harmony, rhythm / meter, tempo, vocal performance, arrangement, instrumentation family, timbre, dynamics, stereo space, production / mixing, section motion, and source relationships.
+- Search results: lyrics, professional reviews, interviews, public reception, platform comments, and cultural context. These must be paraphrased or summarized; do not store long raw lyrics or raw reviews.
+- MIR / tag-library evidence: genre or style tags, mood / activity tags, tempo, key, chord or harmonic cues, structure / section cues, source-separation hints, melody or pitch-contour hints, and similarity cues. Treat these as weak evidence, not truth.
+
+The final human-facing listening analysis should combine these inputs, but it must not become a mechanical evidence dump. This document is used to prevent overfitting and misalignment:
+
+```text
+MSSL structural evidence tells what the machine heard.
+Audio-analysis dimensions tell which musical parameters may matter.
+Search and reviews tell how the song has been named, heard, and contextualized.
+MIR tags provide weak external priors.
+User-ear seed cases provide the method: hear the song first, then test whether language connects back to it.
+```
+
+Do not copy the six seed-song answers into future reports. Copy only the diagnostic habit.
 
 ---
 
@@ -383,7 +418,9 @@ Is the meme merely noise, or has it become part of the song's public listening b
 - As a light audit guide for LLM listening reports.
 - As a human-calibration seed set for comment-to-song alignment.
 - As an example of song-first analysis before comment use.
-- As a warning against treating lyrics, comments, or public memes as song truth.
+- As a reminder that future runs may use search to gather lyrics, professional reviews, public reception, and comments before report-language synthesis.
+- As a bridge between MSSL machine-listening reports, audio-analysis dimensions, MIR / tag-library evidence, and human listening language.
+- As a warning against treating lyrics, comments, public reviews, or memes as song truth.
 - As a guide for deciding whether a comment is useful context, weak context, or noise.
 
 ## How MSSL must not use this document
@@ -394,12 +431,14 @@ Is the meme merely noise, or has it become part of the song's public listening b
 - Do not assume future dance songs should resemble `你要跳舞吗`.
 - Do not assume future popular meme songs should resemble `最炫民族风`.
 - Do not use user-ear notes as universal truth.
-- Do not store or reproduce raw source comments.
+- Do not store or reproduce raw source comments, long lyrics, or long professional reviews.
+- Do not treat MIR tags, professional reviews, or search results as stronger than song-first listening evidence.
 
 ## Minimal rule
 
 ```text
 Each song must first be heard as itself.
 A comment is useful only when it reconnects to that song's own listening field.
+Search can supply lyric / review / context leads, but the report must synthesize them through MSSL evidence and song-first listening.
 The transferable unit is the diagnostic question, not the seed case answer.
 ```
