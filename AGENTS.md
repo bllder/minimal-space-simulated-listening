@@ -13,10 +13,11 @@ The current formal project name is:
 The current project source of truth is:
 
 1. `README.md`
-2. files in this new repository
-3. legacy materials only when explicitly referenced through `references/legacy_index.md`
+2. `AGENTS.md`
+3. current files in this repository
+4. legacy materials only when explicitly referenced through `references/legacy_index.md`
 
-If any legacy material conflicts with `README.md`, `README.md` wins.
+If any legacy material conflicts with `README.md` or `AGENTS.md`, the current repository files win.
 
 ---
 
@@ -37,18 +38,26 @@ For every task, follow this order:
 
 ---
 
+## Branch / Mainline Rule
+
+Work on `main` unless the user explicitly says to create a branch.
+
+Do not create branches, PRs, or parallel worktrees by default. Keep changes small and commit them directly to the mainline.
+
+---
+
 ## MSSL Core Boundary
 
-This project builds structural understanding for simulated listening.
+This project builds a traceable simulation path from audio evidence to bounded human-readable listening language.
 
-It must not be silently converted into:
+MSSL must not silently become:
 
-- a music review generator
+- an unbounded music review generator
 - a fixed listening-report renderer
 - a genre classifier
 - an emotion classifier
 - a taste or recommendation system
-- a singer or instrument identity system
+- a singer or exact instrument identity system
 - a lyrics / ASR / semantic song-meaning system
 - a scraped comment analysis system
 - a music generation system
@@ -63,21 +72,53 @@ Allowed core language:
 - temporal-spatial object tracking
 - scene relation
 - structural summary
-- sustained layer
-- transient event
-- texture mass
-- pressure body
-- receiver spread field
-- rhythmic anchor
-- dominant / supporting / weak
-- persistent / recurring / local / background
-- relation / containment / co-presence / support
+- listening-experience evidence pack
+- critical listening brief
+- bounded close-listening criticism
 
-Readable language is allowed only when it is a bounded rendering of packet evidence.
+The listening-experience layer may use human listening language only when it is a bounded rendering of evidence, adapter output, user-supplied context, or explicit backend reasoning.
 
-Do not add free-form listening-report language, fixed listening-report renderers, or report outputs inside the default repository pipeline.
+---
 
-Only when explicitly requested, `docs/listening_translation_prompt.md` may be used as a manual external LLM translation layer. That layer translates existing MSSL evidence; it is not a default renderer and must not write final reports into the repository unless separately requested.
+## Current Runtime Boundary
+
+Current normal path:
+
+```text
+local PCM WAV
+-> structural audio evidence
+-> O/M/E listening-space simulation
+-> object / relation / scene evidence
+-> listening-experience evidence pack
+-> critical_listening_brief.json
+-> online AI handoff
+-> bounded human-readable close-listening criticism
+```
+
+The repository prepares evidence and handoff material. It does not claim that the local script has personally heard the song, and it does not turn genre-like, emotion-like, source-family, memory, or playlist-context language into truth labels.
+
+Final prose may be generated only by a clearly enabled LLM/backend stage or by pasting `online_ai_listening_handoff.md` into an online AI account.
+
+---
+
+## Cross-Modal Listening Boundary
+
+Music is not treated as an isolated spatial-auditory object.
+
+MSSL may support explicit interfaces into:
+
+- body response: pressure, looseness, heaviness, floating, wakefulness, numbness, being held, being pushed away
+- image / scene: color, light, room, weather, road, face, medium image
+- memory / timestamp: platform comments, private notes, version memory, medium memory
+- playlist / context: private naming, style cluster, label entry, single-work research, material type, test set, or memory anchor
+
+These interfaces are not free invention. They must be bounded by evidence or user-supplied context.
+
+NetEase / platform comments and private comments are often timestamped memory material. Do not treat them as present-tense crisis signals without timestamp and context.
+
+Playlist names must be disambiguated before interpretation. Do not poeticize every playlist name by default.
+
+Do not use emergence language to hand-wave missing mechanisms. Add explicit interfaces instead.
 
 ---
 
@@ -87,29 +128,14 @@ Generated summaries and Markdown outputs must clearly distinguish:
 
 - structural understanding
 - readable structural rendering
-- listening report
+- critical listening brief
+- bounded close-listening criticism
 - human calibration
 - comment-data analysis
 
-Default project outputs must remain structural-only.
+Any major natural-language claim should be traceable to packet evidence or a clearly marked context source.
 
-The default pipeline must STOP before listening-report generation. Optional listening translation lives only as a manually enabled external LLM prompt protocol, not as an automatic pipeline / smoke / full-song runner step.
-
-If a task adds a human-readable structural renderer, it must state:
-
-```text
-Status: structural summary only. This is not a listening report.
-```
-
-Any major natural-language claim should be traceable to packet evidence such as:
-
-- `audio_evidence_packet.json`
-- `ome_mapping_packet.json`
-- `object_candidate_packet.json`
-- `auditory_hypothesis_packet.json`
-- `object_track_packet.json`
-- `auditory_scene_graph_packet.json`
-- `music_understanding_summary.json`
+Default generated outputs remain local artifacts unless a future task explicitly promotes a curated example.
 
 ---
 
@@ -207,8 +233,6 @@ Work only inside the current new project repository.
 
 Prefer small, clean changes.
 
-Do not create extra files unless necessary.
-
 Do not add broad documentation, raw debug artifacts, temporary reports, or sprawling intermediate outputs unless explicitly requested.
 
 The new project should stay minimal, readable, and structurally clean.
@@ -218,63 +242,3 @@ The new project should stay minimal, readable, and structurally clean.
 ## Python Environment Rules
 
 This project should be runnable from any cloned project folder.
-
-Create the virtual environment inside the project root:
-
-```text
-<project-root>/.venv
-```
-
-On Windows, prefer:
-
-```powershell
-.\.venv\Scripts\python.exe
-```
-
-On macOS / Linux, prefer:
-
-```bash
-./.venv/bin/python
-```
-
-Do not use:
-
-- bundled Python
-- an unrelated global Python
-- global `pip`
-
-Use the venv Python for tests and checks.
-
-Windows examples:
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest
-.\.venv\Scripts\python.exe -m compileall scripts
-```
-
-macOS / Linux examples:
-
-```bash
-./.venv/bin/python -m pytest
-./.venv/bin/python -m compileall scripts
-```
-
-If Windows sandbox reports:
-
-`CryptUnprotectData failed: 2148073483`
-
-Do not treat it as a broken `.venv`.
-Report it as a Codex Windows sandbox issue, request user authorization, and continue only after authorization.
-
----
-
-## Before Editing
-
-Before making changes, state briefly:
-
-1. which current files will be edited
-2. whether `references/legacy_index.md` will be used
-3. whether a local legacy archive will be inspected
-4. what legacy material will not be imported
-
-Then proceed with the smallest useful change.
