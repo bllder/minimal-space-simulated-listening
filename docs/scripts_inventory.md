@@ -16,13 +16,14 @@ Default mode:
 experience
 ```
 
-It runs the complete current project path for users without a local LLM or API:
+It runs the current project path for users without a local LLM or API:
 
 ```text
 WAV
 -> structural profile
 -> listening-experience evidence pack
--> technical prompt input
+-> critical listening brief
+-> optional aesthetic context handoff section
 -> online AI handoff Markdown
 ```
 
@@ -32,7 +33,7 @@ The main human-facing local artifact is:
 online_ai_listening_handoff.md
 ```
 
-Copy or upload that file to an online AI account to generate the final song listening analysis.
+Copy or upload that file to an online AI account to generate bounded close-listening criticism.
 
 ## Active scripts
 
@@ -48,13 +49,19 @@ Single human entry point. Use this for normal work.
 scripts/run_listening_experience_pipeline.py
 ```
 
-Continuation pipeline. It connects full-song structural analysis to listening-experience handoff generation. It can also call an external LLM command when configured, but that is not required for the default online-AI workflow.
+Continuation pipeline. It connects full-song structural analysis, listening-experience handoff generation, and optional aesthetic/external context injection. It can also call an external LLM command when configured.
 
 ```text
 scripts/build_listening_experience_prompt.py
 ```
 
-Builds the evidence pack, technical prompt input, and online-AI handoff file for the language simulation layer.
+Builds the evidence pack, critical brief, technical prompt input, and online-AI handoff file for the language simulation layer.
+
+```text
+scripts/build_aesthetic_context_handoff.py
+```
+
+Injects user aesthetic seed files, playlist context, user notes, lyrics, comments, reviews, MIR notes, or metadata into the handoff Markdown. This is the current route for opening MSSL toward human listening language.
 
 ```text
 scripts/run_full_song_analysis.py
@@ -73,6 +80,16 @@ scripts/run_minimal_pipeline_smoke.py
 ```
 
 Engineering smoke runner for packet-chain validation.
+
+## Experimental scripts
+
+Useful only when explicitly requested.
+
+```text
+scripts/build_object_personality_layer.py
+```
+
+Experimental object-behavior layer. It is not part of the default listening handoff path. Run only with `--experimental-object-personality`.
 
 ## Support-stage scripts
 
