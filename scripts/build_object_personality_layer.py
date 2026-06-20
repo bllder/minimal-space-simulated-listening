@@ -37,16 +37,21 @@ def main() -> None:
     evidence_pack = read_json(evidence_path)
     critical_brief = read_json(brief_path)
     layer = build_object_personality_layer(evidence_pack, critical_brief)
+    upgraded_brief = attach_object_personality_to_brief(critical_brief, layer)
+
     output_path.write_text(json.dumps(layer, ensure_ascii=False, indent=2), encoding="utf-8")
+    brief_path.write_text(json.dumps(upgraded_brief, ensure_ascii=False, indent=2), encoding="utf-8")
 
     section = render_markdown_section(layer)
     for md_value in (args.handoff_md, args.prompt_input_md):
         if md_value:
             md_path = Path(md_value)
             if md_path.exists():
+                replace_critical_brief_block(md_path, upgraded_brief)
                 upsert_markdown_section(md_path, section)
 
     print(f"Wrote {output_path}")
+    print(f"Updated {brief_path}")
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -77,6 +82,32 @@ def build_object_personality_layer(evidence_pack: dict[str, Any], critical_brief
             "Use as guidance for critical_listening_brief and online AI handoff, not as final criticism.",
         ],
     }
+
+
+def attach_object_personality_to_brief(critical_brief: dict[str, Any], layer: dict[str, Any]) -> dict[str, Any]:
+    upgraded = dict(critical_brief)
+    upgraded["version"] = "mssl_critical_listening_brief_v0_2"
+    upgraded["object_personality_guidance"] = {
+        "role": "Use object behavior to choose what matters before writing criticism.",
+        "global_object_roles": layer.get("global_object_roles", []),
+        "writing_shift": [
+            "Do not only name objects; describe what they do in the listening field.",
+            "Prefer behavior verbs such as presses, expands, recedes, anchors, covers, or stabilizes.",
+            "Use object interactions as criticism material: support, masking, containment, co-presence, pressure.",
+            "Do not convert behavior labels into genre, emotion, singer, or instrument truth.",
+        ],
+    }
+    axes = list_dicts(upgraded.get("critical_axes"))
+    axes.append({
+        "axis": "object -> behavior",
+        "question": "What do the main listening objects do, and how do those behaviors shape the piece?",
+        "evidence_handles": ["object_personality_layer", "field_behavior", "interaction", "motion_style"],
+    })
+    upgraded["critical_axes"] = axes
+    rules = list_strings(upgraded.get("writing_rules"))
+    rules.append("Use object personality as a selection layer: choose the most active behaviors, not every detected object.")
+    upgraded["writing_rules"] = rules
+    return upgraded
 
 
 def segment_personality(segment: dict[str, Any]) -> dict[str, Any]:
@@ -228,6 +259,26 @@ def render_markdown_section(layer: dict[str, Any]) -> str:
         "```",
         END_MARKER,
     ]) + "\n"
+
+
+def replace_critical_brief_block(path: Path, brief: dict[str, Any]) -> None:
+    text = path.read_text(encoding="utf-8-sig")
+    header = "## Critical listening brief"
+    start = text.find(header)
+    if start < 0:
+        path.write_text(text, encoding="utf-8")
+        return
+    fence_start = text.find("```json", start)
+    if fence_start < 0:
+        path.write_text(text, encoding="utf-8")
+        return
+    fence_end = text.find("```", fence_start + len("```json"))
+    if fence_end < 0:
+        path.write_text(text, encoding="utf-8")
+        return
+    new_block = "```json\n" + json.dumps(brief, ensure_ascii=False, indent=2) + "\n```"
+    text = text[:fence_start] + new_block + text[fence_end + 3:]
+    path.write_text(text, encoding="utf-8")
 
 
 def upsert_markdown_section(path: Path, section: str) -> None:
