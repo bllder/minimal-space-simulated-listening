@@ -7,6 +7,7 @@ WAV
 -> full_song_profile.json
 -> listening_experience_evidence_pack.json
 -> critical_listening_brief.json
+-> object_personality_layer.json
 -> online_ai_listening_handoff.md
 
 The handoff Markdown can be pasted or uploaded to an online AI account instead
@@ -26,6 +27,9 @@ from pathlib import Path
 
 
 DEFAULT_MAX_PROMPT_SEGMENTS = 24
+DEFAULT_EVIDENCE_PACK_NAME = "listening_experience_evidence_pack.json"
+DEFAULT_CRITICAL_BRIEF_NAME = "critical_listening_brief.json"
+DEFAULT_OBJECT_PERSONALITY_NAME = "object_personality_layer.json"
 DEFAULT_CRITICISM_NAME = "original_song_close_listening_criticism.md"
 DEFAULT_PROMPT_INPUT_NAME = "original_song_listening_prompt_input.md"
 DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
@@ -96,8 +100,22 @@ def main() -> None:
 
     run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path)
 
+    evidence_pack_path = output_dir / DEFAULT_EVIDENCE_PACK_NAME
+    critical_brief_path = output_dir / DEFAULT_CRITICAL_BRIEF_NAME
+    object_personality_path = output_dir / DEFAULT_OBJECT_PERSONALITY_NAME
     handoff_path = output_dir / DEFAULT_HANDOFF_NAME
     prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
+
+    run_object_personality_builder(
+        script_dir=script_dir,
+        evidence_pack_path=evidence_pack_path,
+        critical_brief_path=critical_brief_path,
+        object_personality_path=object_personality_path,
+        handoff_path=handoff_path,
+        prompt_input_path=prompt_input_path,
+    )
+
+    print(f"Prepared object personality layer: {object_personality_path}")
     print(f"Prepared online AI handoff: {handoff_path}")
     print("Use this Markdown as the text/file to give to an online AI account instead of uploading audio.")
 
@@ -122,6 +140,34 @@ def run_prompt_builder(script_dir: Path, args: argparse.Namespace, profile_path:
     ]
     if args.structural_summary:
         cmd.extend(["--structural-summary", args.structural_summary])
+    subprocess.run(cmd, check=True)
+
+
+def run_object_personality_builder(
+    script_dir: Path,
+    evidence_pack_path: Path,
+    critical_brief_path: Path,
+    object_personality_path: Path,
+    handoff_path: Path,
+    prompt_input_path: Path,
+) -> None:
+    for path in (evidence_pack_path, critical_brief_path, handoff_path, prompt_input_path):
+        if not path.exists():
+            raise FileNotFoundError(f"Required listening-experience artifact not found: {path}")
+    cmd = [
+        sys.executable,
+        str(script_dir / "build_object_personality_layer.py"),
+        "--evidence-pack",
+        str(evidence_pack_path),
+        "--critical-brief",
+        str(critical_brief_path),
+        "--output",
+        str(object_personality_path),
+        "--handoff-md",
+        str(handoff_path),
+        "--prompt-input-md",
+        str(prompt_input_path),
+    ]
     subprocess.run(cmd, check=True)
 
 
