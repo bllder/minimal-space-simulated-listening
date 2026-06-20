@@ -3,10 +3,10 @@
 
 Default behavior runs the complete listening-experience continuation:
 
-WAV -> structural profile -> listening-experience evidence pack -> prompt input
+WAV -> structural profile -> evidence pack -> aesthetic handoff -> prompt input
 
 If --llm-command is provided, the prompt input is also sent to the configured
-LLM command and a final Markdown report is written.
+LLM command and bounded close-listening criticism is written.
 """
 
 from __future__ import annotations
@@ -38,6 +38,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-folder-name", default=None)
     parser.add_argument("--flat-output", action="store_true")
     parser.add_argument("--analysis-label", default=None)
+    parser.add_argument("--playlist-context", default=None)
+    parser.add_argument("--context-note", action="append", default=[])
+    parser.add_argument("--aesthetic-context", action="append", default=[])
+    parser.add_argument("--external-context", action="append", default=[])
+    parser.add_argument("--experimental-object-personality", action="store_true")
     parser.add_argument("--llm-command", default=None)
     parser.add_argument("--report-output", default=None)
     parser.add_argument("--max-prompt-segments", type=int, default=None)
@@ -72,11 +77,17 @@ def run_experience(repo_root: Path, args: argparse.Namespace) -> None:
     if args.profile:
         command.extend(["--profile", args.profile])
     append_common_output_args(command, args)
+    append_optional(command, "--playlist-context", args.playlist_context)
+    append_many(command, "--context-note", args.context_note)
+    append_many(command, "--aesthetic-context", args.aesthetic_context)
+    append_many(command, "--external-context", args.external_context)
     append_optional(command, "--llm-command", args.llm_command)
     append_optional(command, "--report-output", args.report_output)
     append_optional(command, "--max-prompt-segments", args.max_prompt_segments)
     if args.keep_structural_md:
         command.append("--keep-structural-md")
+    if args.experimental_object_personality:
+        command.append("--experimental-object-personality")
     run(command, repo_root)
 
 
@@ -116,6 +127,12 @@ def append_common_output_args(command: list[str], args: argparse.Namespace) -> N
 def append_optional(command: list[str], flag: str, value: object | None) -> None:
     if value not in (None, ""):
         command.extend([flag, str(value)])
+
+
+def append_many(command: list[str], flag: str, values: list[str]) -> None:
+    for value in values:
+        if value:
+            command.extend([flag, value])
 
 
 def run(command: list[str], repo_root: Path) -> None:
