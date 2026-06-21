@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Build uploadable online-AI handoff files for MSSL listening experience.
+"""Build professional audio terminology reports and online-AI handoff files for MSSL.
 
-This script does not read audio, call APIs, or run a local LLM.
+This script does not read audio, call APIs, search the web, or run a local LLM.
 
 It turns an existing *_full_song_profile.json into:
 - listening_experience_evidence_pack.json
@@ -9,9 +9,9 @@ It turns an existing *_full_song_profile.json into:
 - original_song_listening_prompt_input.md
 - online_ai_listening_handoff.md
 
-The main product is online_ai_listening_handoff.md: a standalone Markdown file
-that can be uploaded to a fresh online AI account so it can write a more
-human-language music review without receiving the audio file.
+The core axis is:
+internal machine proxies -> professional audio terminology lookup -> professional audio report ->
+online-AI prompt examples for accessible translation.
 """
 
 from __future__ import annotations
@@ -21,18 +21,197 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_JSON_NAME = "listening_experience_evidence_pack.json"
 DEFAULT_BRIEF_NAME = "critical_listening_brief.json"
 DEFAULT_MD_NAME = "original_song_listening_prompt_input.md"
 DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
 DEFAULT_MAX_SEGMENTS = 24
 DEFAULT_KEY_MOMENTS = 10
+VERSION = "mssl_online_ai_listening_handoff_v0_6_professional_terms"
+BRIEF_VERSION = "mssl_critical_listening_brief_v0_6_professional_terms"
+
+# Machine proxy -> professional audio terminology index.
+# This is intentionally a code-level lookup table, not a free-form prose prompt.
+PROFESSIONAL_TERM_INDEX: dict[str, dict[str, Any]] = {
+    "pressure": {
+        "professional_term": "loudness contour / perceived intensity profile",
+        "cn_term": "响度轮廓 / 感知强度轮廓",
+        "domain": "dynamics",
+        "definition": "How the segment's perceived level and body-pressure tendency behaves over time.",
+        "evidence_basis": "RMS, peak level, and onset-strength proxies from the full mix.",
+        "scale": "reduced / restrained / moderate / pronounced / dominant",
+    },
+    "width": {
+        "professional_term": "apparent source width (ASW)",
+        "cn_term": "感知声源宽度",
+        "domain": "spatial",
+        "definition": "How wide the main sound image appears at the listener side.",
+        "evidence_basis": "Stereo side-energy and inter-channel phase-correlation proxies.",
+        "scale": "narrow / restricted / moderate / broad / very broad",
+    },
+    "spread": {
+        "professional_term": "spaciousness / lateral spread",
+        "cn_term": "空间开阔度 / 横向扩散",
+        "domain": "spatial",
+        "definition": "How much the segment suggests lateral extension beyond a compact center image.",
+        "evidence_basis": "ASW proxy combined with spectral-bandwidth evidence.",
+        "scale": "restricted / limited / moderate / open / expansive",
+    },
+    "envelopment": {
+        "professional_term": "listener envelopment (LEV)",
+        "cn_term": "听者包围感",
+        "domain": "spatial",
+        "definition": "How much the field seems to wrap around or surround the listener.",
+        "evidence_basis": "Combined width and spread proxies from the receiver-side field.",
+        "scale": "absent / weak / moderate / strong / enveloping",
+    },
+    "near_far": {
+        "professional_term": "perceived source distance / presence",
+        "cn_term": "感知声源距离 / 临场度",
+        "domain": "spatial",
+        "definition": "Whether the foreground field reads as distant, mid-field, or close/present.",
+        "evidence_basis": "Pressure, width, and spectral-flatness proxies.",
+        "scale": "recessed / mid-distance / present / close / very close",
+    },
+    "high_low": {
+        "professional_term": "spectral centroid / brightness-weighting",
+        "cn_term": "谱质心 / 明亮度重心",
+        "domain": "timbre",
+        "definition": "Whether spectral weight tends toward low, middle, or upper-frequency brightness.",
+        "evidence_basis": "Mean spectral centroid relative to the track-local reference range.",
+        "scale": "low-weighted / dark / balanced / bright / upper-weighted",
+    },
+    "motion": {
+        "professional_term": "spatiotemporal motion contour",
+        "cn_term": "时空运动轮廓",
+        "domain": "motion",
+        "definition": "How much the segment suggests movement in level, lateral balance, or field activity.",
+        "evidence_basis": "Left-right motion and dynamic-range proxies.",
+        "scale": "static / restrained / moderate / active / highly active",
+    },
+    "rhythm": {
+        "professional_term": "rhythmic articulation / pulse salience",
+        "cn_term": "节奏发音清晰度 / 脉冲显著性",
+        "domain": "rhythm",
+        "definition": "How clearly recurring pulse or rhythmic articulation is supported by the full mix.",
+        "evidence_basis": "Onset strength, percussive proxy, onset density, and pressure support.",
+        "scale": "weak / subtle / moderate / salient / dominant",
+    },
+    "low_body": {
+        "professional_term": "low-frequency foundation / low-end body",
+        "cn_term": "低频基础 / 低频身体感",
+        "domain": "timbre_texture",
+        "definition": "How strongly the low-frequency region grounds or thickens the segment.",
+        "evidence_basis": "Low-band energy, pressure, and spectral-weighting proxies.",
+        "scale": "light / present / grounded / heavy / dominant",
+    },
+    "vocal": {
+        "professional_term": "foreground lead-line candidate / vocal-like contour",
+        "cn_term": "前景主导线候选 / 人声样轮廓",
+        "domain": "texture_layers",
+        "definition": "A foreground line that behaves like a lead/vocal contour without proving singer identity.",
+        "evidence_basis": "Mid-band harmonic continuity, vocal-activity placeholders, and source-family support.",
+        "scale": "unsupported / weak / possible / supported / prominent",
+    },
+    "melody": {
+        "professional_term": "melodic contour proxy",
+        "cn_term": "旋律轮廓代理",
+        "domain": "melody_phrase",
+        "definition": "Whether the segment supplies enough contour evidence for a lead-line or melody-like role.",
+        "evidence_basis": "MIDI-like skeleton fields and contour proxy support.",
+        "scale": "unclear / weak / possible / supported / prominent",
+    },
+}
+
+RELATION_TERM_INDEX: dict[str, dict[str, str]] = {
+    "presses_forward_over": {
+        "professional_term": "rhythmic-forward masking / forward pressure relation",
+        "cn_term": "节奏前推遮蔽 / 前向压力关系",
+        "translation_affordance": "may support accessible writing about pulse pressing into foreground material",
+    },
+    "grounds_or_thickens": {
+        "professional_term": "low-frequency grounding / textural thickening",
+        "cn_term": "低频锚定 / 织体加厚",
+        "translation_affordance": "may support accessible writing about low-end support or weight",
+    },
+    "surrounds_or_widens": {
+        "professional_term": "harmonic spatial widening / lateral support",
+        "cn_term": "和声性空间扩展 / 横向支撑",
+        "translation_affordance": "may support accessible writing about the backing field widening around a foreground line",
+    },
+    "fog_or_texture_masks_edges": {
+        "professional_term": "diffuse texture masking / edge-softening",
+        "cn_term": "弥散织体遮蔽 / 边缘软化",
+        "translation_affordance": "may support accessible writing about blurred edges or softened object boundaries",
+    },
+    "no_strong_relation_detected": {
+        "professional_term": "no dominant inter-object relation detected",
+        "cn_term": "未检测到主导对象关系",
+        "translation_affordance": "use as neutral support rather than a dramatic claim",
+    },
+}
+
+SOURCE_FAMILY_TERM_INDEX: dict[str, dict[str, str]] = {
+    "vocals_or_vocal-like_lead": {
+        "professional_term": "foreground lead-line / vocal-like source-family hypothesis",
+        "cn_term": "前景主导线 / 人声样来源家族假设",
+    },
+    "bass_or_low_end_body": {
+        "professional_term": "low-frequency foundation / bass-region source-family hypothesis",
+        "cn_term": "低频基础 / 贝斯区来源家族假设",
+    },
+    "drums_or_percussive_pulse": {
+        "professional_term": "percussive pulse layer / rhythmic-articulation source-family hypothesis",
+        "cn_term": "打击性脉冲层 / 节奏发音来源家族假设",
+    },
+    "other_harmonic_layer_or_synth_pad": {
+        "professional_term": "harmonic support layer / sustained pad-like source-family hypothesis",
+        "cn_term": "和声支撑层 / 持续铺底样来源家族假设",
+    },
+    "low_harmonic_layer_or_bass_harmony": {
+        "professional_term": "low harmonic support / bass-harmony source-family hypothesis",
+        "cn_term": "低区和声支撑 / 贝斯和声来源家族假设",
+    },
+}
+
+SECTION_TERM_INDEX: dict[str, dict[str, str]] = {
+    "intro_like": {"professional_term": "intro-like field establishment", "cn_term": "开场式声场建立"},
+    "verse_like": {"professional_term": "verse-like foreground exposition", "cn_term": "主歌式前景陈述"},
+    "chorus_like": {"professional_term": "chorus-like intensity block", "cn_term": "副歌式强度块"},
+    "bridge_like": {"professional_term": "bridge-like field redirection", "cn_term": "桥段式声场转向"},
+    "breakdown_like": {"professional_term": "breakdown-like pulse compression", "cn_term": "breakdown 式脉冲压缩"},
+    "outro_like": {"professional_term": "outro-like release field", "cn_term": "尾声式释放场"},
+    "section_like": {"professional_term": "continuation section", "cn_term": "延续型结构段"},
+}
+
+MIDI_TERM_INDEX: dict[str, dict[str, str]] = {
+    "rising_contour": {"professional_term": "rising melodic contour", "cn_term": "上行旋律轮廓"},
+    "falling_contour": {"professional_term": "falling melodic contour", "cn_term": "下行旋律轮廓"},
+    "stable_or_reciting_contour": {"professional_term": "stable or recitative-like contour", "cn_term": "平稳或吟诵式轮廓"},
+    "blurred_contour": {"professional_term": "blurred melodic contour", "cn_term": "模糊旋律轮廓"},
+    "sparse": {"professional_term": "sparse note density", "cn_term": "稀疏音符密度"},
+    "medium_sparse": {"professional_term": "medium-sparse note density", "cn_term": "中低音符密度"},
+    "medium": {"professional_term": "moderate note density", "cn_term": "中等音符密度"},
+    "dense": {"professional_term": "dense note density", "cn_term": "密集音符密度"},
+    "bass_light_or_absent": {"professional_term": "light or recessed low-frequency anchor", "cn_term": "低频锚点较轻或后退"},
+    "repeated_low_anchor": {"professional_term": "repeated low-frequency anchor", "cn_term": "重复低频锚点"},
+    "bass_rises_or_opens": {"professional_term": "low-frequency rise or opening", "cn_term": "低频上行或打开"},
+    "bass_drops_or_thickens": {"professional_term": "low-frequency drop or thickening", "cn_term": "低频下沉或加厚"},
+    "low_anchor_stable": {"professional_term": "stable low-frequency anchor", "cn_term": "稳定低频锚点"},
+    "compressed_center_phrase": {"professional_term": "center-compressed phrase shape", "cn_term": "中心压缩式乐句形态"},
+    "dense_pulsed_phrase": {"professional_term": "dense pulsed phrase shape", "cn_term": "密集脉冲式乐句形态"},
+    "release_tail_phrase": {"professional_term": "release-tail phrase shape", "cn_term": "释放尾音式乐句形态"},
+    "long_sustained_phrase": {"professional_term": "long sustained phrase shape", "cn_term": "长延续式乐句形态"},
+    "dark_compressed_low_block": {"professional_term": "dark compressed low harmonic block", "cn_term": "暗色压缩低区和声块"},
+    "wide_sustained_harmonic_field": {"professional_term": "wide sustained harmonic field", "cn_term": "宽阔持续和声场"},
+    "brighter_release_or_upper_residue": {"professional_term": "bright release or upper-frequency residue", "cn_term": "明亮释放或上频残留"},
+    "dark_stable_harmonic_block": {"professional_term": "dark stable harmonic block", "cn_term": "暗色稳定和声块"},
+}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build MSSL evidence, critical brief, and an uploadable online-AI handoff."
+        description="Build professional MSSL evidence, critical brief, and an uploadable online-AI handoff."
     )
     parser.add_argument("--profile", required=True, help="Path to an existing MSSL *_full_song_profile.json file.")
     parser.add_argument("--structural-summary", default=None, help="Optional readable structural summary Markdown.")
@@ -65,23 +244,24 @@ def main() -> None:
 
     segment_profiles = [segment_profile(seg, index) for index, seg in enumerate(list_dicts(profile.get("segments")))]
     selected_segments = segment_profiles[:max_segments]
-    stats = aggregate_track(selected_segments)
+    track_summary = aggregate_track_professional(selected_segments)
     key_moments = select_key_moments(selected_segments, limit=min(DEFAULT_KEY_MOMENTS, max_segments))
     macro_arc = build_macro_arc(selected_segments)
     context = build_context(profile, args.playlist_context, args.context_note)
 
     evidence_pack = {
-        "version": "mssl_online_ai_listening_handoff_v0_4",
-        "status": "evidence_pack_for_online_ai_not_audio_not_final_report",
+        "version": VERSION,
+        "status": "professional_audio_terms_report_for_online_ai_not_audio_not_final_review",
         "source_profile": str(profile_path),
         "segments_total": len(segment_profiles),
         "segments_included": len(selected_segments),
         "global_context": global_context(profile),
-        "track_statistics": stats,
+        "terminology_policy": terminology_policy(),
+        "professional_term_index": public_professional_term_index(),
+        "track_professional_summary": track_summary,
         "macro_arc": macro_arc,
         "key_moments": key_moments,
-        "segment_evidence": selected_segments,
-        "claim_policy": claim_policy(),
+        "timeline_professional_report": selected_segments,
     }
 
     critical_brief = build_critical_brief(evidence_pack, context)
@@ -101,7 +281,7 @@ def main() -> None:
     print(f"Wrote {output_dir / args.brief_name}")
     print(f"Wrote {output_dir / args.md_name}")
     print(f"Wrote {output_dir / args.handoff_name}")
-    print("Upload online_ai_listening_handoff.md to a fresh online AI account for the human-language review.")
+    print("Upload online_ai_listening_handoff.md to a fresh online AI account for professional-anchor translation.")
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -134,7 +314,7 @@ def global_context(profile: dict[str, Any]) -> dict[str, Any]:
         "duration_seconds": preflight.get("duration_seconds"),
         "estimated_bpm": first_nonempty(tempo.get("estimated_bpm"), tempo.get("song_pulse_bpm")),
         "tempo_confidence": tempo.get("tempo_confidence"),
-        "section_sequence": music_structure.get("section_sequence"),
+        "section_sequence": professional_section_sequence(music_structure.get("section_sequence")),
         "mssl_boundary": policy.get("mssl_boundary"),
     }
 
@@ -145,22 +325,42 @@ def build_context(profile: dict[str, Any], playlist_context: str | None, context
         "analysis_label": profile.get("analysis_label"),
         "context_notes": [note for note in context_notes if str(note).strip()],
         "use_rule": (
-            "Treat playlist names and notes as bounded context, not as proof of genre, biography, emotion, "
-            "or the artist's intention."
+            "Treat playlist names and notes as optional context for the online AI. "
+            "They are not MSSL audio evidence and should not override the professional audio descriptors."
         ),
     }
 
 
-def claim_policy() -> dict[str, str]:
+def terminology_policy() -> dict[str, str]:
     return {
-        "audio_access": "The online AI has not heard the audio; it must write from this evidence only.",
-        "instrument_words": "Allowed only as bounded source-family hypotheses, never exact instrument truth.",
-        "vocal_words": "Allowed as vocal-like object or foreground line, never singer identity.",
-        "emotion_words": "Allowed as listener-facing tendencies, never emotion truth.",
-        "genre_words": "Allowed as behavioral shorthand, never genre classification truth.",
-        "lyrics": "Do not interpret lyrics unless explicit lyric/context evidence is supplied.",
-        "final_report": "Write a human close-listening review, not a machine feature report.",
+        "axis": "internal machine proxies -> professional audio terminology lookup -> professional report -> online-AI translation examples",
+        "local_scope": "MSSL emits professional audio descriptors and timeline anchors, not final music-review content.",
+        "numeric_scope": "Numeric proxy values are converted into qualitative professional bands before appearing in report-facing fields.",
+        "external_context_scope": "The online AI may use its own available external context and align it to this timeline; MSSL does not supply lyrics, reviews, or background text.",
+        "instrument_scope": "Source-family terms are hypotheses from full-mix evidence unless an external stem adapter supplies stronger evidence.",
     }
+
+
+def public_professional_term_index() -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for item in PROFESSIONAL_TERM_INDEX.values():
+        rows.append({
+            "professional_term": item["professional_term"],
+            "cn_term": item["cn_term"],
+            "domain": item["domain"],
+            "definition": item["definition"],
+            "evidence_basis": item["evidence_basis"],
+            "scale": item["scale"],
+        })
+    return rows
+
+
+def professional_section_sequence(sequence: Any) -> list[str]:
+    result = []
+    for role in list_strings(sequence):
+        term = SECTION_TERM_INDEX.get(role, {"professional_term": role})["professional_term"]
+        result.append(term)
+    return result
 
 
 def segment_profile(segment: dict[str, Any], index: int) -> dict[str, Any]:
@@ -176,7 +376,6 @@ def segment_profile(segment: dict[str, Any], index: int) -> dict[str, Any]:
     source = as_dict(segment.get("source_instrument_evidence"))
     lyric = as_dict(segment.get("lyric_alignment"))
     musical_structure = as_dict(segment.get("musical_structure"))
-    style_tags = list_strings(segment.get("style_tags"))
 
     metrics = {
         "pressure": to_float(e_space.get("perceived_pressure")),
@@ -196,6 +395,8 @@ def segment_profile(segment: dict[str, Any], index: int) -> dict[str, Any]:
         "melody": melody_support(midi),
     }
 
+    professional_terms = professional_audio_terms(metrics, relative, relations, source, midi, musical_structure)
+
     return {
         "segment_id": str(segment.get("segment_id") or f"segment_{index + 1:02d}"),
         "index": index,
@@ -205,213 +406,372 @@ def segment_profile(segment: dict[str, Any], index: int) -> dict[str, Any]:
             "end_seconds": time_range.get("end_seconds"),
             "duration_seconds": time_range.get("duration_seconds"),
         },
-        "section_role": {
-            "role_label": musical_structure.get("role_label"),
-            "section_function": musical_structure.get("section_function"),
-            "role_confidence": musical_structure.get("role_confidence"),
-        },
-        "metrics": {key: round(value, 4) for key, value in metrics.items()},
-        "object_hints": object_hints(objects, relations, source, midi, style_tags),
-        "listening_translation": segment_translation(metrics, relative, musical_structure, relations),
-        "review_use": segment_review_use(metrics, musical_structure),
-        "not_proven": [
-            "exact instruments",
-            "singer identity",
-            "lyrics meaning",
-            "artist intention",
-            "genre truth",
-            "emotion truth",
-        ],
+        "section_role": professional_section_role(musical_structure),
+        "professional_audio_terms": professional_terms,
+        "professional_style_anchor": style_anchor_from_terms(professional_terms),
+        "translation_affordance": translation_affordance(professional_terms),
+        "external_context_alignment_slot": external_context_alignment_slot(professional_terms),
+        "traceability_note": "Machine proxy values were converted through the professional term index before this report field was generated.",
     }
 
 
-def object_hints(
-    objects: dict[str, Any],
+def professional_audio_terms(
+    metrics: dict[str, float],
+    relative: dict[str, Any],
     relations: list[dict[str, Any]],
     source: dict[str, Any],
     midi: dict[str, Any],
-    style_tags: list[str],
-) -> dict[str, Any]:
-    return {
-        "dominant_candidates": objects.get("dominant_candidates"),
-        "source_family_hypotheses": [
-            {
-                "source": item.get("source"),
-                "support": item.get("support"),
-                "basis": item.get("basis"),
-            }
-            for item in list_dicts(source.get("full_mix_source_hypotheses"))[:5]
-        ],
-        "melody_contour_proxy": midi.get("melody_contour_proxy"),
-        "phrase_shape": midi.get("phrase_shape"),
-        "style_behavior_tags": style_tags[:8],
-        "relations": [
-            {
-                "relation": rel.get("relation"),
-                "from": rel.get("from"),
-                "to": rel.get("to"),
-                "strength": rel.get("strength"),
-            }
-            for rel in relations[:8]
-        ],
-    }
-
-
-def segment_translation(
-    metrics: dict[str, float],
-    relative: dict[str, Any],
     musical_structure: dict[str, Any],
-    relations: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    cue_parts = []
-    cue_parts.append(pressure_phrase(metrics["pressure"], metrics["near_far"]))
-    cue_parts.append(width_phrase(max(metrics["width"], metrics["spread"]), metrics["envelopment"]))
-    cue_parts.append(height_phrase(metrics["high_low"]))
-    cue_parts.append(motion_phrase(metrics["motion"], metrics["rhythm"]))
-
-    cue = clean_join(cue_parts)
-    if not cue:
-        cue = "这一段更像稳定承接，适合少写变化，避免把平稳段夸成戏剧转折。"
-
-    relation_words = relation_translation(relations)
-    if relation_words:
-        cue += f" 对象关系上可写成：{relation_words}。"
-
     return {
-        "human_listening_cue": cue,
-        "body_language": body_words(metrics),
-        "image_scene_language": image_words(metrics),
-        "change_from_previous": relative_translation(relative),
-        "section_function_hint": musical_structure.get("section_function"),
+        "spatial_impression": {
+            "apparent_source_width": term_entry("width", metrics["width"]),
+            "spaciousness": term_entry("spread", max(metrics["width"], metrics["spread"])),
+            "listener_envelopment": term_entry("envelopment", metrics["envelopment"]),
+            "perceived_source_distance": term_entry_signed("near_far", metrics["near_far"], signed_distance_band),
+        },
+        "dynamics_and_motion": {
+            "loudness_contour": term_entry("pressure", metrics["pressure"]),
+            "spatiotemporal_motion_contour": term_entry("motion", metrics["motion"]),
+            "rhythmic_articulation": term_entry("rhythm", metrics["rhythm"]),
+            "relative_change": professional_relative_change(relative),
+        },
+        "timbre_and_spectral_weight": {
+            "brightness_weighting": term_entry_signed("high_low", metrics["high_low"], signed_brightness_band),
+            "low_frequency_foundation": term_entry("low_body", metrics["low_body"]),
+        },
+        "texture_and_layers": {
+            "foreground_lead_line": term_entry("vocal", metrics["vocal"]),
+            "melodic_contour_proxy": term_entry("melody", metrics["melody"]),
+            "midi_like_reduction": professional_midi_terms(midi),
+            "source_family_hypotheses": professional_source_hypotheses(source),
+            "object_relations": professional_relations(relations),
+        },
+        "section_function": professional_section_role(musical_structure),
     }
 
 
-def segment_review_use(metrics: dict[str, float], musical_structure: dict[str, Any]) -> str:
-    pressure = metrics["pressure"]
-    width = max(metrics["width"], metrics["spread"])
-    motion = metrics["motion"]
-    vocal = metrics["vocal"]
-    role = str(musical_structure.get("role_label") or "")
-
-    if "intro" in role.lower() or "opening" in role.lower():
-        return "适合作为开场气质：写它怎样建立房间、压力和听者位置。"
-    if vocal >= 0.55:
-        return "适合写前景线如何被空间托住、压住或推近；不要写成歌手身份或歌词解释。"
-    if pressure >= 0.62 and width >= 0.45:
-        return "适合写成核心张力：空间并不只是变宽，而是在宽场里保持身体压力。"
-    if pressure <= 0.34:
-        return "适合写释放、后退、残响或能量松开；不要硬写成高潮。"
-    if width >= 0.55:
-        return "适合写横向展开、房间变大、背景开始呼吸。"
-    if motion >= 0.50:
-        return "适合写推进感或被带着走，而不是列节奏参数。"
-    return "适合作为过渡证据：用一两句连接前后，不要逐字段复述。"
+def term_entry(machine_key: str, value: float) -> dict[str, Any]:
+    spec = PROFESSIONAL_TERM_INDEX[machine_key]
+    return {
+        "term": spec["professional_term"],
+        "cn_term": spec["cn_term"],
+        "domain": spec["domain"],
+        "qualitative_value": scalar_band(value),
+        "confidence": confidence_band(value),
+        "definition": spec["definition"],
+    }
 
 
-def aggregate_track(segments: list[dict[str, Any]]) -> dict[str, Any]:
-    metrics = [as_dict(seg.get("metrics")) for seg in segments]
+def term_entry_signed(machine_key: str, value: float, bander: Any) -> dict[str, Any]:
+    spec = PROFESSIONAL_TERM_INDEX[machine_key]
+    return {
+        "term": spec["professional_term"],
+        "cn_term": spec["cn_term"],
+        "domain": spec["domain"],
+        "qualitative_value": bander(value),
+        "confidence": signed_confidence_band(value),
+        "definition": spec["definition"],
+    }
+
+
+def scalar_band(value: float) -> str:
+    if value >= 0.78:
+        return "dominant"
+    if value >= 0.58:
+        return "pronounced"
+    if value >= 0.38:
+        return "moderate"
+    if value >= 0.18:
+        return "restrained"
+    return "reduced"
+
+
+def confidence_band(value: float) -> str:
+    if value >= 0.72:
+        return "high"
+    if value >= 0.48:
+        return "medium"
+    if value >= 0.28:
+        return "low_to_medium"
+    return "low"
+
+
+def signed_confidence_band(value: float) -> str:
+    magnitude = abs(value)
+    if magnitude >= 0.55:
+        return "high"
+    if magnitude >= 0.30:
+        return "medium"
+    if magnitude >= 0.12:
+        return "low_to_medium"
+    return "low"
+
+
+def signed_brightness_band(value: float) -> str:
+    if value >= 0.45:
+        return "upper-weighted / bright"
+    if value >= 0.18:
+        return "slightly upper-weighted"
+    if value <= -0.45:
+        return "low-weighted / dark"
+    if value <= -0.18:
+        return "slightly low-weighted"
+    return "balanced spectral weight"
+
+
+def signed_distance_band(value: float) -> str:
+    if value >= 0.55:
+        return "close / strongly present"
+    if value >= 0.25:
+        return "near-to-mid presence"
+    if value <= -0.35:
+        return "recessed or distant"
+    return "mid-field / neutral distance"
+
+
+def professional_relative_change(relative: dict[str, Any]) -> dict[str, str]:
+    if not relative:
+        return {"status": "no previous segment supplied"}
+    mapping = {
+        "perceived_pressure": "loudness contour change",
+        "perceived_width": "ASW change",
+        "perceived_spread": "spaciousness change",
+        "perceived_motion": "motion-contour change",
+        "envelopment": "LEV change",
+        "near_far": "distance/presence change",
+        "high_low": "brightness-weighting change",
+    }
+    result: dict[str, str] = {}
+    for key, label in mapping.items():
+        if key not in relative:
+            continue
+        delta = to_float(relative.get(key))
+        if delta > 0.08:
+            state = "increases"
+        elif delta < -0.08:
+            state = "decreases"
+        else:
+            state = "stable"
+        result[label] = state
+    return result or {"status": "relative-change evidence too weak"}
+
+
+def professional_relations(relations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    results = []
+    for rel in relations[:6]:
+        name = str(rel.get("relation") or "no_strong_relation_detected")
+        spec = RELATION_TERM_INDEX.get(name, RELATION_TERM_INDEX["no_strong_relation_detected"])
+        results.append({
+            "term": spec["professional_term"],
+            "cn_term": spec["cn_term"],
+            "strength": scalar_band(to_float(rel.get("strength"))),
+            "translation_affordance": spec["translation_affordance"],
+        })
+    return results or [{
+        "term": RELATION_TERM_INDEX["no_strong_relation_detected"]["professional_term"],
+        "cn_term": RELATION_TERM_INDEX["no_strong_relation_detected"]["cn_term"],
+        "strength": "reduced",
+        "translation_affordance": RELATION_TERM_INDEX["no_strong_relation_detected"]["translation_affordance"],
+    }]
+
+
+def professional_source_hypotheses(source: dict[str, Any]) -> list[dict[str, Any]]:
+    hypotheses = []
+    for item in list_dicts(source.get("full_mix_source_hypotheses"))[:5]:
+        source_name = str(item.get("source") or "")
+        spec = SOURCE_FAMILY_TERM_INDEX.get(source_name, {
+            "professional_term": "unclassified source-family hypothesis",
+            "cn_term": "未分类来源家族假设",
+        })
+        hypotheses.append({
+            "term": spec["professional_term"],
+            "cn_term": spec["cn_term"],
+            "support": scalar_band(to_float(item.get("support"))),
+            "evidence_basis": item.get("basis"),
+            "boundary": "source-family hypothesis, not exact instrument identity",
+        })
+    return hypotheses
+
+
+def professional_midi_terms(midi: dict[str, Any]) -> dict[str, Any]:
+    fields = {
+        "note_density_proxy": midi.get("note_density_proxy"),
+        "melodic_contour": midi.get("melody_contour_proxy"),
+        "low_frequency_motion": midi.get("bass_motion_proxy"),
+        "harmony_field": midi.get("harmony_block_proxy"),
+        "phrase_shape": midi.get("phrase_shape"),
+    }
+    result = {}
+    for field, value in fields.items():
+        label = str(value or "")
+        spec = MIDI_TERM_INDEX.get(label)
+        if spec:
+            result[field] = {"term": spec["professional_term"], "cn_term": spec["cn_term"]}
+        elif label:
+            result[field] = {"term": label, "cn_term": label}
+    if not result:
+        result["status"] = "no MIDI-like reduction evidence supplied"
+    return result
+
+
+def professional_section_role(musical_structure: dict[str, Any]) -> dict[str, Any]:
+    role = str(musical_structure.get("role_label") or "section_like")
+    spec = SECTION_TERM_INDEX.get(role, SECTION_TERM_INDEX["section_like"])
+    return {
+        "term": spec["professional_term"],
+        "cn_term": spec["cn_term"],
+        "function": musical_structure.get("section_function"),
+        "confidence": confidence_band(to_float(musical_structure.get("role_confidence"))),
+        "boundary": "heuristic section function, not formal song-section recognition",
+    }
+
+
+def style_anchor_from_terms(pro_terms: dict[str, Any]) -> dict[str, Any]:
+    spatial = as_dict(pro_terms.get("spatial_impression"))
+    dynamics = as_dict(pro_terms.get("dynamics_and_motion"))
+    timbre = as_dict(pro_terms.get("timbre_and_spectral_weight"))
+    texture = as_dict(pro_terms.get("texture_and_layers"))
+    anchor_terms = [
+        as_dict(spatial.get("apparent_source_width")).get("term"),
+        as_dict(spatial.get("listener_envelopment")).get("term"),
+        as_dict(dynamics.get("loudness_contour")).get("term"),
+        as_dict(dynamics.get("rhythmic_articulation")).get("term"),
+        as_dict(timbre.get("low_frequency_foundation")).get("term"),
+        as_dict(texture.get("foreground_lead_line")).get("term"),
+    ]
+    return {
+        "anchor": " + ".join([str(item) for item in anchor_terms if item]),
+        "role": "professional style anchor, not final review wording or genre truth",
+    }
+
+
+def translation_affordance(pro_terms: dict[str, Any]) -> dict[str, Any]:
+    spatial = as_dict(pro_terms.get("spatial_impression"))
+    dynamics = as_dict(pro_terms.get("dynamics_and_motion"))
+    timbre = as_dict(pro_terms.get("timbre_and_spectral_weight"))
+    texture = as_dict(pro_terms.get("texture_and_layers"))
+    examples: list[str] = []
+
+    asw = as_dict(spatial.get("apparent_source_width")).get("qualitative_value")
+    lev = as_dict(spatial.get("listener_envelopment")).get("qualitative_value")
+    pressure = as_dict(dynamics.get("loudness_contour")).get("qualitative_value")
+    rhythm = as_dict(dynamics.get("rhythmic_articulation")).get("qualitative_value")
+    low = as_dict(timbre.get("low_frequency_foundation")).get("qualitative_value")
+    fg = as_dict(texture.get("foreground_lead_line")).get("qualitative_value")
+
+    if asw in ("reduced", "restrained"):
+        examples.append("低 ASW 可被转译为声像集中、横向不铺开、听者位置被固定。")
+    elif asw in ("pronounced", "dominant"):
+        examples.append("高 ASW 可被转译为声像向两侧展开、背景或支撑层横向拉开。")
+    if lev in ("pronounced", "dominant"):
+        examples.append("高 LEV 可被转译为包围感、环绕感或空间把听者纳入其中。")
+    if pressure in ("pronounced", "dominant"):
+        examples.append("显著响度轮廓可被转译为持续压力、贴近感或强度推进。")
+    elif pressure in ("reduced", "restrained"):
+        examples.append("克制响度轮廓可被转译为低冲击、弱爆发或保留余量。")
+    if rhythm in ("pronounced", "dominant"):
+        examples.append("显著 rhythmic articulation 可被转译为脉冲清楚、节奏带动身体或前推感。")
+    if low in ("pronounced", "dominant"):
+        examples.append("显著 low-frequency foundation 可被转译为低处支撑、地基、重量或厚度。")
+    if fg in ("pronounced", "dominant", "moderate"):
+        examples.append("foreground lead-line 可被转译为前景主导线，但不等于确定人声或歌手身份。")
+
+    if not examples:
+        examples.append("这些术语适合作为专业锚点；线上 AI 可自行决定是否转译为空间、力度、层次或时间运动语言。")
+    return {
+        "role": "examples for online-AI accessible translation, not required final-review content",
+        "examples": examples,
+    }
+
+
+def external_context_alignment_slot(pro_terms: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "purpose": "If the online AI has external song context, it may align that context to this local professional audio segment.",
+        "alignment_targets": [
+            "time range",
+            "professional spatial terms",
+            "foreground lead-line / source-family hypotheses",
+            "texture and layering",
+            "dynamics and motion",
+            "timbre and low-frequency foundation",
+        ],
+        "scope": "MSSL supplies the local audio descriptors only; external context is handled by the online AI.",
+    }
+
+
+def aggregate_track_professional(segments: list[dict[str, Any]]) -> dict[str, Any]:
+    if not segments:
+        return {"segment_count": 0, "dominant_professional_anchors": []}
+    counters: dict[str, int] = {}
+    for segment in segments:
+        for term in collect_terms(as_dict(segment.get("professional_audio_terms"))):
+            counters[term] = counters.get(term, 0) + 1
+    dominant = sorted(counters.items(), key=lambda item: (-item[1], item[0]))[:12]
     return {
         "segment_count": len(segments),
-        "avg_pressure": round(avg(metrics, "pressure"), 3),
-        "avg_width_or_spread": round(max(avg(metrics, "width"), avg(metrics, "spread")), 3),
-        "avg_near_far": round(avg(metrics, "near_far"), 3),
-        "avg_high_low": round(avg(metrics, "high_low"), 3),
-        "avg_motion": round(avg(metrics, "motion"), 3),
-        "avg_envelopment": round(avg(metrics, "envelopment"), 3),
-        "vocal_supported_segments": sum(1 for item in metrics if to_float(item.get("vocal")) >= 0.42),
-        "melody_supported_segments": sum(1 for item in metrics if to_float(item.get("melody")) >= 0.45),
-        "dominant_listening_traits": dominant_traits(metrics),
+        "dominant_professional_anchors": [
+            {"term": term, "segment_support_count": count} for term, count in dominant
+        ],
+        "summary_role": "track-level professional terminology summary before online-AI translation",
     }
 
 
-def dominant_traits(metrics: list[dict[str, Any]]) -> list[str]:
-    pressure = avg(metrics, "pressure")
-    width = max(avg(metrics, "width"), avg(metrics, "spread"))
-    near = avg(metrics, "near_far")
-    high = avg(metrics, "high_low")
-    motion = avg(metrics, "motion")
-    traits: list[str] = []
-    if pressure >= 0.58:
-        traits.append("pressure-led")
-    elif pressure <= 0.34:
-        traits.append("low-pressure / withdrawn")
-    if width >= 0.50:
-        traits.append("wide-field / laterally open")
-    else:
-        traits.append("center-held / narrow-field")
-    if near >= 0.48:
-        traits.append("body-near")
-    if high >= 0.20:
-        traits.append("upper-bright")
-    elif high <= -0.25:
-        traits.append("low-weighted")
-    if motion >= 0.45:
-        traits.append("motion-led")
-    return traits
+def collect_terms(value: Any) -> list[str]:
+    terms: list[str] = []
+    if isinstance(value, dict):
+        if isinstance(value.get("term"), str):
+            terms.append(value["term"])
+        for child in value.values():
+            terms.extend(collect_terms(child))
+    elif isinstance(value, list):
+        for child in value:
+            terms.extend(collect_terms(child))
+    return terms
 
 
 def select_key_moments(segments: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
-    if not segments:
-        return []
+    # Select by professional descriptor intensity, without exposing the internal machine terms in output.
     scored = []
-    previous: dict[str, Any] | None = None
     for seg in segments:
-        metrics = as_dict(seg.get("metrics"))
-        score = 0.0
-        score += to_float(metrics.get("pressure")) * 0.9
-        score += max(to_float(metrics.get("width")), to_float(metrics.get("spread"))) * 0.7
-        score += to_float(metrics.get("motion")) * 0.6
-        score += to_float(metrics.get("vocal")) * 0.5
-        score += to_float(metrics.get("low_body")) * 0.4
-        score += 0.35 if seg.get("index") in (0, len(segments) - 1) else 0.0
-        if previous:
-            prev_metrics = as_dict(previous.get("metrics"))
-            score += abs(to_float(metrics.get("pressure")) - to_float(prev_metrics.get("pressure"))) * 1.1
-            score += abs(max(to_float(metrics.get("width")), to_float(metrics.get("spread"))) - max(to_float(prev_metrics.get("width")), to_float(prev_metrics.get("spread")))) * 0.9
-            score += abs(to_float(metrics.get("motion")) - to_float(prev_metrics.get("motion"))) * 0.7
-        previous = seg
+        terms = as_dict(seg.get("professional_audio_terms"))
+        score = descriptor_score(terms)
+        if seg.get("index") in (0, len(segments) - 1):
+            score += 0.25
         scored.append((score, seg))
-
     chosen = sorted(scored, key=lambda item: (-item[0], item[1].get("index", 0)))[:limit]
     chosen_segments = sorted((seg for _, seg in chosen), key=lambda seg: seg.get("index", 0))
     return [
         {
             "time_range": seg.get("time_range"),
-            "why_it_matters": why_moment_matters(as_dict(seg.get("metrics")), as_dict(seg.get("section_role"))),
-            "human_listening_cue": as_dict(seg.get("listening_translation")).get("human_listening_cue"),
-            "review_use": seg.get("review_use"),
-            "evidence_handles": compact_metrics(as_dict(seg.get("metrics"))),
+            "professional_audio_terms": seg.get("professional_audio_terms"),
+            "professional_style_anchor": seg.get("professional_style_anchor"),
+            "translation_affordance": seg.get("translation_affordance"),
+            "external_context_alignment_slot": seg.get("external_context_alignment_slot"),
         }
         for seg in chosen_segments
     ]
 
 
-def why_moment_matters(metrics: dict[str, Any], section: dict[str, Any]) -> str:
-    pressure = to_float(metrics.get("pressure"))
-    width = max(to_float(metrics.get("width")), to_float(metrics.get("spread")))
-    motion = to_float(metrics.get("motion"))
-    vocal = to_float(metrics.get("vocal"))
-    role = str(section.get("role_label") or "")
-
-    reasons = []
-    if role:
-        reasons.append(f"section role: {role}")
-    if pressure >= 0.62:
-        reasons.append("strong pressure")
-    if width >= 0.55:
-        reasons.append("clear field opening")
-    if motion >= 0.50:
-        reasons.append("movement/drive is audible in the structure")
-    if vocal >= 0.55:
-        reasons.append("foreground vocal-like object is trackable")
-    if not reasons:
-        reasons.append("useful connector moment")
-    return "; ".join(reasons)
+def descriptor_score(terms: dict[str, Any]) -> float:
+    values = []
+    for entry in collect_entries(terms):
+        q = str(entry.get("qualitative_value") or "")
+        values.append({"reduced": 0.05, "restrained": 0.18, "moderate": 0.35, "pronounced": 0.65, "dominant": 0.85}.get(q, 0.2))
+    return sum(values) / max(1, len(values))
 
 
-def compact_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
-    keys = ["pressure", "width", "spread", "near_far", "high_low", "motion", "envelopment", "rhythm", "low_body", "vocal", "melody"]
-    return {key: metrics.get(key) for key in keys if key in metrics}
+def collect_entries(value: Any) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    if isinstance(value, dict):
+        if "qualitative_value" in value:
+            entries.append(value)
+        for child in value.values():
+            entries.extend(collect_entries(child))
+    elif isinstance(value, list):
+        for child in value:
+            entries.extend(collect_entries(child))
+    return entries
 
 
 def build_macro_arc(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -425,112 +785,55 @@ def build_macro_arc(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
         chunk = segments[start:end]
         if chunk:
             chunks.append(chunk)
-
     arc = []
     for index, chunk in enumerate(chunks, start=1):
-        metrics = [as_dict(seg.get("metrics")) for seg in chunk]
-        pressure = avg(metrics, "pressure")
-        width = max(avg(metrics, "width"), avg(metrics, "spread"))
-        motion = avg(metrics, "motion")
-        high = avg(metrics, "high_low")
         label = movement_label(index, len(chunks))
+        dominant_terms = aggregate_track_professional(chunk).get("dominant_professional_anchors", [])[:5]
         arc.append({
             "movement": label,
             "time_range": f"{as_dict(chunk[0].get('time_range')).get('label')} -> {as_dict(chunk[-1].get('time_range')).get('label')}",
-            "human_listening_action": movement_sentence(pressure, width, motion, high),
-            "review_instruction": "Write this as prose movement, not as a numbered technical section.",
-            "evidence_summary": {
-                "pressure": round(pressure, 3),
-                "width_or_spread": round(width, 3),
-                "motion": round(motion, 3),
-                "high_low": round(high, 3),
-            },
+            "dominant_professional_terms": dominant_terms,
+            "translation_affordance": "Use these as professional anchors for a prose movement; do not mechanically list the table.",
         })
     return arc
 
 
 def movement_label(index: int, total: int) -> str:
     if index == 1:
-        return "opening field"
+        return "opening professional field"
     if index == total:
-        return "late result"
-    return f"middle turn {index - 1}"
-
-
-def movement_sentence(pressure: float, width: float, motion: float, high: float) -> str:
-    if pressure >= 0.58 and width >= 0.48:
-        return "the track holds bodily pressure inside a widening field"
-    if pressure >= 0.58:
-        return "the track keeps pressing forward or inward"
-    if width >= 0.52:
-        return "the track opens sideways and gives the background more air"
-    if motion >= 0.48:
-        return "movement and pulse carry the listening more than a fixed object does"
-    if high >= 0.20:
-        return "upper edge and light become available for the review language"
-    if high <= -0.25:
-        return "low weight and darker ground dominate the listening language"
-    return "the track continues by maintaining its field rather than making a sharp turn"
+        return "late professional result"
+    return f"middle professional turn {index - 1}"
 
 
 def build_critical_brief(evidence_pack: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
-    stats = as_dict(evidence_pack.get("track_statistics"))
     return {
-        "version": "mssl_critical_listening_brief_v0_4",
-        "status": "translation_bridge_not_final_report",
-        "role": "Help a fresh online AI turn MSSL evidence into human-language close listening.",
+        "version": BRIEF_VERSION,
+        "status": "professional_terminology_bridge_not_final_review",
+        "role": "Help a fresh online AI translate MSSL professional audio descriptors into accessible review language.",
         "context": context,
-        "central_thesis_candidates": thesis_candidates(stats, context),
+        "terminology_policy": evidence_pack.get("terminology_policy"),
+        "track_professional_summary": evidence_pack.get("track_professional_summary"),
         "macro_arc": evidence_pack.get("macro_arc"),
         "key_moments": evidence_pack.get("key_moments"),
-        "writing_shape": [
-            "Start with one contestable listening judgment.",
-            "Then describe 3-5 listening movements across the track.",
-            "Use key moments as evidence, not as a mechanical timestamp list.",
-            "End with what the track opens: body, room, image, memory, version, or social listening frame.",
-        ],
-        "style_target": "中文为主；像认真听歌的人写的乐评，不像音频工程报告。",
-        "not_allowed": [
-            "claiming the AI heard the original audio",
-            "unsupported exact instruments",
-            "singer identity",
-            "unsupported lyric interpretation",
-            "artist intention",
-            "genre truth",
-            "emotion truth",
-            "score/ranking/marketing copy",
+        "translation_style_guidance": translation_style_guidance(),
+        "data_boundary": [
+            "MSSL provides professional audio descriptors and timeline anchors.",
+            "MSSL does not provide lyrics, external reviews, background text, genre truth, emotion truth, or final review content.",
+            "The online AI may use its own available context and align it to the local professional timeline.",
+            "Accessible examples are style examples only, not mandatory wording.",
         ],
     }
 
 
-def thesis_candidates(stats: dict[str, Any], context: dict[str, Any]) -> list[str]:
-    pressure = to_float(stats.get("avg_pressure"))
-    width = to_float(stats.get("avg_width_or_spread"))
-    motion = to_float(stats.get("avg_motion"))
-    high = to_float(stats.get("avg_high_low"))
-    traits = list_strings(stats.get("dominant_listening_traits"))
-    candidates = []
-
-    if pressure >= 0.58 and width >= 0.48:
-        candidates.append("这首歌的核心不只是空间变大，而是在变宽的场里持续保留身体压力。")
-    elif pressure >= 0.58:
-        candidates.append("这首歌最先成立的是一种贴近身体的压力，而不是旋律或歌词意义。")
-    elif width >= 0.52:
-        candidates.append("这首歌更像打开一个横向房间：背景、边缘和空气比单个声源更重要。")
-    else:
-        candidates.append("这首歌可以先写它如何建立听者位置：不是判断好坏，而是判断声音把人放在哪里。")
-
-    if motion >= 0.48:
-        candidates.append("它的推进感可以写成一种被带着走的运动，而不是单纯节奏快慢。")
-    if high >= 0.20:
-        candidates.append("明亮或上缘材料可以作为图像入口，但不能被写成确定情绪。")
-    elif high <= -0.25:
-        candidates.append("低处重量和暗场可以作为身体/空间入口，但不能被写成确定情绪。")
-    if context.get("playlist_context") or context.get("context_notes"):
-        candidates.append("用户语境可以辅助判断入口，但不能替代音频结构证据。")
-    if traits:
-        candidates.append("可参考的主导听感特征：" + " / ".join(traits))
-    return candidates[:5]
+def translation_style_guidance() -> list[str]:
+    return [
+        "Translate professional descriptors into perceptible language only when useful for the final review.",
+        "Prefer time-grounded writing: identify which segment or movement the description belongs to.",
+        "Keep professional anchors available, but avoid turning the final review into an engineering checklist.",
+        "Do not treat source-family hypotheses as exact instrument identification unless external evidence supports that outside MSSL.",
+        "Use external song context only as the online AI's own layer; align it to the MSSL timeline instead of replacing the audio descriptors.",
+    ]
 
 
 def render_prompt_input(
@@ -540,15 +843,15 @@ def render_prompt_input(
     structural_summary: str | None,
 ) -> str:
     lines = [
-        "# MSSL Original-Song Close-Listening Prompt Input",
+        "# MSSL Professional Audio Terminology Prompt Input",
         "",
         "Status: technical prompt input. Prefer `online_ai_listening_handoff.md` for a fresh online AI account.",
         "",
         "## Prompt protocol",
         "",
-        prompt_protocol.strip() if prompt_protocol else "Write evidence-bounded close-listening criticism from the brief and pack below.",
+        prompt_protocol.strip() if prompt_protocol else "Translate professional MSSL audio descriptors into accessible close-listening criticism.",
         "",
-        "## Critical listening brief",
+        "## Critical brief",
         "",
         "```json",
         json.dumps(critical_brief, ensure_ascii=False, indent=2),
@@ -570,233 +873,132 @@ def render_online_ai_handoff(
     critical_brief: dict[str, Any],
     structural_summary: str | None,
 ) -> str:
-    stats = as_dict(evidence_pack.get("track_statistics"))
     global_ctx = as_dict(evidence_pack.get("global_context"))
+    term_index = list_dicts(evidence_pack.get("professional_term_index"))
+    track_summary = as_dict(evidence_pack.get("track_professional_summary"))
     macro_arc = list_dicts(evidence_pack.get("macro_arc"))
     key_moments = list_dicts(evidence_pack.get("key_moments"))
+    timeline = list_dicts(evidence_pack.get("timeline_professional_report"))
 
     lines: list[str] = [
         "# Online AI Listening Handoff",
         "",
-        "## 0. Read this first",
+        "## 0. Scope",
         "",
-        "You have not received the audio file. You are receiving MSSL listening evidence translated from the audio.",
+        "You have not received the audio file. You are receiving a professional audio terminology report generated from local MSSL analysis.",
         "",
-        "Your job: write a human-readable Chinese close-listening music review based only on this file.",
+        "Axis: internal machine proxies → professional audio terminology lookup → professional audio report → accessible translation examples.",
         "",
-        "Do not pretend you heard the original audio. Do not invent lyrics, artist biography, exact instruments, singer identity, genre truth, or emotional truth.",
+        "MSSL does not provide the final review content. It provides professional descriptors and timeline anchors. If external song context is available to you, you may align it to this timeline using your own tools and rules.",
         "",
-        "Write like a serious listener describing how the track behaves over time, not like a machine listing features.",
-        "",
-        "## 1. Output request",
-        "",
-        "请输出一篇中文为主的乐评 / 听觉细读：",
-        "",
-        "- 先给出一个有判断的核心听感观点。",
-        "- 再写 3–5 个听感运动：声音如何推进、压近、展开、后退、变亮、变低、变厚或变薄。",
-        "- 使用下面的 key moments 作为证据，但不要机械逐段复述。",
-        "- 可以使用身体感、图像/场景、记忆/时间戳、介质/版本、歌单语境，但必须写成有边界的听感入口。",
-        "- 不要评分，不要营销文案，不要技术说明书。",
-        "",
-        "## 2. Track overview for writing",
+        "## 1. Track context",
         "",
         f"- Analysis label: {global_ctx.get('analysis_label')}",
         f"- Duration: {global_ctx.get('duration_label') or global_ctx.get('duration_seconds')}",
         f"- Estimated BPM: {global_ctx.get('estimated_bpm')} / confidence: {global_ctx.get('tempo_confidence')}",
-        f"- Main listening traits: {', '.join(list_strings(stats.get('dominant_listening_traits'))) or 'not enough evidence'}",
-        f"- Average pressure: {stats.get('avg_pressure')}",
-        f"- Average width/spread: {stats.get('avg_width_or_spread')}",
-        f"- Average motion: {stats.get('avg_motion')}",
-        f"- Vocal-like supported segments: {stats.get('vocal_supported_segments')}",
+        f"- Section sequence: {', '.join(list_strings(global_ctx.get('section_sequence'))) or 'not supplied'}",
         "",
-        "## 3. Possible central thesis",
+        "## 2. Professional terminology index",
         "",
+        "| Professional term | CN term | Domain | Report scale | Evidence basis |",
+        "|---|---|---|---|---|",
     ]
+    for row in term_index:
+        lines.append(
+            f"| {row.get('professional_term')} | {row.get('cn_term')} | {row.get('domain')} | {row.get('scale')} | {row.get('evidence_basis')} |"
+        )
 
-    for item in list_strings(critical_brief.get("central_thesis_candidates")):
-        lines.append(f"- {item}")
+    lines.extend([
+        "",
+        "## 3. Track-level professional summary",
+        "",
+        "Dominant professional anchors:",
+        "",
+    ])
+    for item in list_dicts(track_summary.get("dominant_professional_anchors")):
+        lines.append(f"- {item.get('term')} | segment support: {item.get('segment_support_count')}")
 
-    lines.extend(["", "## 4. Macro listening arc", ""])
+    lines.extend(["", "## 4. Macro professional arc", ""])
     for movement in macro_arc:
         lines.extend([
             f"### {movement.get('movement')}",
             "",
             f"- Time: {movement.get('time_range')}",
-            f"- Human listening action: {movement.get('human_listening_action')}",
-            f"- Review instruction: {movement.get('review_instruction')}",
-            f"- Evidence: `{json.dumps(movement.get('evidence_summary'), ensure_ascii=False)}`",
-            "",
+            f"- Translation affordance: {movement.get('translation_affordance')}",
+            "- Dominant terms:",
         ])
+        for term in list_dicts(movement.get("dominant_professional_terms")):
+            lines.append(f"  - {term.get('term')} | support: {term.get('segment_support_count')}")
+        lines.append("")
 
-    lines.extend(["", "## 5. Key moments to use as review evidence", ""])
+    lines.extend(["", "## 5. Key professional moments", ""])
     for index, moment in enumerate(key_moments, start=1):
         time_range = as_dict(moment.get("time_range"))
         lines.extend([
             f"### Moment {index}: {time_range.get('label')}",
             "",
-            f"- Why it matters: {moment.get('why_it_matters')}",
-            f"- Human listening cue: {moment.get('human_listening_cue')}",
-            f"- Review use: {moment.get('review_use')}",
-            f"- Evidence handles: `{json.dumps(moment.get('evidence_handles'), ensure_ascii=False)}`",
+            f"- Professional style anchor: {as_dict(moment.get('professional_style_anchor')).get('anchor')}",
+            "- Professional audio terms:",
+            "```json",
+            json.dumps(moment.get("professional_audio_terms"), ensure_ascii=False, indent=2),
+            "```",
+            "- Accessible translation examples for online AI:",
+        ])
+        for example in list_strings(as_dict(moment.get("translation_affordance")).get("examples")):
+            lines.append(f"  - {example}")
+        lines.extend([
+            "- External context alignment slot:",
+            "```json",
+            json.dumps(moment.get("external_context_alignment_slot"), ensure_ascii=False, indent=2),
+            "```",
             "",
         ])
 
+    lines.extend(["", "## 6. Full timeline professional report", ""])
+    for segment in timeline:
+        time_range = as_dict(segment.get("time_range"))
+        lines.extend([
+            f"### {time_range.get('label')}",
+            "",
+            f"- Section role: {as_dict(segment.get('section_role')).get('term')} / {as_dict(segment.get('section_role')).get('cn_term')}",
+            f"- Professional style anchor: {as_dict(segment.get('professional_style_anchor')).get('anchor')}",
+            "- Professional audio terms:",
+            "```json",
+            json.dumps(segment.get("professional_audio_terms"), ensure_ascii=False, indent=2),
+            "```",
+            "- Accessible translation examples for online AI:",
+        ])
+        for example in list_strings(as_dict(segment.get("translation_affordance")).get("examples")):
+            lines.append(f"  - {example}")
+        lines.extend(["",])
+
     lines.extend([
-        "## 6. Vocabulary bridge",
-        "",
-        "You may use these kinds of phrases when supported by the evidence:",
-        "",
-        "- 声音向身体压近 / 贴近前方 / 把听者按在一个位置上",
-        "- 横向打开 / 背景开始呼吸 / 房间变宽 / 边缘被拉开",
-        "- 低处重量 / 地面感 / 暗场 / 残留压力",
-        "- 上缘亮边 / 冷光 / 空气被抬起",
-        "- 前景线被托住 / 被遮住 / 从场里浮出来",
-        "- 节奏不是单纯快慢，而是带着身体往前走",
-        "- 这一段不是高潮，而是把前面的压力换成空间或余波",
-        "",
-        "Avoid generic phrases unless you connect them to evidence: 氛围感、沉浸、情绪丰富、层次分明、很高级。",
-        "",
-        "## 7. Boundary rules",
+        "## 7. Translation style guidance for online AI",
         "",
     ])
-    for key, value in as_dict(evidence_pack.get("claim_policy")).items():
-        lines.append(f"- {key}: {value}")
+    for item in list_strings(critical_brief.get("translation_style_guidance")):
+        lines.append(f"- {item}")
+
+    lines.extend([
+        "",
+        "## 8. Data boundary",
+        "",
+    ])
+    for item in list_strings(critical_brief.get("data_boundary")):
+        lines.append(f"- {item}")
 
     if structural_summary:
-        lines.extend(["", "## 8. Optional structural summary", "", "```markdown", structural_summary.strip(), "```"])
+        lines.extend(["", "## 9. Optional structural summary", "", "```markdown", structural_summary.strip(), "```"])
 
     lines.extend([
         "",
-        "## 9. Now write the review",
+        "## 10. Output request",
         "",
-        "请现在写乐评。目标不是证明机器分析正确，而是把这些证据变成一篇像人认真听过之后写出的 close-listening 文本。",
+        "Using the professional audio report above, write a Chinese close-listening review if asked by the user.",
+        "Translate the professional terms into accessible language where useful, but do not treat the examples as mandatory wording.",
+        "If you use external song context available to you, align it to the timeline instead of replacing the local professional audio descriptors.",
     ])
     return "\n".join(lines).rstrip() + "\n"
-
-
-def pressure_phrase(pressure: float, near_far: float) -> str:
-    if pressure >= 0.62 and near_far >= 0.45:
-        return "声音有明显向身体靠近的压力"
-    if pressure >= 0.62:
-        return "声音保持较强压力，但不一定完全贴脸"
-    if pressure <= 0.34:
-        return "压力明显松开，像是退到远一点的位置"
-    return "压力处在中间状态，适合写成稳定承接"
-
-
-def width_phrase(width: float, envelopment: float) -> str:
-    if width >= 0.55 and envelopment >= 0.45:
-        return "空间横向展开，并且有包围感"
-    if width >= 0.55:
-        return "空间开始向两侧打开"
-    if width <= 0.25:
-        return "声音更集中在中心，不适合夸大成开阔声场"
-    return "空间宽度中等，更多是维持场而不是突然打开"
-
-
-def height_phrase(high_low: float) -> str:
-    if high_low >= 0.22:
-        return "上方亮边或高处空气比较容易被写出来"
-    if high_low <= -0.30:
-        return "低处重量更明显，适合写暗场、地面感或残留重量"
-    return ""
-
-
-def motion_phrase(motion: float, rhythm: float) -> str:
-    if motion >= 0.50 and rhythm >= 0.45:
-        return "运动和脉冲一起带着听者往前走"
-    if motion >= 0.50:
-        return "这一段的运动感比固定声源更重要"
-    if rhythm >= 0.50:
-        return "脉冲能被写成隐含推动"
-    return ""
-
-
-def body_words(metrics: dict[str, float]) -> list[str]:
-    words = []
-    if metrics["pressure"] >= 0.58:
-        words.extend(["压近", "胸口前方", "身体压力"])
-    if max(metrics["width"], metrics["spread"]) >= 0.50:
-        words.extend(["被托住", "身体周围变宽"])
-    if metrics["motion"] >= 0.48:
-        words.append("被带着走")
-    if not words:
-        words.append("身体反应证据不强，少写身体词")
-    return words
-
-
-def image_words(metrics: dict[str, float]) -> list[str]:
-    words = []
-    if max(metrics["width"], metrics["spread"]) >= 0.50:
-        words.extend(["房间变宽", "横向空间", "开放场"])
-    else:
-        words.extend(["中心走廊", "窄房间"])
-    if metrics["high_low"] >= 0.22:
-        words.extend(["上方亮边", "冷光"])
-    elif metrics["high_low"] <= -0.30:
-        words.extend(["低矮空间", "暗低处", "地面重量"])
-    return words
-
-
-def relation_translation(relations: list[dict[str, Any]]) -> str:
-    translated = []
-    for rel in relations[:6]:
-        name = str(rel.get("relation") or "").lower()
-        if "mask" in name or "press" in name:
-            translated.append("有东西被遮住或被压住")
-        elif "support" in name:
-            translated.append("某个层在支撑另一个层")
-        elif "contain" in name:
-            translated.append("一个对象被包在另一个场里")
-        elif "co" in name:
-            translated.append("多个对象并置，而不是单线推进")
-    return "；".join(sorted(set(translated)))
-
-
-def relative_translation(relative: dict[str, Any]) -> str:
-    if not relative:
-        return "No relative-change evidence supplied."
-    items = []
-    for key, value in sorted(relative.items())[:6]:
-        items.append(f"{key}={value}")
-    return "; ".join(items)
-
-
-def max_source_support(source: dict[str, Any], needle: str) -> float:
-    best = 0.0
-    for item in list_dicts(source.get("full_mix_source_hypotheses")):
-        name = str(item.get("source") or "").lower()
-        if needle.lower() in name:
-            best = max(best, to_float(item.get("support")))
-    return best
-
-
-def melody_support(midi: dict[str, Any]) -> float:
-    status = str(midi.get("status") or "missing")
-    melody = str(midi.get("melody_contour_proxy") or "unknown")
-    phrase = str(midi.get("phrase_shape") or "unknown")
-    support = 0.0 if status == "missing" else 0.35
-    if melody not in ("unknown", "blurred_contour", ""):
-        support += 0.18
-    if phrase not in ("unknown", ""):
-        support += 0.10
-    return clamp(support)
-
-
-def seconds_label(start: Any, end: Any) -> str:
-    if start is None and end is None:
-        return "unknown time"
-    return f"{format_seconds(to_float(start))}-{format_seconds(to_float(end))}"
-
-
-def format_seconds(value: float) -> str:
-    minutes = int(value // 60)
-    seconds = int(round(value % 60))
-    return f"{minutes:02d}:{seconds:02d}"
-
-
-def clean_join(parts: list[str]) -> str:
-    return "，".join(part for part in parts if str(part).strip()) + "。"
 
 
 def as_dict(value: Any) -> dict[str, Any]:
@@ -816,32 +1018,47 @@ def list_strings(value: Any) -> list[str]:
 
 
 def to_float(value: Any) -> float:
-    if isinstance(value, bool):
-        return float(value)
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value)
-        except ValueError:
+    try:
+        if value is None:
             return 0.0
-    return 0.0
-
-
-def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
-    return max(low, min(high, float(value)))
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def first_nonempty(*values: Any) -> Any:
     for value in values:
-        if value not in (None, "", [], {}):
+        if value not in (None, "", []):
             return value
     return None
 
 
-def avg(items: list[dict[str, Any]], key: str) -> float:
-    values = [to_float(item.get(key)) for item in items if item.get(key) is not None]
-    return sum(values) / len(values) if values else 0.0
+def seconds_label(start: Any, end: Any) -> str:
+    return f"{format_seconds(to_float(start))}-{format_seconds(to_float(end))}"
+
+
+def format_seconds(value: float) -> str:
+    minutes = int(value // 60)
+    seconds = int(round(value - minutes * 60))
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def max_source_support(source: dict[str, Any], needle: str) -> float:
+    best = 0.0
+    for item in list_dicts(source.get("full_mix_source_hypotheses")):
+        name = str(item.get("source") or "").lower()
+        if needle.lower() in name:
+            best = max(best, to_float(item.get("support")))
+    return best
+
+
+def melody_support(midi: dict[str, Any]) -> float:
+    contour = str(midi.get("melody_contour_proxy") or "")
+    if contour in {"rising_contour", "falling_contour", "stable_or_reciting_contour"}:
+        return 0.62
+    if contour == "blurred_contour":
+        return 0.34
+    return 0.0
 
 
 if __name__ == "__main__":
