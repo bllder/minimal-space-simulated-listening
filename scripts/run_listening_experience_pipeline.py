@@ -31,7 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--analysis-label", default=None)
     parser.add_argument("--max-prompt-segments", type=int, default=DEFAULT_MAX_PROMPT_SEGMENTS)
     parser.add_argument("--structural-summary", default=None)
-    parser.add_argument("--translation-prompt", default="docs/original_song_listening_experience_prompt.md")
+    parser.add_argument("--translation-prompt", default="docs/c_online_handoff_translation.md")
     parser.add_argument("--playlist-context", default=None)
     parser.add_argument("--context-note", action="append", default=[])
     parser.add_argument("--aesthetic-context", action="append", default=[])
