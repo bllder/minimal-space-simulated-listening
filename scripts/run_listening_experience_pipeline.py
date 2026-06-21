@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-WAV -> full_song_profile.json -> online_ai_listening_handoff.md
+WAV -> full_song_profile.json -> professional audio terminology report -> online_ai_listening_handoff.md
 """
 
 from __future__ import annotations
@@ -33,7 +33,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--aesthetic-context", action="append", default=[])
     parser.add_argument("--external-context", action="append", default=[])
     parser.add_argument("--keep-structural-md", action="store_true")
-    parser.add_argument("--report-output", default="original_song_close_listening_criticism.md")
     return parser.parse_args()
 
 
