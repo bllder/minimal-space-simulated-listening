@@ -2,7 +2,7 @@
 
 Status: consolidated implementation source for the professional-audio terminology layer.
 
-Use this file when editing `PROFESSIONAL_TERM_INDEX` in `scripts/build_listening_experience_prompt.py`.
+Use this file as the human-readable source for the P0 terminology layer. The code-side source of truth lives in `scripts/professional_term_index.py`, and `scripts/build_listening_experience_prompt.py` imports that module when generating online-AI handoff files.
 
 Consolidated from:
 
@@ -38,6 +38,17 @@ machine proxy name + numeric value
 ```
 
 Raw numeric values may remain in private traceability fields. They should not be the main language of `online_ai_listening_handoff.md`.
+
+## Code integration
+
+```text
+docs/a_professional_term_index.md
+-> scripts/professional_term_index.py
+-> scripts/build_listening_experience_prompt.py
+-> online_ai_listening_handoff.md
+```
+
+`docs/a_professional_term_index.md` is the readable design source. `scripts/professional_term_index.py` is the code-side P0 index. The handoff builder imports `term_spec`, `public_professional_term_index`, and `p0_policy` from that module instead of maintaining a second local terminology table.
 
 ## Mechanism-to-term table
 
@@ -222,7 +233,7 @@ Avoid:
 detected true drum / detected true singer / exact instrument / emotion truth / physical 3D location / room-size truth / lyric truth
 ```
 
-## Update checklist for `PROFESSIONAL_TERM_INDEX`
+## Update checklist for `scripts/professional_term_index.py`
 
 1. Does each machine field have a mechanism evidence term?
 2. Does each term have a safe interpretation boundary?
