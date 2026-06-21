@@ -7,23 +7,23 @@
 
 ## Project goal
 
-MSSL is not only O/M/E packet generation. O/M/E is the spatial simulation layer; the human-facing layer must also accept aesthetic and external context.
+MSSL is not only O/M/E packet generation. O/M/E is the spatial simulation layer; the human-facing layer must also accept bounded aesthetic and external context.
 
 Current target path:
 
 ```text
 local PCM WAV
 -> structural audio evidence
--> O/M/E listening-space simulation
--> object / relation / scene evidence
 -> listening-experience evidence pack
 -> critical listening brief
 -> aesthetic context handoff
 -> online AI handoff
--> bounded close-listening criticism
+-> bounded close-listening criticism by an online AI account
 ```
 
-MSSL does not need to rebuild every music-recognition capability itself. External model outputs, optional adapters, online AI accounts, local LLM backends, lyrics, comments, reviews, MIR notes, and user aesthetic material may be introduced as bounded context. MSSL organizes claim boundaries, evidence traceability, and handoff structure.
+MSSL does not need to rebuild every music-recognition capability itself. External model outputs, optional adapters, lyrics, comments, reviews, MIR notes, and user aesthetic material may be introduced as bounded context. MSSL organizes claim boundaries, evidence traceability, and handoff structure.
+
+The default project does **not** run a local LLM. The local pipeline prepares an uploadable handoff file for an online AI account.
 
 ## O/M/E frame
 
@@ -99,7 +99,7 @@ If you have human/aesthetic context, add it explicitly:
   --external-context "path\to\lyrics_or_review.txt"
 ```
 
-If you do not have a local LLM or API key, use this file:
+Then use this file:
 
 ```text
 online_ai_listening_handoff.md
@@ -107,29 +107,11 @@ online_ai_listening_handoff.md
 
 Copy or upload it to an online AI account. It is the MSSL handoff that replaces sending the audio file. Ask the online AI to write bounded close-listening criticism from it.
 
-Advanced optional path: to generate final prose locally, provide an LLM command that reads prompt text from stdin and writes Markdown to stdout:
-
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
-  --input "path\to\local_audio.wav" `
-  --output-dir outputs `
-  --llm-command "your-local-llm-command"
-```
-
-With `--llm-command`, the pipeline writes:
-
-```text
-original_song_close_listening_criticism.md
-```
-
-Other modes:
+Other mode:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_mssl.py structural --input "path\to\local_audio.wav"
-.\.venv\Scripts\python.exe .\scripts\run_mssl.py smoke --generate-synthetic
 ```
-
-For script status and cleanup notes, see [`docs/scripts_inventory.md`](docs/scripts_inventory.md).
 
 ## Aesthetic context handoff
 
@@ -138,7 +120,7 @@ The main human-language correction is:
 ```text
 aesthetic context first
 MSSL structure second
-LLM close-listening last
+online AI close-listening last
 ```
 
 Do not poetically interpret playlist names before classification. For example:
@@ -165,27 +147,16 @@ affective-listening hypotheses
 
 It must not treat stems as instrument truth, style candidates as genre truth, vocal objects as singer identity, or affective tendencies as emotion truth. But it may translate these bounded claims into readable music-listening language when the handoff has adequate context.
 
-`object_personality_layer.json` is experimental only and runs only with:
-
-```text
---experimental-object-personality
-```
-
 ## Current structural chain
 
 The structural chain is:
 
 ```text
-local PCM WAV / local synthetic probe
--> audio evidence
--> O/M/E mapping packet
--> object candidate packet
--> object track packet
--> auditory scene graph packet
--> structural summary
+local PCM WAV
+-> full-song structural profile
 ```
 
-Language simulation continues after this chain in `experience` mode.
+Language simulation continues after this chain in `experience` mode through the online-AI handoff file.
 
 Default dependency file:
 
@@ -205,11 +176,10 @@ Create and activate a project-local virtual environment, then install the defaul
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Smoke-check entry points without writing music outputs:
+Check the entry point:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_mssl.py --help
-.\.venv\Scripts\python.exe .\scripts\run_mssl.py smoke --generate-synthetic
 ```
 
 macOS / Linux use the same commands with `./.venv/bin/python`.
