@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 DEFAULT_MODE = "experience"
-SUPPORTED_MODES = ("experience", "structural", "smoke")
+SUPPORTED_MODES = ("experience", "structural")
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
         nargs="?",
         default=DEFAULT_MODE,
         choices=SUPPORTED_MODES,
-        help="Run mode: experience, structural, or smoke. Default: experience.",
+        help="Run mode: experience or structural. Default: experience.",
     )
     parser.add_argument("--input", help="Path to a local PCM WAV file.")
     parser.add_argument("--profile", help="Existing *_full_song_profile.json for experience mode.")
@@ -42,14 +42,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context-note", action="append", default=[])
     parser.add_argument("--aesthetic-context", action="append", default=[])
     parser.add_argument("--external-context", action="append", default=[])
-    parser.add_argument("--experimental-object-personality", action="store_true")
     parser.add_argument("--llm-command", default=None)
     parser.add_argument("--report-output", default=None)
     parser.add_argument("--max-prompt-segments", type=int, default=None)
     parser.add_argument("--keep-structural-md", action="store_true")
-    parser.add_argument("--generate-synthetic", action="store_true")
-    parser.add_argument("--window-duration", type=float, default=None)
-    parser.add_argument("--window-count", type=int, default=None)
     return parser.parse_args()
 
 
@@ -61,8 +57,6 @@ def main() -> int:
         run_experience(repo_root, args)
     elif args.mode == "structural":
         run_structural(repo_root, args)
-    elif args.mode == "smoke":
-        run_smoke(repo_root, args)
     else:  # pragma: no cover - argparse prevents this
         raise ValueError(args.mode)
     return 0
@@ -86,8 +80,6 @@ def run_experience(repo_root: Path, args: argparse.Namespace) -> None:
     append_optional(command, "--max-prompt-segments", args.max_prompt_segments)
     if args.keep_structural_md:
         command.append("--keep-structural-md")
-    if args.experimental_object_personality:
-        command.append("--experimental-object-personality")
     run(command, repo_root)
 
 
@@ -101,18 +93,6 @@ def run_structural(repo_root: Path, args: argparse.Namespace) -> None:
         args.input,
     ]
     append_common_output_args(command, args)
-    run(command, repo_root)
-
-
-def run_smoke(repo_root: Path, args: argparse.Namespace) -> None:
-    command = [sys.executable, str(repo_root / "scripts/run_minimal_pipeline_smoke.py")]
-    if args.generate_synthetic or not args.input:
-        command.append("--generate-synthetic")
-    else:
-        command.extend(["--input", args.input])
-    command.extend(["--output-dir", args.output_dir])
-    append_optional(command, "--window-duration", args.window_duration)
-    append_optional(command, "--window-count", args.window_count)
     run(command, repo_root)
 
 
