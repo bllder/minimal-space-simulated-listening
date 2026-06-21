@@ -3,10 +3,10 @@
 
 Default behavior runs the complete listening-experience continuation:
 
-WAV -> structural profile -> evidence pack -> aesthetic handoff -> prompt input
+WAV -> structural profile -> professional audio terminology report -> online AI handoff
 
-If --llm-command is provided, the prompt input is also sent to the configured
-LLM command and bounded close-listening criticism is written.
+The default runtime does not call a local LLM. It prepares uploadable Markdown for
+an online AI account instead of uploading audio.
 """
 
 from __future__ import annotations
@@ -42,8 +42,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context-note", action="append", default=[])
     parser.add_argument("--aesthetic-context", action="append", default=[])
     parser.add_argument("--external-context", action="append", default=[])
-    parser.add_argument("--llm-command", default=None)
-    parser.add_argument("--report-output", default=None)
     parser.add_argument("--max-prompt-segments", type=int, default=None)
     parser.add_argument("--keep-structural-md", action="store_true")
     return parser.parse_args()
@@ -75,8 +73,6 @@ def run_experience(repo_root: Path, args: argparse.Namespace) -> None:
     append_many(command, "--context-note", args.context_note)
     append_many(command, "--aesthetic-context", args.aesthetic_context)
     append_many(command, "--external-context", args.external_context)
-    append_optional(command, "--llm-command", args.llm_command)
-    append_optional(command, "--report-output", args.report_output)
     append_optional(command, "--max-prompt-segments", args.max_prompt_segments)
     if args.keep_structural_md:
         command.append("--keep-structural-md")
