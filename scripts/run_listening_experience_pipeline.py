@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-WAV -> full_song_profile.json -> professional audio terminology report -> online_ai_listening_handoff.md
+Audio file -> full_song_profile.json -> professional audio terminology report -> online_ai_listening_handoff.md
+
+PCM WAV is read by the core analyzer directly. Other common local audio formats
+are decoded to a temporary PCM WAV through ffmpeg when ffmpeg is available.
 """
 
 from __future__ import annotations
@@ -14,12 +17,13 @@ from pathlib import Path
 DEFAULT_MAX_PROMPT_SEGMENTS = 24
 DEFAULT_PROMPT_INPUT_NAME = "original_song_listening_prompt_input.md"
 DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
+NATIVE_WAV_SUFFIXES = {".wav", ".wave"}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the MSSL listening-experience continuation chain.")
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--input", help="PCM WAV file to analyze before building the online-AI handoff.")
+    source.add_argument("--input", help="Local audio file to analyze before building the online-AI handoff.")
     source.add_argument("--profile", help="Existing *_full_song_profile.json to use directly.")
     parser.add_argument("--output-dir", default="outputs", help="Base output directory.")
     parser.add_argument("--output-folder-name", default=None)
@@ -32,7 +36,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context-note", action="append", default=[])
     parser.add_argument("--aesthetic-context", action="append", default=[])
     parser.add_argument("--external-context", action="append", default=[])
+    parser.add_argument("--ffmpeg-bin", default="ffmpeg", help="ffmpeg executable used for non-WAV input decoding.")
     parser.add_argument("--keep-structural-md", action="store_true")
+    parser.add_argument("--keep-decoded-wav", action="store_true", help="Keep the temporary decoded WAV for inspection.")
     return parser.parse_args()
 
 
@@ -49,7 +55,7 @@ def main() -> None:
     else:
         input_path = Path(args.input)
         if not input_path.exists():
-            raise FileNotFoundError(f"WAV file not found: {input_path}")
+            raise FileNotFoundError(f"Audio file not found: {input_path}")
         output_dir, profile_path, legacy_md, structural_inspection_md = run_full_song(script_dir, args, input_path)
         normalize_structural_markdown(legacy_md, structural_inspection_md, args.keep_structural_md)
 
@@ -119,14 +125,22 @@ def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) 
     output_dir = output_base if args.flat_output else output_base / safe_folder
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    cmd = [sys.executable, str(script_dir / "run_full_song_analysis.py"), "--input", str(input_path), "--output-dir", str(output_base)]
-    if args.output_folder_name:
-        cmd.extend(["--output-folder-name", args.output_folder_name])
-    if args.flat_output:
-        cmd.append("--flat-output")
-    if args.analysis_label:
-        cmd.extend(["--analysis-label", args.analysis_label])
-    subprocess.run(cmd, check=True)
+    analysis_input, decoded_temp = prepare_audio_input(input_path, output_dir, safe_stem, args.ffmpeg_bin)
+    try:
+        cmd = [sys.executable, str(script_dir / "run_full_song_analysis.py"), "--input", str(analysis_input), "--output-dir", str(output_base)]
+        # Preserve the user's original naming even when the analyzer receives a decoded WAV.
+        if args.output_folder_name or decoded_temp:
+            cmd.extend(["--output-folder-name", folder_source])
+        if args.flat_output:
+            cmd.append("--flat-output")
+        if args.analysis_label:
+            cmd.extend(["--analysis-label", args.analysis_label])
+        elif decoded_temp:
+            cmd.extend(["--analysis-label", input_path.stem])
+        subprocess.run(cmd, check=True)
+    finally:
+        if decoded_temp and not args.keep_decoded_wav and analysis_input.exists():
+            analysis_input.unlink()
 
     profile_path = output_dir / f"{safe_stem}_full_song_profile.json"
     legacy_md = output_dir / f"{safe_stem}_full_song_report.md"
@@ -134,6 +148,36 @@ def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) 
     if not profile_path.exists():
         raise FileNotFoundError(f"Expected full-song profile not found: {profile_path}")
     return output_dir, profile_path, legacy_md, structural_inspection_md
+
+
+def prepare_audio_input(input_path: Path, output_dir: Path, safe_stem: str, ffmpeg_bin: str) -> tuple[Path, bool]:
+    if input_path.suffix.lower() in NATIVE_WAV_SUFFIXES:
+        return input_path, False
+    decoded_path = output_dir / f"{safe_stem}.wav"
+    cmd = [
+        ffmpeg_bin,
+        "-y",
+        "-v",
+        "error",
+        "-i",
+        str(input_path),
+        "-vn",
+        "-ac",
+        "2",
+        "-c:a",
+        "pcm_s16le",
+        str(decoded_path),
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+    except FileNotFoundError as exc:
+        raise SystemExit(
+            "Non-WAV input requires ffmpeg. Install ffmpeg or provide --ffmpeg-bin path, "
+            "or convert the file to PCM WAV before running MSSL."
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"ffmpeg failed to decode input audio: {input_path}") from exc
+    return decoded_path, True
 
 
 def normalize_structural_markdown(legacy_md: Path, structural_inspection_md: Path, keep: bool) -> None:
