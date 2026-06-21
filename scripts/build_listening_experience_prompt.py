@@ -10,8 +10,8 @@ It turns an existing *_full_song_profile.json into:
 - online_ai_listening_handoff.md
 
 The core axis is:
-internal machine proxies -> professional audio terminology lookup -> professional audio report ->
-online-AI prompt examples for accessible translation.
+internal machine proxies -> P0 professional audio terminology index ->
+professional audio report -> online-AI prompt examples for accessible translation.
 """
 
 from __future__ import annotations
@@ -19,7 +19,13 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+from professional_term_index import (
+    p0_policy,
+    public_professional_term_index,
+    term_spec,
+)
 
 DEFAULT_JSON_NAME = "listening_experience_evidence_pack.json"
 DEFAULT_BRIEF_NAME = "critical_listening_brief.json"
@@ -27,134 +33,46 @@ DEFAULT_MD_NAME = "original_song_listening_prompt_input.md"
 DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
 DEFAULT_MAX_SEGMENTS = 24
 DEFAULT_KEY_MOMENTS = 10
-VERSION = "mssl_online_ai_listening_handoff_v0_6_professional_terms"
-BRIEF_VERSION = "mssl_critical_listening_brief_v0_6_professional_terms"
-
-# Machine proxy -> professional audio terminology index.
-# This is intentionally a code-level lookup table, not a free-form prose prompt.
-PROFESSIONAL_TERM_INDEX: dict[str, dict[str, Any]] = {
-    "pressure": {
-        "professional_term": "loudness contour / perceived intensity profile",
-        "cn_term": "响度轮廓 / 感知强度轮廓",
-        "domain": "dynamics",
-        "definition": "How the segment's perceived level and body-pressure tendency behaves over time.",
-        "evidence_basis": "RMS, peak level, and onset-strength proxies from the full mix.",
-        "scale": "reduced / restrained / moderate / pronounced / dominant",
-    },
-    "width": {
-        "professional_term": "apparent source width (ASW)",
-        "cn_term": "感知声源宽度",
-        "domain": "spatial",
-        "definition": "How wide the main sound image appears at the listener side.",
-        "evidence_basis": "Stereo side-energy and inter-channel phase-correlation proxies.",
-        "scale": "narrow / restricted / moderate / broad / very broad",
-    },
-    "spread": {
-        "professional_term": "spaciousness / lateral spread",
-        "cn_term": "空间开阔度 / 横向扩散",
-        "domain": "spatial",
-        "definition": "How much the segment suggests lateral extension beyond a compact center image.",
-        "evidence_basis": "ASW proxy combined with spectral-bandwidth evidence.",
-        "scale": "restricted / limited / moderate / open / expansive",
-    },
-    "envelopment": {
-        "professional_term": "listener envelopment (LEV)",
-        "cn_term": "听者包围感",
-        "domain": "spatial",
-        "definition": "How much the field seems to wrap around or surround the listener.",
-        "evidence_basis": "Combined width and spread proxies from the receiver-side field.",
-        "scale": "absent / weak / moderate / strong / enveloping",
-    },
-    "near_far": {
-        "professional_term": "perceived source distance / presence",
-        "cn_term": "感知声源距离 / 临场度",
-        "domain": "spatial",
-        "definition": "Whether the foreground field reads as distant, mid-field, or close/present.",
-        "evidence_basis": "Pressure, width, and spectral-flatness proxies.",
-        "scale": "recessed / mid-distance / present / close / very close",
-    },
-    "high_low": {
-        "professional_term": "spectral centroid / brightness-weighting",
-        "cn_term": "谱质心 / 明亮度重心",
-        "domain": "timbre",
-        "definition": "Whether spectral weight tends toward low, middle, or upper-frequency brightness.",
-        "evidence_basis": "Mean spectral centroid relative to the track-local reference range.",
-        "scale": "low-weighted / dark / balanced / bright / upper-weighted",
-    },
-    "motion": {
-        "professional_term": "spatiotemporal motion contour",
-        "cn_term": "时空运动轮廓",
-        "domain": "motion",
-        "definition": "How much the segment suggests movement in level, lateral balance, or field activity.",
-        "evidence_basis": "Left-right motion and dynamic-range proxies.",
-        "scale": "static / restrained / moderate / active / highly active",
-    },
-    "rhythm": {
-        "professional_term": "rhythmic articulation / pulse salience",
-        "cn_term": "节奏发音清晰度 / 脉冲显著性",
-        "domain": "rhythm",
-        "definition": "How clearly recurring pulse or rhythmic articulation is supported by the full mix.",
-        "evidence_basis": "Onset strength, percussive proxy, onset density, and pressure support.",
-        "scale": "weak / subtle / moderate / salient / dominant",
-    },
-    "low_body": {
-        "professional_term": "low-frequency foundation / low-end body",
-        "cn_term": "低频基础 / 低频身体感",
-        "domain": "timbre_texture",
-        "definition": "How strongly the low-frequency region grounds or thickens the segment.",
-        "evidence_basis": "Low-band energy, pressure, and spectral-weighting proxies.",
-        "scale": "light / present / grounded / heavy / dominant",
-    },
-    "vocal": {
-        "professional_term": "foreground lead-line candidate / vocal-like contour",
-        "cn_term": "前景主导线候选 / 人声样轮廓",
-        "domain": "texture_layers",
-        "definition": "A foreground line that behaves like a lead/vocal contour without proving singer identity.",
-        "evidence_basis": "Mid-band harmonic continuity, vocal-activity placeholders, and source-family support.",
-        "scale": "unsupported / weak / possible / supported / prominent",
-    },
-    "melody": {
-        "professional_term": "melodic contour proxy",
-        "cn_term": "旋律轮廓代理",
-        "domain": "melody_phrase",
-        "definition": "Whether the segment supplies enough contour evidence for a lead-line or melody-like role.",
-        "evidence_basis": "MIDI-like skeleton fields and contour proxy support.",
-        "scale": "unclear / weak / possible / supported / prominent",
-    },
-}
+VERSION = "mssl_online_ai_listening_handoff_v0_7_p0_term_index"
+BRIEF_VERSION = "mssl_critical_listening_brief_v0_7_p0_term_index"
 
 RELATION_TERM_INDEX: dict[str, dict[str, str]] = {
     "presses_forward_over": {
         "professional_term": "rhythmic-forward masking / forward pressure relation",
         "cn_term": "节奏前推遮蔽 / 前向压力关系",
         "translation_affordance": "may support accessible writing about pulse pressing into foreground material",
+        "boundary": "relation hypothesis from object candidates, not a true source interaction",
     },
     "grounds_or_thickens": {
         "professional_term": "low-frequency grounding / textural thickening",
         "cn_term": "低频锚定 / 织体加厚",
         "translation_affordance": "may support accessible writing about low-end support or weight",
+        "boundary": "textural relation proxy, not instrument truth",
     },
     "surrounds_or_widens": {
         "professional_term": "harmonic spatial widening / lateral support",
         "cn_term": "和声性空间扩展 / 横向支撑",
-        "translation_affordance": "may support accessible writing about the backing field widening around a foreground line",
+        "translation_affordance": "may support accessible writing about a backing field widening around a foreground line",
+        "boundary": "stereo-field relation proxy, not room width",
     },
     "fog_or_texture_masks_edges": {
         "professional_term": "diffuse texture masking / edge-softening",
         "cn_term": "弥散织体遮蔽 / 边缘软化",
         "translation_affordance": "may support accessible writing about blurred edges or softened object boundaries",
+        "boundary": "masking-risk proxy, not confirmed perceptual masking for every listener",
     },
     "no_strong_relation_detected": {
         "professional_term": "no dominant inter-object relation detected",
         "cn_term": "未检测到主导对象关系",
         "translation_affordance": "use as neutral support rather than a dramatic claim",
+        "boundary": "absence of a strong relation in this heuristic, not absence in the music",
     },
 }
 
 SOURCE_FAMILY_TERM_INDEX: dict[str, dict[str, str]] = {
     "vocals_or_vocal-like_lead": {
-        "professional_term": "foreground lead-line / vocal-like source-family hypothesis",
-        "cn_term": "前景主导线 / 人声样来源家族假设",
+        "professional_term": "vocal-like foreground stream candidate",
+        "cn_term": "人声样前景声流候选",
     },
     "bass_or_low_end_body": {
         "professional_term": "low-frequency foundation / bass-region source-family hypothesis",
@@ -217,7 +135,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--structural-summary", default=None, help="Optional readable structural summary Markdown.")
     parser.add_argument(
         "--translation-prompt",
-        default="docs/original_song_listening_experience_prompt.md",
+        default="docs/c_online_handoff_translation.md",
         help="Optional prompt protocol to include in the technical prompt input.",
     )
     parser.add_argument("--output-dir", default=None, help="Output directory. Defaults to the profile JSON directory.")
@@ -257,6 +175,7 @@ def main() -> None:
         "segments_included": len(selected_segments),
         "global_context": global_context(profile),
         "terminology_policy": terminology_policy(),
+        "p0_review_policy": p0_policy(),
         "professional_term_index": public_professional_term_index(),
         "track_professional_summary": track_summary,
         "macro_arc": macro_arc,
@@ -331,28 +250,15 @@ def build_context(profile: dict[str, Any], playlist_context: str | None, context
     }
 
 
-def terminology_policy() -> dict[str, str]:
+def terminology_policy() -> dict[str, Any]:
     return {
-        "axis": "internal machine proxies -> professional audio terminology lookup -> professional report -> online-AI translation examples",
+        "axis": "internal machine proxies -> P0 professional audio terminology index -> professional report -> online-AI translation examples",
         "local_scope": "MSSL emits professional audio descriptors and timeline anchors, not final music-review content.",
         "numeric_scope": "Numeric proxy values are converted into qualitative professional bands before appearing in report-facing fields.",
         "external_context_scope": "The online AI may use its own available external context and align it to this timeline; MSSL does not supply lyrics, reviews, or background text.",
         "instrument_scope": "Source-family terms are hypotheses from full-mix evidence unless an external stem adapter supplies stronger evidence.",
+        "p0_source": "scripts/professional_term_index.py, synchronized with docs/a_professional_term_index.md.",
     }
-
-
-def public_professional_term_index() -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
-    for item in PROFESSIONAL_TERM_INDEX.values():
-        rows.append({
-            "professional_term": item["professional_term"],
-            "cn_term": item["cn_term"],
-            "domain": item["domain"],
-            "definition": item["definition"],
-            "evidence_basis": item["evidence_basis"],
-            "scale": item["scale"],
-        })
-    return rows
 
 
 def professional_section_sequence(sequence: Any) -> list[str]:
@@ -368,7 +274,6 @@ def segment_profile(segment: dict[str, Any], index: int) -> dict[str, Any]:
     ome = as_dict(segment.get("ome_mapping"))
     e_space = as_dict(ome.get("e_space_receiver_side")) or as_dict(as_dict(segment.get("structural_support")).get("e_space"))
     relative = as_dict(ome.get("relative_to_previous_segment"))
-
     objects = as_dict(segment.get("object_candidates"))
     scores = as_dict(objects.get("scores"))
     relations = list_dicts(segment.get("object_relations"))
@@ -376,6 +281,7 @@ def segment_profile(segment: dict[str, Any], index: int) -> dict[str, Any]:
     source = as_dict(segment.get("source_instrument_evidence"))
     lyric = as_dict(segment.get("lyric_alignment"))
     musical_structure = as_dict(segment.get("musical_structure"))
+    audio_summary = as_dict(segment.get("audio_terms_summary"))
 
     metrics = {
         "pressure": to_float(e_space.get("perceived_pressure")),
@@ -385,17 +291,26 @@ def segment_profile(segment: dict[str, Any], index: int) -> dict[str, Any]:
         "high_low": to_float(e_space.get("high_low")),
         "motion": to_float(e_space.get("perceived_motion")),
         "envelopment": to_float(e_space.get("envelopment")),
+        "left_right_balance": to_float(e_space.get("left_right")),
         "rhythm": to_float(scores.get("object_01_near_rhythmic_pulse")),
         "low_body": to_float(scores.get("object_02_low_end_body")),
+        "harmonic": to_float(scores.get("object_03_harmonic_layer")),
         "vocal": max(
             to_float(scores.get("object_04_vocal_contour_candidate")),
             to_float(lyric.get("vocal_activity_candidate")),
             max_source_support(source, "vocal"),
         ),
+        "noise_texture": to_float(scores.get("object_05_noise_or_texture_mass")),
         "melody": melody_support(midi),
+        "peak": to_float(audio_summary.get("peak")),
+        "dbfs": to_float(audio_summary.get("rms_dbfs")),
+        "phase_correlation": to_float(audio_summary.get("phase_correlation")),
+        "onset_density": to_float(audio_summary.get("onset_density_proxy")),
+        "harmonic_proxy": to_float(audio_summary.get("harmonic_proxy")),
+        "percussive_proxy": to_float(audio_summary.get("percussive_proxy")),
     }
 
-    professional_terms = professional_audio_terms(metrics, relative, relations, source, midi, musical_structure)
+    professional_terms = professional_audio_terms(metrics, relative, relations, source, midi, musical_structure, audio_summary)
 
     return {
         "segment_id": str(segment.get("segment_id") or f"segment_{index + 1:02d}"),
@@ -411,7 +326,7 @@ def segment_profile(segment: dict[str, Any], index: int) -> dict[str, Any]:
         "professional_style_anchor": style_anchor_from_terms(professional_terms),
         "translation_affordance": translation_affordance(professional_terms),
         "external_context_alignment_slot": external_context_alignment_slot(professional_terms),
-        "traceability_note": "Machine proxy values were converted through the professional term index before this report field was generated.",
+        "traceability_note": "Machine proxy values were converted through scripts/professional_term_index.py before this report field was generated.",
     }
 
 
@@ -422,25 +337,35 @@ def professional_audio_terms(
     source: dict[str, Any],
     midi: dict[str, Any],
     musical_structure: dict[str, Any],
+    audio_summary: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "spatial_impression": {
             "apparent_source_width": term_entry("width", metrics["width"]),
-            "spaciousness": term_entry("spread", max(metrics["width"], metrics["spread"])),
+            "spatial_spread": term_entry("spread", max(metrics["width"], metrics["spread"])),
             "listener_envelopment": term_entry("envelopment", metrics["envelopment"]),
             "perceived_source_distance": term_entry_signed("near_far", metrics["near_far"], signed_distance_band),
+            "phase_coherence": term_entry_signed("phase_correlation", metrics["phase_correlation"], phase_correlation_band),
+            "lateral_image_bias": term_entry_signed("left_right_balance", metrics["left_right_balance"], lateral_balance_band),
         },
         "dynamics_and_motion": {
-            "loudness_contour": term_entry("pressure", metrics["pressure"]),
-            "spatiotemporal_motion_contour": term_entry("motion", metrics["motion"]),
+            "perceived_loudness_pressure": term_entry("pressure", metrics["pressure"]),
+            "peak_level": term_entry("peak", metrics["peak"]),
+            "digital_level_reference": term_entry_signed("dbfs", metrics["dbfs"], dbfs_band),
+            "temporal_spectral_motion": term_entry("motion", metrics["motion"]),
             "rhythmic_articulation": term_entry("rhythm", metrics["rhythm"]),
+            "onset_event_density": term_entry("onset_density", metrics["onset_density"]),
             "relative_change": professional_relative_change(relative),
         },
         "timbre_and_spectral_weight": {
             "brightness_weighting": term_entry_signed("high_low", metrics["high_low"], signed_brightness_band),
+            "band_energy_distribution": band_energy_entry(audio_summary),
             "low_frequency_foundation": term_entry("low_body", metrics["low_body"]),
+            "harmonic_structure": term_entry("harmonic_proxy", max(metrics["harmonic"], metrics["harmonic_proxy"])),
+            "attack_dominant_transient_profile": term_entry("percussive_proxy", metrics["percussive_proxy"]),
         },
         "texture_and_layers": {
+            "auditory_stream_grouping": object_grouping_entry(metrics, source),
             "foreground_lead_line": term_entry("vocal", metrics["vocal"]),
             "melodic_contour_proxy": term_entry("melody", metrics["melody"]),
             "midi_like_reduction": professional_midi_terms(midi),
@@ -452,7 +377,7 @@ def professional_audio_terms(
 
 
 def term_entry(machine_key: str, value: float) -> dict[str, Any]:
-    spec = PROFESSIONAL_TERM_INDEX[machine_key]
+    spec = term_spec(machine_key)
     return {
         "term": spec["professional_term"],
         "cn_term": spec["cn_term"],
@@ -460,11 +385,14 @@ def term_entry(machine_key: str, value: float) -> dict[str, Any]:
         "qualitative_value": scalar_band(value),
         "confidence": confidence_band(value),
         "definition": spec["definition"],
+        "evidence_basis": spec["evidence_basis"],
+        "boundary": spec["boundary"],
+        "translation_affordance": spec["translation_affordance"],
     }
 
 
-def term_entry_signed(machine_key: str, value: float, bander: Any) -> dict[str, Any]:
-    spec = PROFESSIONAL_TERM_INDEX[machine_key]
+def term_entry_signed(machine_key: str, value: float, bander: Callable[[float], str]) -> dict[str, Any]:
+    spec = term_spec(machine_key)
     return {
         "term": spec["professional_term"],
         "cn_term": spec["cn_term"],
@@ -472,6 +400,52 @@ def term_entry_signed(machine_key: str, value: float, bander: Any) -> dict[str, 
         "qualitative_value": bander(value),
         "confidence": signed_confidence_band(value),
         "definition": spec["definition"],
+        "evidence_basis": spec["evidence_basis"],
+        "boundary": spec["boundary"],
+        "translation_affordance": spec["translation_affordance"],
+    }
+
+
+def object_grouping_entry(metrics: dict[str, float], source: dict[str, Any]) -> dict[str, Any]:
+    support = max(
+        metrics.get("rhythm", 0.0),
+        metrics.get("low_body", 0.0),
+        metrics.get("harmonic", 0.0),
+        metrics.get("vocal", 0.0),
+        metrics.get("noise_texture", 0.0),
+        max_source_support(source, ""),
+    )
+    return term_entry("object_grouping", support)
+
+
+def band_energy_entry(audio_summary: dict[str, Any]) -> dict[str, Any]:
+    ratios = as_dict(audio_summary.get("low_mid_high_ratio"))
+    low = to_float(ratios.get("low_below_250hz"))
+    mid = to_float(ratios.get("mid_250_4000hz"))
+    high = to_float(ratios.get("high_above_4000hz"))
+    if low >= mid and low >= high and low > 0:
+        band = "low-weighted"
+        confidence = confidence_band(low)
+    elif mid >= low and mid >= high and mid > 0:
+        band = "mid-forward"
+        confidence = confidence_band(mid)
+    elif high >= low and high >= mid and high > 0:
+        band = "high-weighted"
+        confidence = confidence_band(high)
+    else:
+        band = "balanced or unavailable"
+        confidence = "low"
+    spec = term_spec("band_energy")
+    return {
+        "term": spec["professional_term"],
+        "cn_term": spec["cn_term"],
+        "domain": spec["domain"],
+        "qualitative_value": band,
+        "confidence": confidence,
+        "definition": spec["definition"],
+        "evidence_basis": spec["evidence_basis"],
+        "boundary": spec["boundary"],
+        "translation_affordance": spec["translation_affordance"],
     }
 
 
@@ -530,17 +504,52 @@ def signed_distance_band(value: float) -> str:
     return "mid-field / neutral distance"
 
 
+def phase_correlation_band(value: float) -> str:
+    if value <= -0.15:
+        return "decorrelated / phase-opposed"
+    if value < 0.25:
+        return "partly diffuse / weakly coherent"
+    if value < 0.65:
+        return "moderately coherent"
+    return "coherent center support"
+
+
+def lateral_balance_band(value: float) -> str:
+    if value <= -0.45:
+        return "left-leaning"
+    if value <= -0.15:
+        return "slightly left-leaning"
+    if value >= 0.45:
+        return "right-leaning"
+    if value >= 0.15:
+        return "slightly right-leaning"
+    return "centered / balanced"
+
+
+def dbfs_band(value: float) -> str:
+    if value <= -90.0:
+        return "digital level unavailable or near silence"
+    if value >= -6.0:
+        return "near-full-scale digital level"
+    if value >= -14.0:
+        return "high digital level"
+    if value >= -28.0:
+        return "moderate digital level"
+    return "low digital level"
+
+
 def professional_relative_change(relative: dict[str, Any]) -> dict[str, str]:
     if not relative:
         return {"status": "no previous segment supplied"}
     mapping = {
-        "perceived_pressure": "loudness contour change",
-        "perceived_width": "ASW change",
-        "perceived_spread": "spaciousness change",
-        "perceived_motion": "motion-contour change",
-        "envelopment": "LEV change",
+        "perceived_pressure": "perceived loudness / pressure change",
+        "perceived_width": "apparent source width change",
+        "perceived_spread": "spatial spread change",
+        "perceived_motion": "temporal-spectral motion change",
+        "envelopment": "listener envelopment proxy change",
         "near_far": "distance/presence change",
         "high_low": "brightness-weighting change",
+        "left_right": "lateral image bias change",
     }
     result: dict[str, str] = {}
     for key, label in mapping.items():
@@ -567,12 +576,14 @@ def professional_relations(relations: list[dict[str, Any]]) -> list[dict[str, An
             "cn_term": spec["cn_term"],
             "strength": scalar_band(to_float(rel.get("strength"))),
             "translation_affordance": spec["translation_affordance"],
+            "boundary": spec["boundary"],
         })
     return results or [{
         "term": RELATION_TERM_INDEX["no_strong_relation_detected"]["professional_term"],
         "cn_term": RELATION_TERM_INDEX["no_strong_relation_detected"]["cn_term"],
         "strength": "reduced",
         "translation_affordance": RELATION_TERM_INDEX["no_strong_relation_detected"]["translation_affordance"],
+        "boundary": RELATION_TERM_INDEX["no_strong_relation_detected"]["boundary"],
     }]
 
 
@@ -628,61 +639,50 @@ def professional_section_role(musical_structure: dict[str, Any]) -> dict[str, An
 
 
 def style_anchor_from_terms(pro_terms: dict[str, Any]) -> dict[str, Any]:
-    spatial = as_dict(pro_terms.get("spatial_impression"))
-    dynamics = as_dict(pro_terms.get("dynamics_and_motion"))
-    timbre = as_dict(pro_terms.get("timbre_and_spectral_weight"))
-    texture = as_dict(pro_terms.get("texture_and_layers"))
-    anchor_terms = [
-        as_dict(spatial.get("apparent_source_width")).get("term"),
-        as_dict(spatial.get("listener_envelopment")).get("term"),
-        as_dict(dynamics.get("loudness_contour")).get("term"),
-        as_dict(dynamics.get("rhythmic_articulation")).get("term"),
-        as_dict(timbre.get("low_frequency_foundation")).get("term"),
-        as_dict(texture.get("foreground_lead_line")).get("term"),
+    selected_paths = [
+        ("spatial_impression", "apparent_source_width"),
+        ("spatial_impression", "phase_coherence"),
+        ("dynamics_and_motion", "perceived_loudness_pressure"),
+        ("dynamics_and_motion", "rhythmic_articulation"),
+        ("timbre_and_spectral_weight", "low_frequency_foundation"),
+        ("texture_and_layers", "foreground_lead_line"),
+        ("texture_and_layers", "auditory_stream_grouping"),
     ]
+    anchor_terms = []
+    for group, key in selected_paths:
+        term = as_dict(as_dict(pro_terms.get(group)).get(key)).get("term")
+        if term:
+            anchor_terms.append(str(term))
     return {
-        "anchor": " + ".join([str(item) for item in anchor_terms if item]),
+        "anchor": " + ".join(anchor_terms),
         "role": "professional style anchor, not final review wording or genre truth",
     }
 
 
 def translation_affordance(pro_terms: dict[str, Any]) -> dict[str, Any]:
-    spatial = as_dict(pro_terms.get("spatial_impression"))
-    dynamics = as_dict(pro_terms.get("dynamics_and_motion"))
-    timbre = as_dict(pro_terms.get("timbre_and_spectral_weight"))
-    texture = as_dict(pro_terms.get("texture_and_layers"))
-    examples: list[str] = []
-
-    asw = as_dict(spatial.get("apparent_source_width")).get("qualitative_value")
-    lev = as_dict(spatial.get("listener_envelopment")).get("qualitative_value")
-    pressure = as_dict(dynamics.get("loudness_contour")).get("qualitative_value")
-    rhythm = as_dict(dynamics.get("rhythmic_articulation")).get("qualitative_value")
-    low = as_dict(timbre.get("low_frequency_foundation")).get("qualitative_value")
-    fg = as_dict(texture.get("foreground_lead_line")).get("qualitative_value")
-
-    if asw in ("reduced", "restrained"):
-        examples.append("低 ASW 可被转译为声像集中、横向不铺开、听者位置被固定。")
-    elif asw in ("pronounced", "dominant"):
-        examples.append("高 ASW 可被转译为声像向两侧展开、背景或支撑层横向拉开。")
-    if lev in ("pronounced", "dominant"):
-        examples.append("高 LEV 可被转译为包围感、环绕感或空间把听者纳入其中。")
-    if pressure in ("pronounced", "dominant"):
-        examples.append("显著响度轮廓可被转译为持续压力、贴近感或强度推进。")
-    elif pressure in ("reduced", "restrained"):
-        examples.append("克制响度轮廓可被转译为低冲击、弱爆发或保留余量。")
-    if rhythm in ("pronounced", "dominant"):
-        examples.append("显著 rhythmic articulation 可被转译为脉冲清楚、节奏带动身体或前推感。")
-    if low in ("pronounced", "dominant"):
-        examples.append("显著 low-frequency foundation 可被转译为低处支撑、地基、重量或厚度。")
-    if fg in ("pronounced", "dominant", "moderate"):
-        examples.append("foreground lead-line 可被转译为前景主导线，但不等于确定人声或歌手身份。")
-
+    examples = collect_translation_examples(pro_terms)
     if not examples:
         examples.append("这些术语适合作为专业锚点；线上 AI 可自行决定是否转译为空间、力度、层次或时间运动语言。")
     return {
         "role": "examples for online-AI accessible translation, not required final-review content",
-        "examples": examples,
+        "examples": examples[:8],
     }
+
+
+def collect_translation_examples(value: Any) -> list[str]:
+    examples: list[str] = []
+    if isinstance(value, dict):
+        q = str(value.get("qualitative_value") or "")
+        affordance = value.get("translation_affordance")
+        term = value.get("term")
+        if affordance and q not in ("reduced", "balanced spectral weight", "centered / balanced", "digital level unavailable or near silence"):
+            examples.append(f"{term}: {affordance}")
+        for child in value.values():
+            examples.extend(collect_translation_examples(child))
+    elif isinstance(value, list):
+        for child in value:
+            examples.extend(collect_translation_examples(child))
+    return dedupe_preserve_order(examples)
 
 
 def external_context_alignment_slot(pro_terms: dict[str, Any]) -> dict[str, Any]:
@@ -707,7 +707,7 @@ def aggregate_track_professional(segments: list[dict[str, Any]]) -> dict[str, An
     for segment in segments:
         for term in collect_terms(as_dict(segment.get("professional_audio_terms"))):
             counters[term] = counters.get(term, 0) + 1
-    dominant = sorted(counters.items(), key=lambda item: (-item[1], item[0]))[:12]
+    dominant = sorted(counters.items(), key=lambda item: (-item[1], item[0]))[:16]
     return {
         "segment_count": len(segments),
         "dominant_professional_anchors": [
@@ -731,7 +731,6 @@ def collect_terms(value: Any) -> list[str]:
 
 
 def select_key_moments(segments: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
-    # Select by professional descriptor intensity, without exposing the internal machine terms in output.
     scored = []
     for seg in segments:
         terms = as_dict(seg.get("professional_audio_terms"))
@@ -755,9 +754,25 @@ def select_key_moments(segments: list[dict[str, Any]], limit: int) -> list[dict[
 
 def descriptor_score(terms: dict[str, Any]) -> float:
     values = []
+    weights = {
+        "reduced": 0.05,
+        "restrained": 0.18,
+        "moderate": 0.35,
+        "pronounced": 0.65,
+        "dominant": 0.85,
+        "supported": 0.65,
+        "prominent": 0.85,
+        "close / strongly present": 0.75,
+        "upper-weighted / bright": 0.55,
+        "low-weighted / dark": 0.55,
+        "decorrelated / phase-opposed": 0.60,
+        "coherent center support": 0.55,
+        "high digital level": 0.45,
+        "near-full-scale digital level": 0.70,
+    }
     for entry in collect_entries(terms):
         q = str(entry.get("qualitative_value") or "")
-        values.append({"reduced": 0.05, "restrained": 0.18, "moderate": 0.35, "pronounced": 0.65, "dominant": 0.85}.get(q, 0.2))
+        values.append(weights.get(q, 0.2))
     return sum(values) / max(1, len(values))
 
 
@@ -788,7 +803,7 @@ def build_macro_arc(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
     arc = []
     for index, chunk in enumerate(chunks, start=1):
         label = movement_label(index, len(chunks))
-        dominant_terms = aggregate_track_professional(chunk).get("dominant_professional_anchors", [])[:5]
+        dominant_terms = aggregate_track_professional(chunk).get("dominant_professional_anchors", [])[:6]
         arc.append({
             "movement": label,
             "time_range": f"{as_dict(chunk[0].get('time_range')).get('label')} -> {as_dict(chunk[-1].get('time_range')).get('label')}",
@@ -813,6 +828,7 @@ def build_critical_brief(evidence_pack: dict[str, Any], context: dict[str, Any])
         "role": "Help a fresh online AI translate MSSL professional audio descriptors into accessible review language.",
         "context": context,
         "terminology_policy": evidence_pack.get("terminology_policy"),
+        "p0_review_policy": evidence_pack.get("p0_review_policy"),
         "track_professional_summary": evidence_pack.get("track_professional_summary"),
         "macro_arc": evidence_pack.get("macro_arc"),
         "key_moments": evidence_pack.get("key_moments"),
@@ -822,6 +838,7 @@ def build_critical_brief(evidence_pack: dict[str, Any], context: dict[str, Any])
             "MSSL does not provide lyrics, external reviews, background text, genre truth, emotion truth, or final review content.",
             "The online AI may use its own available context and align it to the local professional timeline.",
             "Accessible examples are style examples only, not mandatory wording.",
+            "Source-family and object-grouping terms are candidates, not identification results.",
         ],
     }
 
@@ -879,6 +896,7 @@ def render_online_ai_handoff(
     macro_arc = list_dicts(evidence_pack.get("macro_arc"))
     key_moments = list_dicts(evidence_pack.get("key_moments"))
     timeline = list_dicts(evidence_pack.get("timeline_professional_report"))
+    p0 = as_dict(evidence_pack.get("p0_review_policy"))
 
     lines: list[str] = [
         "# Online AI Listening Handoff",
@@ -887,9 +905,9 @@ def render_online_ai_handoff(
         "",
         "You have not received the audio file. You are receiving a professional audio terminology report generated from local MSSL analysis.",
         "",
-        "Axis: internal machine proxies → professional audio terminology lookup → professional audio report → accessible translation examples.",
+        "Axis: internal machine proxies → P0 professional audio terminology index → professional audio report → accessible translation examples.",
         "",
-        "MSSL does not provide the final review content. It provides professional descriptors and timeline anchors. If external song context is available to you, you may align it to this timeline using your own tools and rules.",
+        "MSSL does not provide final review content. It provides professional descriptors and timeline anchors. If external song context is available to you, you may align it to this timeline using your own tools and rules.",
         "",
         "## 1. Track context",
         "",
@@ -900,25 +918,27 @@ def render_online_ai_handoff(
         "",
         "## 2. Professional terminology index",
         "",
-        "| Professional term | CN term | Domain | Report scale | Evidence basis |",
+        "| Machine key | Professional term | CN term | Boundary | Translation affordance |",
         "|---|---|---|---|---|",
     ]
     for row in term_index:
         lines.append(
-            f"| {row.get('professional_term')} | {row.get('cn_term')} | {row.get('domain')} | {row.get('scale')} | {row.get('evidence_basis')} |"
+            f"| {row.get('machine_key')} | {row.get('professional_term')} | {row.get('cn_term')} | {row.get('boundary')} | {row.get('translation_affordance')} |"
         )
 
-    lines.extend([
-        "",
-        "## 3. Track-level professional summary",
-        "",
-        "Dominant professional anchors:",
-        "",
-    ])
+    lines.extend(["", "## 3. P0 review policy", ""])
+    for item in list_strings(p0.get("review_decisions")):
+        lines.append(f"- Use: {item}")
+    for item in list_strings(p0.get("hold_for_review")):
+        lines.append(f"- Hold for review: {item}")
+    if p0.get("default_boundary"):
+        lines.append(f"- Default boundary: {p0.get('default_boundary')}")
+
+    lines.extend(["", "## 4. Track-level professional summary", "", "Dominant professional anchors:", ""])
     for item in list_dicts(track_summary.get("dominant_professional_anchors")):
         lines.append(f"- {item.get('term')} | segment support: {item.get('segment_support_count')}")
 
-    lines.extend(["", "## 4. Macro professional arc", ""])
+    lines.extend(["", "## 5. Macro professional arc", ""])
     for movement in macro_arc:
         lines.extend([
             f"### {movement.get('movement')}",
@@ -931,7 +951,7 @@ def render_online_ai_handoff(
             lines.append(f"  - {term.get('term')} | support: {term.get('segment_support_count')}")
         lines.append("")
 
-    lines.extend(["", "## 5. Key professional moments", ""])
+    lines.extend(["", "## 6. Key professional moments", ""])
     for index, moment in enumerate(key_moments, start=1):
         time_range = as_dict(moment.get("time_range"))
         lines.extend([
@@ -954,7 +974,7 @@ def render_online_ai_handoff(
             "",
         ])
 
-    lines.extend(["", "## 6. Full timeline professional report", ""])
+    lines.extend(["", "## 7. Full timeline professional report", ""])
     for segment in timeline:
         time_range = as_dict(segment.get("time_range"))
         lines.extend([
@@ -970,29 +990,22 @@ def render_online_ai_handoff(
         ])
         for example in list_strings(as_dict(segment.get("translation_affordance")).get("examples")):
             lines.append(f"  - {example}")
-        lines.extend(["",])
+        lines.append("")
 
-    lines.extend([
-        "## 7. Translation style guidance for online AI",
-        "",
-    ])
+    lines.extend(["", "## 8. Translation style guidance for online AI", ""])
     for item in list_strings(critical_brief.get("translation_style_guidance")):
         lines.append(f"- {item}")
 
-    lines.extend([
-        "",
-        "## 8. Data boundary",
-        "",
-    ])
+    lines.extend(["", "## 9. Data boundary", ""])
     for item in list_strings(critical_brief.get("data_boundary")):
         lines.append(f"- {item}")
 
     if structural_summary:
-        lines.extend(["", "## 9. Optional structural summary", "", "```markdown", structural_summary.strip(), "```"])
+        lines.extend(["", "## 10. Optional structural summary", "", "```markdown", structural_summary.strip(), "```"])
 
     lines.extend([
         "",
-        "## 10. Output request",
+        "## 11. Output request",
         "",
         "Using the professional audio report above, write a Chinese close-listening review if asked by the user.",
         "Translate the professional terms into accessible language where useful, but do not treat the examples as mandatory wording.",
@@ -1047,7 +1060,7 @@ def max_source_support(source: dict[str, Any], needle: str) -> float:
     best = 0.0
     for item in list_dicts(source.get("full_mix_source_hypotheses")):
         name = str(item.get("source") or "").lower()
-        if needle.lower() in name:
+        if not needle or needle.lower() in name:
             best = max(best, to_float(item.get("support")))
     return best
 
@@ -1059,6 +1072,17 @@ def melody_support(midi: dict[str, Any]) -> float:
     if contour == "blurred_contour":
         return 0.34
     return 0.0
+
+
+def dedupe_preserve_order(values: list[str]) -> list[str]:
+    seen = set()
+    result = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 if __name__ == "__main__":
