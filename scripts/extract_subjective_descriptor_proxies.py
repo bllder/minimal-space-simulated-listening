@@ -4,6 +4,11 @@
 Step 3 / Step 4 staging only: this reads an existing *_full_song_profile.json
 and maps already-present segment fields into descriptor bands and OME handoff
 packet placeholders. It does not read audio or run the OME filter bank.
+
+Important boundary: profile-level descriptors are allowed to summarize the track,
+but they are not allowed to masquerade as stream-level OME evidence. Stream
+packets therefore gate descriptor targets by stream compatibility and emit
+`stream_level_ome_required` when the profile layer cannot support that stream.
 """
 
 from __future__ import annotations
@@ -21,7 +26,7 @@ from ome_spatial_handoff_contract import (
 )
 from subjective_descriptor_index import public_subjective_descriptor_index
 
-VERSION = "mssl_subjective_descriptor_proxy_layer_v0_1_profile_derived"
+VERSION = "mssl_subjective_descriptor_proxy_layer_v0_2_profile_derived_gated"
 
 STREAM_DIMS = {
     "center_mid_lead": ["space.focus_diffuse", "timbral_color.bright_dark", "timbral_texture.rough_smooth"],
@@ -39,6 +44,25 @@ HUMAN_NAMES = {
     "side_harmonic_space": ["side harmonic backing", "guitar-like support", "piano-like support", "pad-like support"],
     "wide_diffuse_texture": ["reverb air", "cymbal edge", "noise texture", "synth haze"],
     "residual_unassigned": ["ambiguous residual material", "mixed remainder"],
+}
+
+STREAM_COMPATIBLE_TARGETS: dict[str, set[str]] = {
+    "center_mid_lead": {"focused", "dark", "bright", "glassy", "smooth", "warm", "voice_like_or_lead_like"},
+    "center_low_impact": {"focused", "grainy", "sandy", "low_impact_like"},
+    "center_low_sustain": {"warm", "dark", "focused", "bass_like"},
+    "side_harmonic_space": {"wide", "diffuse", "phase_colored", "grainy", "sandy", "guitar_like", "piano_like", "pad_like"},
+    "wide_diffuse_texture": {"wet", "reverberant", "diffuse", "phase_colored", "wide", "surrounding", "grainy", "sandy", "reverb_air_or_haze_like", "pad_like"},
+    "residual_unassigned": set(),
+}
+
+OBJECT_MANDATORY_INTERSECTIONS: dict[str, tuple[str, ...]] = {
+    "voice_like_or_lead_like": ("focused", "melodic_contour_possible"),
+    "guitar_like": ("side_or_mid_side_support",),
+    "piano_like": ("clear_attack",),
+    "pad_like": ("wide_or_diffuse",),
+    "bass_like": ("low_body_high",),
+    "low_impact_like": ("transient_high",),
+    "reverb_air_or_haze_like": ("diffuse", "wide_environment"),
 }
 
 
@@ -235,8 +259,19 @@ def object_intersections(p: dict[str, float], dims: dict[str, Any]) -> dict[str,
     for candidate, checks in rules.items():
         matched = [name for name, ok in checks if ok]
         support = len(matched) / max(1, len(checks))
-        status = "supported" if support >= 0.75 else "possible" if support >= 0.5 else "weak" if support > 0 else "unsupported"
-        result[candidate] = {"status": status, "support": round(support, 4), "matched_intersections": matched, "boundary": f"{candidate} is a descriptor intersection, not source identity."}
+        mandatory = set(OBJECT_MANDATORY_INTERSECTIONS.get(candidate, ()))
+        missing_mandatory = sorted(mandatory.difference(matched))
+        if missing_mandatory:
+            status = "blocked_missing_mandatory_evidence" if matched else "unsupported"
+        else:
+            status = "supported" if support >= 0.75 else "possible" if support >= 0.5 else "weak" if support > 0 else "unsupported"
+        result[candidate] = {
+            "status": status,
+            "support": round(support, 4),
+            "matched_intersections": matched,
+            "missing_mandatory_intersections": missing_mandatory,
+            "boundary": f"{candidate} is a descriptor intersection, not source identity.",
+        }
     return result
 
 
@@ -268,13 +303,15 @@ def build_ome_packets(layer: dict[str, Any]) -> dict[str, Any]:
     objects = {str(x.get("candidate")): x for x in list_dicts(summary.get("object_candidate_summary"))}
     packets = []
     for stream_id, anchors in OME_PROFESSIONAL_ANCHORS_BY_STREAM.items():
-        dims = {dim: track_hint(dim, descriptors) for dim in STREAM_DIMS.get(stream_id, [])}
+        dims = {dim: track_hint(stream_id, dim, descriptors) for dim in STREAM_DIMS.get(stream_id, [])}
         wanted = list(OME_OBJECT_CANDIDATE_TARGETS_BY_STREAM.get(stream_id, ()))
-        object_hits = {name: objects.get(name, {"candidate": name, "segment_support_count": 0, "boundary": f"{name} is not source identity"}) for name in wanted}
-        targets = stream_targets(stream_id, descriptors, dims, object_hits)
+        object_hits = {name: object_hit_for_stream(stream_id, name, objects) for name in wanted}
+        targets = stream_targets(stream_id, dims, object_hits)
+        needs_stream_runtime = targets == ["stream_level_ome_required"]
+        status = "profile_layer_insufficient_stream_level_ome_required" if needs_stream_runtime else "profile_derived_descriptor_packet_not_ome_filterbank_stream"
         packets.append({
             "stream_id": stream_id,
-            "status": "profile_derived_descriptor_packet_not_ome_filterbank_stream",
+            "status": status,
             "required_fields": list(OME_REQUIRED_PACKET_FIELDS),
             "human_candidate_names": HUMAN_NAMES.get(stream_id, []),
             "professional_terminology_anchors": list(anchors),
@@ -283,16 +320,16 @@ def build_ome_packets(layer: dict[str, Any]) -> dict[str, Any]:
             "object_candidate_intersections": object_hits,
             "attribute_threshold_bands": public_subjective_descriptor_index()["value_bands"],
             "p0_output_validation_table": public_subjective_descriptor_index()["output_validation_table"],
-            "short_listening_description": f"{stream_id} descriptor targets: {', '.join(targets[:6])}.",
-            "evidence_summary": {"source": "existing profile proxy averages, not OME runtime"},
+            "short_listening_description": stream_description(stream_id, targets, needs_stream_runtime),
+            "evidence_summary": {"source": "existing profile proxy averages, gated before stream assignment; not OME runtime"},
             "binaural_cue_validation": {"status": "proxy_only_not_binaural_runtime_validation", "focus_diffuse_hint": dims.get("space.focus_diffuse")},
-            "review_affordance": f"Use {stream_id} as bounded listening language only; descriptor targets: {', '.join(targets[:5])}.",
+            "review_affordance": stream_review_affordance(stream_id, targets, needs_stream_runtime),
             "truth_boundary": "Not a true stem and not completed OME Spatial Filter Bank output.",
         })
-    return {"version": "mssl_ome_stream_descriptor_packets_v0_1_profile_derived", "status": "profile_derived_placeholder_packets_not_ome_filterbank_runtime", "stream_packets": packets}
+    return {"version": VERSION, "status": "profile_derived_placeholder_packets_gated_not_ome_filterbank_runtime", "stream_packets": packets}
 
 
-def track_hint(dimension: str, descriptors: list[str]) -> dict[str, Any]:
+def track_hint(stream_id: str, dimension: str, descriptors: list[str]) -> dict[str, Any]:
     options = {
         "timbral_color.warm_cold": ["cold", "warm"],
         "timbral_color.bright_dark": ["dark", "bright", "glassy"],
@@ -301,18 +338,60 @@ def track_hint(dimension: str, descriptors: list[str]) -> dict[str, Any]:
         "space.focus_diffuse": ["focused", "diffuse", "phase_colored"],
         "space.width_envelopment": ["narrow", "wide", "surrounding"],
     }
-    picked = [name for name in options.get(dimension, []) if name in descriptors] or ["ambiguous_or_mixed"]
-    return {"dimension": dimension, "descriptor_targets": picked, "boundary": "Track-level profile-derived hint; future OME should compute per stream."}
+    compatible = STREAM_COMPATIBLE_TARGETS.get(stream_id, set())
+    raw_hits = [name for name in options.get(dimension, []) if name in descriptors]
+    picked = [name for name in raw_hits if name in compatible]
+    if not picked:
+        return {
+            "dimension": dimension,
+            "descriptor_targets": ["stream_level_ome_required"],
+            "rejected_track_level_descriptors": raw_hits,
+            "boundary": "Track-level descriptor did not pass stream-compatibility gate; future OME should compute per stream.",
+        }
+    return {
+        "dimension": dimension,
+        "descriptor_targets": picked,
+        "rejected_track_level_descriptors": [name for name in raw_hits if name not in picked],
+        "boundary": "Track-level profile-derived hint accepted by stream gate; future OME should compute per stream.",
+    }
 
 
-def stream_targets(stream_id: str, descriptors: list[str], dims: dict[str, Any], objects: dict[str, Any]) -> list[str]:
+def object_hit_for_stream(stream_id: str, name: str, objects: dict[str, Any]) -> dict[str, Any]:
+    compatible = STREAM_COMPATIBLE_TARGETS.get(stream_id, set())
+    item = as_dict(objects.get(name))
+    if not item:
+        return {"candidate": name, "segment_support_count": 0, "status": "not_supported_by_profile_layer", "boundary": f"{name} is not source identity"}
+    if name not in compatible:
+        blocked = dict(item)
+        blocked["status"] = "blocked_by_stream_compatibility_gate"
+        blocked["boundary"] = f"{name} had profile support but is not compatible with {stream_id} without stream-level OME evidence."
+        return blocked
+    return item
+
+
+def stream_targets(stream_id: str, dims: dict[str, Any], objects: dict[str, Any]) -> list[str]:
+    compatible = STREAM_COMPATIBLE_TARGETS.get(stream_id, set())
     targets = []
     for item in dims.values():
-        targets.extend(list_strings(as_dict(item).get("descriptor_targets")))
+        for target in list_strings(as_dict(item).get("descriptor_targets")):
+            if target in compatible:
+                targets.append(target)
     for name, item in objects.items():
-        if as_dict(item).get("segment_support_count", 0) > 0:
+        if name in compatible and as_dict(item).get("segment_support_count", 0) > 0 and as_dict(item).get("status") != "blocked_by_stream_compatibility_gate":
             targets.append(name)
-    return dedupe([x for x in targets if x != "ambiguous_or_mixed"]) or ["ambiguous_or_mixed"]
+    return dedupe(targets) or ["stream_level_ome_required"]
+
+
+def stream_description(stream_id: str, targets: list[str], needs_stream_runtime: bool) -> str:
+    if needs_stream_runtime:
+        return f"{stream_id} cannot be safely filled from the profile-derived layer; stream-level OME evidence is required."
+    return f"{stream_id} gated descriptor targets: {', '.join(targets[:6])}."
+
+
+def stream_review_affordance(stream_id: str, targets: list[str], needs_stream_runtime: bool) -> str:
+    if needs_stream_runtime:
+        return f"Do not use {stream_id} as review language yet; the profile-derived layer did not provide stream-compatible evidence."
+    return f"Use {stream_id} as bounded listening language only; gated descriptor targets: {', '.join(targets[:5])}."
 
 
 def render_layer_md(layer: dict[str, Any]) -> str:
@@ -327,9 +406,9 @@ def render_layer_md(layer: dict[str, Any]) -> str:
 
 
 def render_packets_md(packets: dict[str, Any]) -> str:
-    lines = ["# OME Stream Descriptor Packets", "", f"Status: {packets.get('status')}", "", "Boundary: profile-derived placeholders, not completed OME streams."]
+    lines = ["# OME Stream Descriptor Packets", "", f"Status: {packets.get('status')}", "", "Boundary: profile-derived placeholders, stream-gated, not completed OME streams."]
     for packet in list_dicts(packets.get("stream_packets")):
-        lines.extend(["", f"## {packet.get('stream_id')}", f"- Descriptor targets: {', '.join(list_strings(packet.get('subjective_descriptor_targets')))}", f"- Review affordance: {packet.get('review_affordance')}", f"- Boundary: {packet.get('truth_boundary')}"])
+        lines.extend(["", f"## {packet.get('stream_id')}", f"- Status: {packet.get('status')}", f"- Descriptor targets: {', '.join(list_strings(packet.get('subjective_descriptor_targets')))}", f"- Review affordance: {packet.get('review_affordance')}", f"- Boundary: {packet.get('truth_boundary')}"])
     return "\n".join(lines).rstrip() + "\n"
 
 
