@@ -26,7 +26,7 @@ from ome_spatial_handoff_contract import (
 )
 from subjective_descriptor_index import public_subjective_descriptor_index
 
-VERSION = "mssl_subjective_descriptor_proxy_layer_v0_2_profile_derived_gated"
+VERSION = "mssl_subjective_descriptor_proxy_layer_v0_3_profile_derived_minimum_evidence_gated"
 
 STREAM_DIMS = {
     "center_mid_lead": ["space.focus_diffuse", "timbral_color.bright_dark", "timbral_texture.rough_smooth"],
@@ -53,6 +53,18 @@ STREAM_COMPATIBLE_TARGETS: dict[str, set[str]] = {
     "side_harmonic_space": {"wide", "diffuse", "phase_colored", "grainy", "sandy", "guitar_like", "piano_like", "pad_like"},
     "wide_diffuse_texture": {"wet", "reverberant", "diffuse", "phase_colored", "wide", "surrounding", "grainy", "sandy", "reverb_air_or_haze_like", "pad_like"},
     "residual_unassigned": set(),
+}
+
+# Compatibility only says a word is allowed to appear in a stream. Minimum
+# evidence says the stream is allowed to speak at all. This prevents generic
+# spatial descriptors such as "focused" from masquerading as a low-impact stream.
+STREAM_REQUIRED_TARGETS: dict[str, set[str]] = {
+    "center_mid_lead": {"voice_like_or_lead_like"},
+    "center_low_impact": {"low_impact_like"},
+    "center_low_sustain": {"bass_like"},
+    "side_harmonic_space": {"guitar_like", "piano_like", "pad_like", "wide", "diffuse", "phase_colored"},
+    "wide_diffuse_texture": {"wet", "reverberant", "diffuse", "phase_colored", "wide", "surrounding", "reverb_air_or_haze_like"},
+    "residual_unassigned": {"residual_runtime_required"},
 }
 
 OBJECT_MANDATORY_INTERSECTIONS: dict[str, tuple[str, ...]] = {
@@ -306,7 +318,7 @@ def build_ome_packets(layer: dict[str, Any]) -> dict[str, Any]:
         dims = {dim: track_hint(stream_id, dim, descriptors) for dim in STREAM_DIMS.get(stream_id, [])}
         wanted = list(OME_OBJECT_CANDIDATE_TARGETS_BY_STREAM.get(stream_id, ()))
         object_hits = {name: object_hit_for_stream(stream_id, name, objects) for name in wanted}
-        targets = stream_targets(stream_id, dims, object_hits)
+        targets, minimum_gate = stream_targets(stream_id, dims, object_hits)
         needs_stream_runtime = targets == ["stream_level_ome_required"]
         status = "profile_layer_insufficient_stream_level_ome_required" if needs_stream_runtime else "profile_derived_descriptor_packet_not_ome_filterbank_stream"
         packets.append({
@@ -317,6 +329,7 @@ def build_ome_packets(layer: dict[str, Any]) -> dict[str, Any]:
             "professional_terminology_anchors": list(anchors),
             "subjective_attribute_mapping": dims,
             "subjective_descriptor_targets": targets,
+            "stream_minimum_evidence_gate": minimum_gate,
             "object_candidate_intersections": object_hits,
             "attribute_threshold_bands": public_subjective_descriptor_index()["value_bands"],
             "p0_output_validation_table": public_subjective_descriptor_index()["output_validation_table"],
@@ -326,7 +339,7 @@ def build_ome_packets(layer: dict[str, Any]) -> dict[str, Any]:
             "review_affordance": stream_review_affordance(stream_id, targets, needs_stream_runtime),
             "truth_boundary": "Not a true stem and not completed OME Spatial Filter Bank output.",
         })
-    return {"version": VERSION, "status": "profile_derived_placeholder_packets_gated_not_ome_filterbank_runtime", "stream_packets": packets}
+    return {"version": VERSION, "status": "profile_derived_placeholder_packets_minimum_evidence_gated_not_ome_filterbank_runtime", "stream_packets": packets}
 
 
 def track_hint(stream_id: str, dimension: str, descriptors: list[str]) -> dict[str, Any]:
@@ -352,7 +365,7 @@ def track_hint(stream_id: str, dimension: str, descriptors: list[str]) -> dict[s
         "dimension": dimension,
         "descriptor_targets": picked,
         "rejected_track_level_descriptors": [name for name in raw_hits if name not in picked],
-        "boundary": "Track-level profile-derived hint accepted by stream gate; future OME should compute per stream.",
+        "boundary": "Track-level profile-derived hint accepted by stream compatibility gate only; minimum-evidence gate is checked at packet level.",
     }
 
 
@@ -369,7 +382,7 @@ def object_hit_for_stream(stream_id: str, name: str, objects: dict[str, Any]) ->
     return item
 
 
-def stream_targets(stream_id: str, dims: dict[str, Any], objects: dict[str, Any]) -> list[str]:
+def stream_targets(stream_id: str, dims: dict[str, Any], objects: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
     compatible = STREAM_COMPATIBLE_TARGETS.get(stream_id, set())
     targets = []
     for item in dims.values():
@@ -379,7 +392,19 @@ def stream_targets(stream_id: str, dims: dict[str, Any], objects: dict[str, Any]
     for name, item in objects.items():
         if name in compatible and as_dict(item).get("segment_support_count", 0) > 0 and as_dict(item).get("status") != "blocked_by_stream_compatibility_gate":
             targets.append(name)
-    return dedupe(targets) or ["stream_level_ome_required"]
+    targets = dedupe(targets)
+    required = STREAM_REQUIRED_TARGETS.get(stream_id, set())
+    passed_required = sorted(required.intersection(targets))
+    minimum_gate = {
+        "required_any_of": sorted(required),
+        "passed": bool(passed_required),
+        "passed_targets": passed_required,
+        "compatible_targets_before_minimum_gate": targets,
+    }
+    if not targets or not passed_required:
+        minimum_gate["blocked_reason"] = "missing_stream_minimum_evidence"
+        return ["stream_level_ome_required"], minimum_gate
+    return targets, minimum_gate
 
 
 def stream_description(stream_id: str, targets: list[str], needs_stream_runtime: bool) -> str:
@@ -390,7 +415,7 @@ def stream_description(stream_id: str, targets: list[str], needs_stream_runtime:
 
 def stream_review_affordance(stream_id: str, targets: list[str], needs_stream_runtime: bool) -> str:
     if needs_stream_runtime:
-        return f"Do not use {stream_id} as review language yet; the profile-derived layer did not provide stream-compatible evidence."
+        return f"Do not use {stream_id} as review language yet; the profile-derived layer did not provide stream-minimum evidence."
     return f"Use {stream_id} as bounded listening language only; gated descriptor targets: {', '.join(targets[:5])}."
 
 
@@ -408,7 +433,16 @@ def render_layer_md(layer: dict[str, Any]) -> str:
 def render_packets_md(packets: dict[str, Any]) -> str:
     lines = ["# OME Stream Descriptor Packets", "", f"Status: {packets.get('status')}", "", "Boundary: profile-derived placeholders, stream-gated, not completed OME streams."]
     for packet in list_dicts(packets.get("stream_packets")):
-        lines.extend(["", f"## {packet.get('stream_id')}", f"- Status: {packet.get('status')}", f"- Descriptor targets: {', '.join(list_strings(packet.get('subjective_descriptor_targets')))}", f"- Review affordance: {packet.get('review_affordance')}", f"- Boundary: {packet.get('truth_boundary')}"])
+        minimum_gate = as_dict(packet.get("stream_minimum_evidence_gate"))
+        lines.extend([
+            "",
+            f"## {packet.get('stream_id')}",
+            f"- Status: {packet.get('status')}",
+            f"- Descriptor targets: {', '.join(list_strings(packet.get('subjective_descriptor_targets')))}",
+            f"- Minimum evidence gate: passed={minimum_gate.get('passed')} required_any_of={minimum_gate.get('required_any_of')}",
+            f"- Review affordance: {packet.get('review_affordance')}",
+            f"- Boundary: {packet.get('truth_boundary')}",
+        ])
     return "\n".join(lines).rstrip() + "\n"
 
 
