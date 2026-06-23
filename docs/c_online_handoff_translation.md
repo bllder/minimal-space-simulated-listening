@@ -35,7 +35,7 @@ genre truth
 emotion truth
 ```
 
-The online AI may use its own available context and rules. MSSL only gives professional anchors and timeline structure.
+The online AI may use its own available context and rules. MSSL gives professional anchors, timeline structure, and a report-facing task frame.
 
 ## Core handoff axis
 
@@ -46,6 +46,147 @@ MSSL professional audio report
 ```
 
 External context should be aligned to the MSSL timeline. It should not replace the local audio descriptors.
+
+## Online-AI report presentation
+
+The uploadable online-AI handoff should be presented as three distinct parts:
+
+```text
+1. review-direction prompt
+2. professional audio evidence / numeric-to-term translation
+3. review writing style guidance / public-review examples
+```
+
+These parts must not be merged into one undifferentiated prompt. Each part has a different job.
+
+### Part 1 — Review-direction prompt
+
+This part tells the online AI what to do with the handoff.
+
+Required content:
+
+```text
+You have not received the audio file.
+You are receiving local MSSL listening evidence.
+First, try to verify the song identity using filename or user-supplied clues, duration, MSSL style candidates, and your own search results.
+If identity is reasonably confirmed, search lyrics, album / artist / release background, public reviews, reception notes, and relevant comments.
+If identity is uncertain, do not invent lyrics, background, exact song meaning, or public reception.
+Write a Chinese close-listening review by combining MSSL audio evidence with verified external context.
+```
+
+Important boundary:
+
+```text
+MSSL evidence can help constrain identity and style hypotheses, but it is not an audio fingerprint.
+Do not claim the numbers alone identify a song.
+```
+
+The online AI may use search, but its search results must be treated as an external context layer, not as local MSSL audio proof.
+
+### Part 2 — Professional audio evidence / numeric-to-term translation
+
+This part is the local MSSL evidence layer.
+
+It should use the already built numeric-to-professional-term translation path:
+
+```text
+machine field / numeric proxy
+-> mechanism evidence term
+-> qualitative professional band
+-> professional report descriptor
+-> human listening affordance
+```
+
+Raw numbers may remain available for traceability, but they should not be the main prose surface of the handoff. The online AI should see professional descriptors first, then use hidden or secondary numeric evidence only for self-checking.
+
+Preferred presentation:
+
+```text
+Spatial field:
+- center-concentrated / laterally open / diffuse / enveloping tendency
+- boundary: not physical room width or exact source location
+
+Pressure and intensity:
+- restrained / moderate / rising / held / released perceived pressure proxy
+- boundary: not true listener emotion or calibrated SPL
+
+Low-frequency foundation:
+- light / stable / thickening / grounding low-end support
+- boundary: not bass-instrument truth
+
+Foreground and source-family candidates:
+- vocal-like foreground stream candidate
+- percussive pulse layer candidate
+- harmonic support layer candidate
+- boundary: not singer, lyric, or exact instrument identity
+
+Texture and motion:
+- blurred edges / dense masking load / pulsing / drifting / forward pressure
+- boundary: not production intention truth
+```
+
+Avoid report prose like:
+
+```text
+pressure = 0.42
+width = 0.0001
+motion = 0.34
+```
+
+Prefer report prose like:
+
+```text
+The field stays tightly centered and does not open much to the sides.
+The low-frequency foundation remains present and grows more weight-bearing toward the later section.
+The foreground stream remains trackable, but it should be described as vocal-like or lead-line-like unless external context confirms identity.
+```
+
+### Part 3 — Review writing style guidance / public-review examples
+
+This part gives the online AI a human writing target.
+
+The goal is not to copy public reviews, comments, or seed cases. The goal is to show how human music criticism often combines:
+
+```text
+arrangement / instrumentation family
+sound field / atmosphere
+lyric theme
+album, artist, release, or production context
+cover / visual / cultural context when relevant
+public reception and comments
+body, scene, memory, and time
+```
+
+Useful public-review-style patterns:
+
+```text
+A track description may combine guitar-like harmonic material, soft chordal support, reduced percussive impact, instrumental whitespace, lyric solitude, and private atmosphere.
+A song review may connect mid-tempo melodic narration, low-frequency support, arrangement movement, core lyric metaphor, and album-wide imagery.
+An album review may connect musical transformation, character identity, cover design, public genre position, and the artist's career movement.
+```
+
+Use this as style guidance, not a source of facts for the target song.
+
+Diagnostic guard:
+
+```text
+Do not assume:
+青春流行 = 初恋主题
+舞曲 = 快乐主题
+低频重 = 愤怒主题
+空间大 = 宏大主题
+评论多 = 歌曲真义
+```
+
+Instead ask:
+
+```text
+What do the verified lyrics, arrangement, sound field, public context, and MSSL evidence actually support?
+Is the song about first love, memory, distance, public nostalgia, bodily release, resistance, solitude, or something else?
+What concrete sensory objects, body actions, scenes, or public uses let the review language enter this song?
+```
+
+The transferable unit is the diagnostic question, not the seed-case answer.
 
 ## Claim layers
 
@@ -96,6 +237,7 @@ professional descriptor
 -> perceptible language
 -> time range
 -> relation to foreground / background / space / rhythm / texture
+-> verified lyric / background / review context when available
 ```
 
 Do not turn the final review into an engineering checklist.
@@ -126,7 +268,9 @@ foreground lead-line / source-family hypotheses
 texture and layering
 dynamics and motion
 timbre and low-frequency foundation
-section or movement function
+lyrics and lyric images if identity is confirmed
+album / artist / release background if identity is confirmed
+public reviews and reception if identity is confirmed
 ```
 
 MSSL does not supply or police the external context itself. The online AI handles its own search, platform rules, and final output behavior.
@@ -217,9 +361,12 @@ Use this shape when the user asks the online AI to write:
 ```text
 Read the professional audio report and timeline.
 Use the professional terms as anchors, not as mandatory wording.
-If external context is available to you, align it to the timeline.
-Write a time-grounded, space-grounded close-listening review in accessible language.
+First verify the song identity if possible through filename / user clues, duration, MSSL style candidates, and public search.
+If identity is confirmed, search lyrics, album / artist / release background, public reviews, reception notes, and comments.
+If identity is uncertain, do not invent external context.
+Write a time-grounded, space-grounded close-listening review in accessible Chinese.
 Do not replace the local audio descriptors with generic background or mood claims.
+Do not directly quote raw numeric values in the final review unless the user explicitly asks for technical evidence.
 ```
 
 ## Red lines for local MSSL handoff
