@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-Audio file -> full_song_profile.json -> reconstructed stream / score layer -> professional audio terminology report -> online_ai_listening_handoff.md
+Audio file -> full_song_profile.json -> optional separated-stem binding -> reconstructed stream / score layer -> professional audio terminology report -> online_ai_listening_handoff.md
 
 PCM WAV is read by the core analyzer directly. Other common local audio formats
 are decoded to a temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -40,6 +40,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ffmpeg-bin", default="ffmpeg", help="ffmpeg executable used for non-WAV input decoding.")
     parser.add_argument("--keep-structural-md", action="store_true")
     parser.add_argument("--keep-decoded-wav", action="store_true", help="Keep the temporary decoded WAV for inspection.")
+    parser.add_argument("--enable-source-separation", action="store_true", help="Run optional vocals/drums/bass/other separation and analyze each stem.")
+    parser.add_argument("--demucs-bin", default="demucs", help="Demucs executable for optional source separation.")
+    parser.add_argument("--use-python-module-demucs", action="store_true", help="Run Demucs as python -m demucs.")
+    parser.add_argument("--demucs-model", default="htdemucs")
+    parser.add_argument("--separator-device", default=None, help="Optional Demucs device, e.g. cpu or cuda.")
+    parser.add_argument("--separator-segment", default=None, help="Optional Demucs segment length.")
+    parser.add_argument("--force-source-separation", action="store_true", help="Re-run separation and per-stem analysis even when outputs exist.")
     return parser.parse_args()
 
 
@@ -47,6 +54,7 @@ def main() -> None:
     args = parse_args()
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
+    original_input_path: Path | None = None
 
     if args.profile:
         profile_path = Path(args.profile)
@@ -56,13 +64,20 @@ def main() -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
     else:
         input_path = Path(args.input)
+        original_input_path = input_path
         if not input_path.exists():
             raise FileNotFoundError(f"Audio file not found: {input_path}")
         output_dir, profile_path, legacy_md, structural_inspection_md = run_full_song(script_dir, args, input_path)
         normalize_structural_markdown(legacy_md, structural_inspection_md, args.keep_structural_md)
 
+    stem_binding_md: Path | None = None
+    if args.enable_source_separation:
+        if original_input_path is not None:
+            run_source_separation_adapter(script_dir, args, original_input_path, output_dir)
+        stem_binding_md = run_stem_object_binding_builder(script_dir, args, profile_path, output_dir)
+
     reconstructed_summary = run_reconstructed_stream_score_builder(script_dir, profile_path, output_dir)
-    structural_summary = Path(args.structural_summary) if args.structural_summary else None
+    structural_summary = Path(args.structural_summary) if args.structural_summary else stem_binding_md
 
     prompt_path = Path(args.translation_prompt)
     if not prompt_path.is_absolute():
@@ -76,9 +91,50 @@ def main() -> None:
     prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
     run_aesthetic_context_builder(script_dir, args, handoff_path, prompt_input_path)
 
+    if stem_binding_md:
+        print(f"Prepared adapter-backed stem object binding: {stem_binding_md}")
     print(f"Prepared reconstructed stream / score layer: {reconstructed_summary}")
     print(f"Prepared online AI handoff: {handoff_path}")
     print("Use this Markdown as the text/file to give to an online AI account instead of uploading audio.")
+
+
+def run_source_separation_adapter(script_dir: Path, args: argparse.Namespace, input_path: Path, output_dir: Path) -> None:
+    cmd = [
+        sys.executable,
+        str(script_dir / "run_source_separation_adapter.py"),
+        "--input",
+        str(input_path),
+        "--song-output-dir",
+        str(output_dir),
+        "--demucs-bin",
+        args.demucs_bin,
+        "--demucs-model",
+        args.demucs_model,
+    ]
+    if args.use_python_module_demucs:
+        cmd.append("--use-python-module-demucs")
+    if args.separator_device:
+        cmd.extend(["--separator-device", args.separator_device])
+    if args.separator_segment:
+        cmd.extend(["--separator-segment", args.separator_segment])
+    if args.force_source_separation:
+        cmd.append("--force")
+    subprocess.run(cmd, check=True)
+
+
+def run_stem_object_binding_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path) -> Path:
+    cmd = [
+        sys.executable,
+        str(script_dir / "build_stem_object_binding.py"),
+        "--profile",
+        str(profile_path),
+        "--song-output-dir",
+        str(output_dir),
+    ]
+    if args.force_source_separation:
+        cmd.append("--force")
+    subprocess.run(cmd, check=True)
+    return output_dir / "stem_object_binding.md"
 
 
 def run_reconstructed_stream_score_builder(script_dir: Path, profile_path: Path, output_dir: Path) -> Path:
@@ -170,7 +226,6 @@ def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) 
     analysis_input, decoded_temp = prepare_audio_input(input_path, output_dir, safe_stem, args.ffmpeg_bin)
     try:
         cmd = [sys.executable, str(script_dir / "run_full_song_analysis.py"), "--input", str(analysis_input), "--output-dir", str(output_base)]
-        # Preserve the user's original naming even when the analyzer receives a decoded WAV.
         if args.output_folder_name or decoded_temp:
             cmd.extend(["--output-folder-name", folder_source])
         if args.flat_output:
