@@ -62,7 +62,7 @@ def main() -> None:
         normalize_structural_markdown(legacy_md, structural_inspection_md, args.keep_structural_md)
 
     reconstructed_summary = run_reconstructed_stream_score_builder(script_dir, profile_path, output_dir)
-    structural_summary = Path(args.structural_summary) if args.structural_summary else reconstructed_summary
+    structural_summary = Path(args.structural_summary) if args.structural_summary else None
 
     prompt_path = Path(args.translation_prompt)
     if not prompt_path.is_absolute():
@@ -71,6 +71,8 @@ def main() -> None:
     run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path, structural_summary)
 
     handoff_path = output_dir / DEFAULT_HANDOFF_NAME
+    run_reconstructed_stream_score_handoff_renderer(script_dir, profile_path, handoff_path)
+
     prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
     run_aesthetic_context_builder(script_dir, args, handoff_path, prompt_input_path)
 
@@ -92,6 +94,18 @@ def run_reconstructed_stream_score_builder(script_dir: Path, profile_path: Path,
     ]
     subprocess.run(cmd, check=True)
     return summary_path
+
+
+def run_reconstructed_stream_score_handoff_renderer(script_dir: Path, profile_path: Path, handoff_path: Path) -> None:
+    cmd = [
+        sys.executable,
+        str(script_dir / "render_reconstructed_stream_score_handoff.py"),
+        "--profile",
+        str(profile_path),
+        "--handoff-md",
+        str(handoff_path),
+    ]
+    subprocess.run(cmd, check=True)
 
 
 def run_prompt_builder(
