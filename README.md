@@ -37,6 +37,30 @@ MSSL treats sound as a bounded propagation relation from **O** through **M** int
 
 The O/M/E layer is not spatial-audio rendering and not a generic audio-feature table. It builds a receiver-side perceptual representation layer for AI listening handoff.
 
+## OME Spatial Filter Bank direction
+
+OME Spatial Filter Bank is the planned functional extension of the O/M/E layer.
+
+It is **not** true stem separation and does not claim to recover original voice, percussion, bass, or accompaniment tracks. It aims to derive receiver-side spatial-band auditory object streams from stereo evidence: mid/side behavior, interchannel correlation, phase/time difference, bandwise energy, primary/ambient evidence, direct/diffuse cues, and transient/sustained behavior.
+
+Planned stream IDs:
+
+```text
+center_low_impact
+center_low_sustain
+center_mid_lead
+side_harmonic_space
+wide_diffuse_texture
+residual_unassigned
+```
+
+Design notes:
+
+- [`docs/ome_spatial_filter_bank_reading_notes.md`](docs/ome_spatial_filter_bank_reading_notes.md) records the reading-derived rationale.
+- [`docs/ome_spatial_filter_bank_design.md`](docs/ome_spatial_filter_bank_design.md) defines the P0 design contract.
+- [`docs/ome_spatial_filter_bank_handoff_contract.md`](docs/ome_spatial_filter_bank_handoff_contract.md) defines how future OME stream evidence should enter the online-AI handoff.
+- [`docs/subjective_attribute_translation_index.md`](docs/subjective_attribute_translation_index.md) supports report-language and terminology translation.
+
 ## Visual overview
 
 The two diagrams below are the human entry point for the project: one explains the sound modeling frame, and one explains the current runtime frame.
