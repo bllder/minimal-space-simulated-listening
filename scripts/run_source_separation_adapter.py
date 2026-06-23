@@ -17,6 +17,7 @@ import argparse
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--song-output-dir", required=True, help="Song output folder, e.g. outputs/<song>.")
     parser.add_argument("--separator", default="demucs", choices=("demucs",), help="Separator adapter to run.")
     parser.add_argument("--demucs-bin", default="demucs", help="Demucs executable, or use 'python -m demucs' through --use-python-module-demucs.")
-    parser.add_argument("--use-python-module-demucs", action="store_true", help="Run demucs as the current Python module: python -m demucs.")
+    parser.add_argument("--use-python-module-demucs", action="store_true", help="Run demucs with the active Python interpreter: python -m demucs.")
     parser.add_argument("--demucs-model", default="htdemucs", help="Demucs model name. Default: htdemucs.")
     parser.add_argument("--separator-device", default=None, help="Optional Demucs device, e.g. cpu or cuda.")
     parser.add_argument("--separator-segment", default=None, help="Optional Demucs segment length.")
@@ -71,7 +72,7 @@ def run_demucs_adapter(args: argparse.Namespace, input_path: Path, song_output_d
     raw_root.mkdir(parents=True, exist_ok=True)
 
     if args.use_python_module_demucs:
-        cmd = [shutil.which("python") or "python", "-m", "demucs"]
+        cmd = [sys.executable, "-m", "demucs"]
     else:
         cmd = [args.demucs_bin]
     cmd.extend(["-n", args.demucs_model, "--out", str(raw_root)])
