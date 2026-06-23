@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_STEMS = ("vocals", "drums", "bass", "other")
+TRANSFORMER_SEGMENT_LIMIT = 7.8
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use-python-module-demucs", action="store_true", help="Run demucs with the active Python interpreter: python -m demucs.")
     parser.add_argument("--demucs-model", default="htdemucs", help="Demucs model name. Default: htdemucs.")
     parser.add_argument("--separator-device", default=None, help="Optional Demucs device, e.g. cpu or cuda.")
-    parser.add_argument("--separator-segment", default=None, help="Optional Demucs segment length.")
+    parser.add_argument("--separator-segment", default=None, help="Optional Demucs segment length. htdemucs is capped at 7.8 seconds.")
     parser.add_argument("--force", action="store_true", help="Re-run separation even when normalized stems already exist.")
     return parser.parse_args()
 
@@ -97,8 +98,9 @@ def run_demucs_adapter(args: argparse.Namespace, input_path: Path, song_output_d
     cmd.extend(["-n", args.demucs_model, "--out", str(raw_root)])
     if args.separator_device:
         cmd.extend(["-d", args.separator_device])
-    if args.separator_segment:
-        cmd.extend(["--segment", str(args.separator_segment)])
+    segment = normalized_demucs_segment(args.demucs_model, args.separator_segment)
+    if segment:
+        cmd.extend(["--segment", segment])
     cmd.append(str(input_path))
 
     try:
@@ -140,6 +142,22 @@ def run_demucs_adapter(args: argparse.Namespace, input_path: Path, song_output_d
         "stems": stem_entries,
         "boundary": "These are adapter-separated stems used by MSSL as reconstructed analysis stems. They are not original DAW tracks.",
     }
+
+
+def normalized_demucs_segment(model_name: str, segment_value: str | None) -> str | None:
+    if not segment_value:
+        return None
+    try:
+        value = float(segment_value)
+    except ValueError:
+        return segment_value
+    if model_name.startswith("htdemucs") and value > TRANSFORMER_SEGMENT_LIMIT:
+        print(
+            f"Demucs model {model_name} cannot use segment {value:g}; "
+            f"clamping to {TRANSFORMER_SEGMENT_LIMIT:g}."
+        )
+        return str(TRANSFORMER_SEGMENT_LIMIT)
+    return str(value).rstrip("0").rstrip(".") if "." in str(value) else str(value)
 
 
 def find_demucs_track_dir(raw_root: Path, model_name: str, input_stem: str) -> Path | None:
