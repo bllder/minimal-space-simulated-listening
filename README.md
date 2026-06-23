@@ -35,9 +35,13 @@ E = receiver-centered auditory modeling space
 
 MSSL treats sound as a bounded propagation relation from **O** through **M** into **E**, not as a single-point waveform-to-label conversion.
 
+The O/M/E layer is not spatial-audio rendering and not a generic audio-feature table. It builds a receiver-side perceptual representation layer for AI listening handoff.
+
 ## Visual overview
 
-The two diagrams below are the human entry point for the project: one explains the modeling frame, and one explains the current runtime frame.
+The two diagrams below are the human entry point for the project: one explains the sound modeling frame, and one explains the current runtime frame.
+
+The modeling frame follows **O → M(A/B) → E**: source-centered wave expansion, source-to-receiver spatiotemporal mapping, then receiver-centered auditory modeling. Its current output dimensions are **Direction**, **Distance**, **Spaciousness**, **Envelopment**, and **Pressure**.
 
 ### Modeling framework of sound / 声的建模框架
 
