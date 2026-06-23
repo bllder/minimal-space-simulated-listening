@@ -14,6 +14,7 @@ command and normalizes its output layout into outputs/<song>/stems/.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import shutil
 import subprocess
@@ -55,10 +56,28 @@ def main() -> None:
     if args.separator != "demucs":
         raise ValueError(f"Unsupported separator adapter: {args.separator}")
 
+    if args.use_python_module_demucs:
+        preflight_python_module_demucs()
+
     manifest = run_demucs_adapter(args, input_path, song_output_dir, stems_dir)
     stems_dir.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Wrote {manifest_path}")
+
+
+def preflight_python_module_demucs() -> None:
+    missing = [name for name in ("demucs", "torch", "torchaudio") if importlib.util.find_spec(name) is None]
+    if missing:
+        raise SystemExit(
+            "Source separation requested with --use-python-module-demucs, but missing Python packages: "
+            + ", ".join(missing)
+            + ". Install them in the active Python environment, for example: python -m pip install -U demucs"
+        )
+    if importlib.util.find_spec("torchcodec") is None:
+        raise SystemExit(
+            "Source separation requested with Demucs, but torchaudio in this environment requires TorchCodec for audio loading. "
+            "Install it in the active Python environment: python -m pip install -U torchcodec"
+        )
 
 
 def stems_exist(stems_dir: Path) -> bool:
