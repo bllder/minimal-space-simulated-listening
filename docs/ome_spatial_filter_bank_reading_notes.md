@@ -2,7 +2,7 @@
 
 Working notes for Minimal Space for Simulated Listening (MSSL).
 
-This document records reading-derived project conclusions from the first two chapters of the spatial audio text supplied by the user. It is not a general textbook summary. It only preserves material useful for turning OME from a descriptive spatial layer into a functional spatial-band filtering layer.
+This document records reading-derived project conclusions from the spatial-audio text supplied by the user. It is not a general textbook summary. It only preserves material useful for turning OME from a descriptive spatial layer into a functional spatial-band filtering layer.
 
 ## Current project problem
 
@@ -325,36 +325,466 @@ Project implication:
 
 OME outputs should be labeled as receiver-side estimates under a standard stereo listening assumption unless a specific playback model is provided.
 
-## Proposed MSSL concept after Chapters 1-2
+## Chapters 7-8: From spatial capture/synthesis to stereo decomposition
 
-### Name
-
-Preferred internal name:
+### One-sentence summary
 
 ```text
-OME Spatial-Band Stream Decomposition
+Chapter 7 says spatial audio is not simply a faithful physical sound-field copy. It organizes direct sound, localization information, reflected sound, and ambience into reproducible spatial listening events according to psychoacoustic goals.
+
+Chapter 8 says two-channel signals can be decomposed into directional and ambient components through matrix processing, correlation analysis, PCA, scalar masking, MMSE, and LMS-like methods.
+
+Together, these chapters directly support the MSSL OME Spatial Filter Bank.
 ```
 
-Shorter feature name:
+### Chapter 7: Multichannel surround capture and synthesis
+
+#### 1. Spatial audio as intended listening event, not physical truth
+
+Chapter 7 begins from a practical production premise: spatial audio capture and synthesis do not always reconstruct the desired physical sound field exactly. Many methods are based on psychoacoustic principles, experimental results, and production compromises.
+
+Project implication:
 
 ```text
-OME Spatial Filter Bank
+MSSL should reconstruct receiver-side spatial listening events from the finished stereo mix.
 ```
 
-### Purpose
+That means:
 
-Decompose a stereo full mix into spatial-band streams derived from receiver-side spatial cues.
+- audible spatial event, not recording-session truth
+- listener-side object stream, not original DAW stem
+- perceptual function, not forensic source recovery
 
-### Not this
+This keeps MSSL away from the wrong question:
 
 ```text
-true vocals / drums / bass / other stem separation
+Can we recover the true vocal/drum/bass/other stems?
 ```
 
-### This instead
+and centers the useful question:
 
 ```text
-traceable spatial-band auditory object streams
+Can we derive traceable spatial-band auditory streams from stereo spatial evidence?
+```
+
+#### 2. Localization information and environmental information should be separated
+
+Chapter 7 repeatedly distinguishes:
+
+```text
+source localization information
+ambient / reflected / enveloping spatial information
+```
+
+In 5.1 capture practice, some methods use one main microphone array to capture both localization and ambience. Other methods use separate arrays: one for main localization and another for room/environmental information, then mix them in production.
+
+Project implication:
+
+MSSL should explicitly separate:
+
+```text
+primary / direct / focused
+ambient / reflected / diffuse
+```
+
+Instead of writing:
+
+```text
+This layer carries spatial backing.
+```
+
+MSSL should represent:
+
+```text
+direct-localized stream
+reflection-ambient stream
+diffuse-envelopment stream
+```
+
+Human-language translation:
+
+```text
+There is a clear subject in the middle.
+There is spatial edge reflected out to the sides.
+There is a spread-out reverb/air field behind it.
+```
+
+#### 3. Crosstalk, delay, and level difference are old spatial-filtering tools
+
+Chapter 7's microphone-array discussion keeps returning to crosstalk: a sound source may be picked up by multiple microphones, and unwanted channel leakage can disturb virtual-source localization. The book discusses three broad suppression methods:
+
+```text
+level attenuation
+delay
+delay + level attenuation together
+```
+
+Project implication:
+
+An OME spatial filter should not be only a frequency filter. It should combine:
+
+- amplitude proportion
+- delay / phase
+- correlation
+- frequency band
+- transient vs sustained behavior
+
+Prototype mask logic:
+
+```text
+mask = band_score
+     * mid_side_score
+     * phase_or_delay_score
+     * correlation_score
+     * transient_or_sustain_score
+```
+
+This is the core skeleton of the OME spatial-band filter.
+
+#### 4. Microphone sectors imply spatial sectoring
+
+The book's 5.1 microphone examples divide the horizontal plane into sectors: front-left, center, front-right, rear-left, rear-right, plus side relationships. The effective capture range of a microphone pair can be rotated, offset, and linked with adjacent pairs.
+
+Project implication:
+
+MSSL should not cut only by instrument labels. It should cut by:
+
+```text
+space sector + frequency band + temporal behavior
+```
+
+Stereo does not provide true 5.1 sectors, but stereo spatial cues can support virtual sectors:
+
+```text
+center sector
+left/right side sector
+rear/diffuse-like sector
+wide ambient sector
+```
+
+#### 5. Reflection synthesis provides usable feature targets
+
+Section 7.5 discusses reflection and ambience synthesis:
+
+- discrete early-reflection delay algorithms
+- late reverberation using IIR / FDN-like structures
+- FIR / convolution reverb when an impulse response is available
+- decorrelation processing
+- measured or calculated room-reflection methods
+
+Project implication:
+
+MSSL can decompose spatial response evidence into feature targets:
+
+```text
+directness_proxy
+early_reflection_proxy
+late_reverb_proxy
+decorrelation_proxy
+bandwise_decay_proxy
+```
+
+These are not decorative report fields. They are filter conditions.
+
+Example mappings:
+
+```text
+center_direct_mid
+→ vocal / lead-like centered line
+
+side_early_reflection
+→ guitar / piano / pad-like lateral reflection edge
+
+wide_late_diffuse
+→ reverb air / cymbal edge / noise texture / wide tail
+```
+
+#### 6. DirAC / SIRR points to time-frequency spatial coding
+
+Chapter 7's direction-audio-coding discussion is especially close to MSSL's direction. DirAC/SIRR-like approaches analyze spatial information in the time-frequency domain, estimate direction and diffuseness, and then synthesize multichannel output using direct and diffuse handling.
+
+Project implication:
+
+A simplified stereo version of this idea is possible:
+
+```text
+time-frequency bin
+→ direction estimate
+→ diffuseness estimate
+→ direct / diffuse handling
+```
+
+MSSL does not have B-format or a microphone array, but stereo still provides:
+
+```text
+mid/side
+phase correlation
+left-right balance
+bandwise side ratio
+decorrelation
+```
+
+Temporary internal phrase:
+
+```text
+DirAC-like stereo spatial cue analysis
+```
+
+Avoid naming the feature `MSSL-DirAC-lite` in public docs. It sounds like discount detergent. Sadly, language matters, because apparently humans read names before code.
+
+External reference note:
+
+- DirAC is used as a parametric representation of a 3D audio scene and can be adapted for Ambisonic coding / immersive communication contexts.
+
+### Chapter 8: Matrix surround, downmix, and upmix
+
+#### 1. Matrix surround proves stereo can carry folded spatial relationships
+
+Chapter 8's matrix surround discussion shows that multichannel spatial information can be encoded into two channels and later decoded back into more channels.
+
+Project implication:
+
+```text
+stereo is not just two flat channels.
+stereo may contain folded, encoded, mixed, or produced spatial relationships.
+```
+
+Therefore, OME filtering is not inventing space from nothing. It is extracting structure from left/right differences, correlation patterns, and production encoding.
+
+#### 2. Downmix and upmix define the exact MSSL-adjacent problem
+
+Downmix folds multichannel information into fewer channels. Upmix estimates more spatial components from fewer channels.
+
+The key MSSL-compatible structure:
+
+```text
+two-channel stereo
+→ direction component
+→ ambient component
+→ surround / upmix / spatial representation
+```
+
+MSSL translation:
+
+```text
+stereo full mix
+→ OME spatial-band streams
+→ per-stream analysis
+→ object binding
+→ critic-ready handoff
+```
+
+The book's direction/ambient split maps to MSSL streams:
+
+```text
+direction component
+→ center_mid_lead
+→ center_low_impact
+→ center_low_sustain
+
+ambient component
+→ side_harmonic_space
+→ wide_diffuse_texture
+→ decorrelated_residual
+```
+
+#### 3. Time-frequency processing is P0, not an enhancement
+
+Section 8.3.4 places the two-channel model into time-frequency processing. Direction and ambient decomposition can be computed per frequency band or time-frequency bin.
+
+Project decision:
+
+```text
+Do not compute only one full-track phase_correlation value.
+Compute bandwise and framewise spatial features.
+```
+
+Required feature shape:
+
+```text
+L/R waveform
+→ STFT
+→ per-bin or per-band statistics
+→ direction vs ambient decomposition
+```
+
+Candidate P0 fields:
+
+```text
+bandwise_mid_energy
+bandwise_side_energy
+bandwise_correlation
+bandwise_left_right_balance
+bandwise_phase_difference
+bandwise_primary_score
+bandwise_ambient_score
+```
+
+#### 4. Scalar masking supports soft spatial stream extraction
+
+Section 8.3.5's scalar masking method is a strong implementation clue. It uses analysis of stereo correlation / spatial statistics to form masks and separate directional and ambient components.
+
+Project decision:
+
+```text
+Use soft masks, not hard cuts.
+```
+
+Candidate masks:
+
+```text
+center_mid_lead_mask
+center_low_impact_mask
+center_low_sustain_mask
+side_harmonic_space_mask
+wide_diffuse_texture_mask
+```
+
+Reason:
+
+- music components overlap in time-frequency space
+- hard bandpass filters create brittle, artificial artifacts
+- soft masks preserve ambiguity and can feed confidence scores
+
+#### 5. PCA supports non-model primary/ambient decomposition
+
+Section 8.3.6's PCA decomposition uses left/right correlation to separate directional and ambient components. It can work in time domain or time-frequency domain.
+
+Project decision:
+
+PCA is a non-model candidate for P0 or P1:
+
+```text
+left/right covariance
+→ principal / correlated / directional component
+→ residual / decorrelated / ambient component
+```
+
+This is not AI stem separation. It is local signal decomposition.
+
+External reference note:
+
+- Primary-ambient decomposition can be used for stereo upmix; geometrically motivated approaches rotate primary sound sources toward the center, then apply center-channel extraction in an MMSE-like sense.
+
+#### 6. MMSE and adaptive LMS support prediction/residual decomposition
+
+Sections 8.3.7 and 8.3.8 discuss minimum-mean-square-error and adaptive LMS decomposition. The key idea for MSSL:
+
+```text
+part predictable from the other channel
+→ common / correlated / direction-like
+
+prediction residual
+→ ambience / diffuse / decorrelated
+```
+
+Project implication:
+
+This is particularly useful for:
+
+```text
+wide_diffuse_texture
+decorrelated_residual_component
+late_reverb_proxy
+```
+
+Human listening translation:
+
+```text
+The common component sounds more like the centered subject, main line, low-frequency body, or direct sound.
+The residual component sounds more like side air, reverb, noise, and spatial edge.
+```
+
+Avoid report language like:
+
+```text
+third principal component explains 0.63 variance
+```
+
+That belongs in internal debug output, not in a listening handoff. No one wants linear algebra in the middle of a music review, because civilization has not fallen that far yet.
+
+## Updated MSSL concept after Chapters 7-8
+
+### The most important reframing
+
+```text
+MSSL does not perform traditional true stem separation.
+MSSL performs OME-driven spatial-band stream decomposition.
+```
+
+It estimates from stereo mix:
+
+- primary / directional / direct evidence
+- ambient / diffuse / reflected evidence
+- correlated / decorrelated components
+- bandwise spatial behavior
+- transient / sustained behavior
+
+Then generates traceable object streams that can be analyzed, named, and written into critic-ready language.
+
+### Bottom-level decomposition labels
+
+Add these as internal decomposition labels below the human stream names:
+
+```text
+primary_directional_component
+ambient_diffuse_component
+early_reflection_component
+late_reverb_component
+decorrelated_residual_component
+```
+
+### Mapping from decomposition labels to human candidates
+
+```text
+primary_directional + mid-band + harmonic
+→ vocal / lead melody / lead synth candidate
+
+primary_directional + low-band + transient
+→ kick drum / low-frequency hit candidate
+
+primary_directional + low-band + sustained
+→ bass / synth bass candidate
+
+ambient_diffuse + mid/high harmonic
+→ guitar / piano / pad / harmonic-space candidate
+
+decorrelated_residual + high-band + tail
+→ cymbal edge / reverb air / noise texture candidate
+```
+
+### Preferred technical axis
+
+```text
+stereo
+→ OME spatial-band streams
+→ per-stream analysis
+→ object binding
+→ critic-ready handoff
+```
+
+### P0 implementation candidates
+
+Chapter 8 provides the closest first implementation path:
+
+```text
+STFT
+correlation analysis
+scalar masking
+PCA
+MMSE
+adaptive LMS
+direction / ambience decomposition
+```
+
+Chapter 7 provides the perceptual target structure:
+
+```text
+direct sound
+source localization
+reflection
+ambient field
+listener envelopment
 ```
 
 ## P0 stream candidates
@@ -367,6 +797,7 @@ Evidence:
 - low-frequency
 - transient / impact-like
 - high mid coherence
+- primary_directional_component support
 
 Human candidate names:
 
@@ -386,6 +817,7 @@ Evidence:
 - low-frequency
 - sustained / continuous
 - low transient density
+- primary_directional_component support
 
 Human candidate names:
 
@@ -406,6 +838,7 @@ Evidence:
 - mid-frequency band
 - harmonic continuity
 - stable foreground line
+- primary_directional_component support
 
 Human candidate names:
 
@@ -425,6 +858,7 @@ Evidence:
 - harmonic or sustained
 - mid/high band
 - width without pure noise dominance
+- ambient_diffuse_component or early_reflection_component support
 
 Human candidate names:
 
@@ -445,6 +879,7 @@ Evidence:
 - low or unstable correlation
 - high-frequency or reverb-tail behavior
 - diffuse / noisy / airy texture
+- late_reverb_component or decorrelated_residual_component support
 
 Human candidate names:
 
@@ -463,6 +898,7 @@ Evidence:
 
 - ambiguous bins or energy not confidently assigned
 - mixed/unstable spatial cues
+- residual after soft-mask assignment
 
 Human candidate names:
 
@@ -485,11 +921,20 @@ Boundary:
       "interchannel_phase_or_time_difference",
       "bandwise_correlation",
       "transient_vs_sustain",
-      "direct_vs_diffuse_proxy"
+      "direct_vs_diffuse_proxy",
+      "primary_vs_ambient_decomposition"
+    ],
+    "components": [
+      "primary_directional_component",
+      "ambient_diffuse_component",
+      "early_reflection_component",
+      "late_reverb_component",
+      "decorrelated_residual_component"
     ],
     "streams": [
       {
         "stream_id": "center_mid_lead",
+        "component_support": ["primary_directional_component"],
         "space_rule": {
           "mid_energy": "high",
           "side_energy": "low_to_moderate",
@@ -550,7 +995,19 @@ Prefer:
 The sides and high-frequency edge contain a diffuse layer, like reverb air, cymbal edge, noise texture, or synth haze. It opens the space rather than behaving like a single clear instrument.
 ```
 
-## Implementation direction after reading Chapters 1-2
+Add primary/ambient language in online handoff when useful:
+
+```text
+MSSL estimates a primary directional component and an ambient diffuse component from stereo spatial evidence.
+```
+
+Human-facing translation:
+
+```text
+There is a clearer subject line in the middle, while the sides carry a spread-out layer of space and reflection. The low-frequency subject behaves more like support, and the edges feel closer to air, reverb, or noise texture.
+```
+
+## Implementation direction after reading Chapters 1-2 and 7-8
 
 P0 should be a design doc and prototype for:
 
@@ -565,6 +1022,7 @@ stereo audio
 → L/R STFT
 → mid/side transform
 → bandwise spatial features
+→ primary/ambient decomposition
 → direct/diffuse and transient/sustain proxies
 → soft masks for spatial-band streams
 → stream wav reconstruction
@@ -574,3 +1032,10 @@ stereo audio
 ```
 
 Do not reintroduce Demucs or a model-backed stem separator until this receiver-side spatial-filter-bank design is stabilized.
+
+## External reference anchors
+
+These are not implementation dependencies. They are conceptual anchors for later comparison.
+
+- DirAC-based Ambisonic coding: useful as a conceptual reference for parametric direction/diffuseness spatial coding.
+- Geometrically motivated primary-ambient decomposition with center-channel extraction: useful as a conceptual reference for stereo primary/ambient decomposition and upmix-oriented extraction.
