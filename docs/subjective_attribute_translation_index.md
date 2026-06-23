@@ -12,9 +12,9 @@ Chapter 15 is not part of the OME runtime path itself. It is an adjacent report-
 
 ```text
 stereo audio
-→ OME Spatial Filter Bank
-→ spatial-band auditory streams
-→ OME Binaural Cue Validation
+-> OME Spatial Filter Bank
+-> spatial-band auditory streams
+-> OME Binaural Cue Validation
 ```
 
 Chapter 15 does not primarily provide the filtering algorithm, decomposition method, or binaural cue extraction logic.
@@ -23,9 +23,10 @@ Chapter 15 does not primarily provide the filtering algorithm, decomposition met
 
 ```text
 spatial / binaural / stream evidence
-→ subjective listening attributes
-→ report language
-→ online AI translation affordances
+-> professional terminology anchors
+-> subjective listening attributes
+-> report language
+-> online AI translation affordances
 ```
 
 In other words:
@@ -35,11 +36,26 @@ Chapter 15 is not the machine's ear.
 Chapter 15 is the vocabulary and evaluation frame for explaining what the machine's ear found.
 ```
 
-## One-sentence summary
+## Result-first language chain
+
+This file must be used together with the professional term index.
 
 ```text
-Chapter 15 says spatial audio cannot be judged by objective physical or mathematical measures alone; because actual spatial listening depends on human psychoacoustics and physiology, MSSL needs a subjective-attribute mapping layer for localization, width, distance, depth, envelopment, presence, naturalness, timbre, clarity, and environmental quality.
+docs/a_professional_term_index.md
+-> scripts/professional_term_index.py
+-> docs/ome_spatial_filter_bank_handoff_contract.md
+-> this subjective attribute translation index
+-> online_ai_listening_handoff.md
 ```
+
+Practical rule:
+
+```text
+Do not jump from raw OME stream evidence directly to poetic report language.
+First anchor the evidence in professional audio terminology, then map it into subjective listening attributes.
+```
+
+This keeps the final handoff result-oriented without letting OME write itself into unsupported prose.
 
 ## Main project decision
 
@@ -63,10 +79,10 @@ Chapter 15 distinguishes two broad subjective-evaluation modes:
 
 ```text
 attribute judgments
-→ descriptive judgments about perceived sound properties
+-> descriptive judgments about perceived sound properties
 
 preference ratings
-→ liking / preference / overall favorability
+-> liking / preference / overall favorability
 ```
 
 MSSL should prioritize attribute judgments before preference ratings.
@@ -78,30 +94,55 @@ Do not ask online AI to jump directly to whether the music is good.
 First give it attributes that describe what the listening scene and object streams are doing.
 ```
 
-For MSSL handoff, this means:
+Preferred evidence language:
 
 ```text
-preferred:
-  stable center lead
-  wide but diffuse side field
-  moderate environmental envelopment
-  partly buried midrange line
-  phasey high-frequency edge
+stable center lead
+wide but diffuse side field
+moderate environmental envelopment
+partly buried midrange line
+phasey high-frequency edge
+```
 
-not preferred as primary evidence:
-  good atmosphere
-  nice sound
-  enjoyable production
-  strong feeling
+Not preferred as primary evidence:
+
+```text
+good atmosphere
+nice sound
+enjoyable production
+strong feeling
 ```
 
 The latter may appear in final prose, but only after the attribute evidence is present.
 
+## Professional term anchors before subjective attributes
+
+The professional term index provides bounded evidence terms. This document maps those terms into subjective attributes and report wording.
+
+| Professional term anchor | Subjective attribute mapping | Report-language direction |
+|---|---|---|
+| perceived loudness / pressure proxy | presence, fullness, pressure tendency | close, supported, filled-in, pressing forward |
+| spectral centroid / brightness weighting | brightness, timbral color, high-edge position | bright, dark, upper edge, softened top |
+| spectral spread / bandwidth | timbral breadth, not spatial width | spectrum opens or narrows |
+| spectral flatness / noise-likeness | timbral coloration, airiness, roughness, diffuse texture | grain, haze, non-pitched texture |
+| band energy distribution / spectral tilt | low body, mid foreground, high edge | low foundation, center body, bright edge |
+| attack strength / transient salience | articulation, impact, presence | hard entrance, sharp edge, sudden hit |
+| onset event density / transient density | rhythmic articulation, pulse density | many points, pulsed, busy or sparse |
+| mid-side balance / center-to-side distribution | image width, center solidity, side openness | center is solid, sides open out |
+| interchannel phase coherence / stereo decorrelation proxy | localization quality, diffuseness, naturalness risk | centered, diffuse, phase-heavy, unstable |
+| lateral image bias / interchannel level balance | left-right position, image bias | centered, left-leaning, right-leaning |
+| apparent source width proxy / stereo image width | individual_source_width, scene_width | narrow lead, wide backing, open scene |
+| spatial spread / diffuseness proxy | environment_width, diffuseness, envelopment | edges blur, field diffuses outward |
+| listener envelopment proxy | environmental_envelopment, listener_envelopment | lightly surrounded, wrapped by side field |
+| distance / direct-to-reverberant impression proxy | source_distance, scene_depth, presence | near, recessed, tail suggests distance |
+| harmonic structure / tonal support | timbral clarity, line continuity, harmonic backing | trackable tone, sustained support |
+| vocal-like foreground stream candidate | foreground salience, image stability, timbral clarity | voice-like or lead-like center line |
+| melodic contour / foreground pitch stream candidate | lead-line continuity, phrase traceability | a line the ear can follow |
+| auditory stream grouping candidates | object/event grouping confidence | possible listening streams, not source truth |
+
 ## Scene-based vs object/event-based attributes
 
-Chapter 15 distinguishes whole-scene listening evaluation from object/event evaluation.
-
-MSSL needs both.
+Chapter 15 distinguishes whole-scene listening evaluation from object/event evaluation. MSSL needs both.
 
 ### Scene-level attributes
 
@@ -172,25 +213,6 @@ airiness
 thinness
 roughness
 phasey_coloration
-```
-
-Example:
-
-```json
-{
-  "stream_id": "side_harmonic_space",
-  "spatial_attributes": {
-    "individual_source_width": "medium_to_wide",
-    "localization_quality": "lateral_but_not_pinpoint",
-    "source_distance": "mid_to_far"
-  },
-  "timbral_attributes": {
-    "brightness": "soft_high_edge",
-    "clearness": "partly_blended",
-    "naturalness": "medium",
-    "coloration": "slightly_phasey"
-  }
-}
 ```
 
 ## Attribute vocabulary for MSSL reports
@@ -309,7 +331,7 @@ The air layer is diffuse and somewhat phase-colored.
 {
   "mssl_subjective_attribute_translation": {
     "status": "report_side_attribute_mapping",
-    "source": "derived from MSSL signal, spatial, binaural, and stream evidence; not formal listener-test results",
+    "source": "derived from MSSL signal, spatial, binaural, stream evidence, and professional term anchors; not formal listener-test results",
     "attribute_mode": "attribute_judgment_not_preference_rating",
     "scene_attributes": {
       "scene_width": "medium_to_wide",
@@ -320,6 +342,7 @@ The air layer is diffuse and somewhat phase-colored.
     },
     "stream_attributes": {
       "center_mid_lead": {
+        "professional_term_anchors": ["mid-side balance", "harmonic structure", "vocal-like foreground candidate"],
         "localization_quality": "stable_center",
         "individual_source_width": "narrow_to_medium",
         "source_distance": "near_to_mid",
@@ -327,6 +350,7 @@ The air layer is diffuse and somewhat phase-colored.
         "naturalness": "medium"
       },
       "wide_diffuse_texture": {
+        "professional_term_anchors": ["stereo decorrelation proxy", "spectral flatness", "listener envelopment proxy"],
         "localization_quality": "diffuse",
         "individual_source_width": "wide_unfocused",
         "environmental_envelopment": "moderate",
@@ -348,6 +372,14 @@ mid_energy high
 side_energy low_to_moderate
 positive correlation high
 stable bandwise position
+```
+
+Professional term anchors:
+
+```text
+mid-side balance / center-to-side distribution
+interchannel phase coherence / stereo decorrelation proxy
+auditory stream grouping candidate
 ```
 
 Subjective attribute:
@@ -372,6 +404,15 @@ Machine-side evidence:
 side_energy high
 correlation low or unstable
 high-band or late-tail behavior
+```
+
+Professional term anchors:
+
+```text
+interchannel phase coherence / stereo decorrelation proxy
+spatial spread / diffuseness proxy
+spectral flatness / noise-likeness
+listener envelopment proxy
 ```
 
 Subjective attribute:
@@ -399,6 +440,14 @@ center or near-center balance
 transient or sustained low-frequency pattern
 ```
 
+Professional term anchors:
+
+```text
+low-frequency foundation / low-order harmonic support
+band energy distribution / spectral tilt
+attack strength / transient salience, if transient
+```
+
 Subjective attribute:
 
 ```text
@@ -410,7 +459,7 @@ fullness: medium_to_strong
 Human report language:
 
 ```text
-The low-frequency body sits under the track as a support layer. Depending on its transient shape, it may read closer to kick / low hit or bass / synth-bass support.
+The low-frequency body sits under the track as a support layer. Depending on its transient shape, it may read closer to low hit or bass / synth-bass support.
 ```
 
 ### Frequency-position split evidence
@@ -421,6 +470,14 @@ Machine-side evidence:
 low band centered
 upper band wider or more diffuse
 bandwise cue disagreement
+```
+
+Professional term anchors:
+
+```text
+band energy distribution / spectral tilt
+lateral image bias / interchannel level balance
+spatial spread / diffuseness proxy
 ```
 
 Subjective attribute:
@@ -446,6 +503,14 @@ harmonic bed or diffuse layer overlaps mid band
 foreground salience medium or unstable
 ```
 
+Professional term anchors:
+
+```text
+harmonic structure / tonal support
+auditory texture density / masking load
+vocal-like foreground stream candidate, if supported
+```
+
 Subjective attribute:
 
 ```text
@@ -464,15 +529,7 @@ The foreground line is present, but it is not fully exposed. It sits half-embedd
 
 ### A/B and forced-choice tests
 
-Chapter 15 describes A/B comparison and forced-choice methods such as 2I2AFC, 3I2AFC, 3I3AFC, and 4I2AFC.
-
-MSSL use:
-
-```text
-Use later to check whether two reports or two filter outputs create a perceptible difference.
-```
-
-Do not use this as the main report language. It tells whether a difference is detectable, not what the musical meaning is.
+Use later to check whether two reports or two filter outputs create a perceptible difference. Do not use this as the main report language.
 
 ### BS.1116-style small-impairment logic
 
@@ -527,7 +584,7 @@ Use for evaluating report usefulness later, not for current runtime claims.
 Use this boundary in docs and handoff:
 
 ```text
-Subjective attributes in MSSL are inferred mappings from acoustic, spatial, binaural, and object-stream evidence. They are not formal listener-test results unless an explicit listening test has been conducted.
+Subjective attributes in MSSL are inferred mappings from acoustic, spatial, binaural, object-stream evidence, and professional term anchors. They are not formal listener-test results unless an explicit listening test has been conducted.
 ```
 
 Use this when talking to online AI:
@@ -544,13 +601,16 @@ Relation:
 
 ```text
 docs/ome_spatial_filter_bank_reading_notes.md
-→ runtime and analysis direction
+-> runtime and analysis direction
+
+docs/ome_spatial_filter_bank_handoff_contract.md
+-> what OME evidence enters the online handoff
 
 this document
-→ report presentation, listening attributes, and terminology translation index
+-> report presentation, listening attributes, and terminology translation index
 ```
 
-The OME runtime can produce evidence. This document tells the report layer how to name that evidence in language a human listener would recognize.
+The OME runtime can produce evidence. The professional term index anchors that evidence. This document tells the report layer how to name the anchored evidence in language a human listener would recognize.
 
 ## External reference anchors
 
