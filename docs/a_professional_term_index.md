@@ -26,6 +26,41 @@ raw audio mechanism output
 
 MSSL does not invent audio mechanisms. It indexes existing audio / signal-processing mechanisms, constrains their interpretation, and translates them into receiver-side listening-space evidence.
 
+## Result-first OME extension
+
+OME Spatial Filter Bank adds a result-first constraint to the terminology layer.
+
+```text
+machine / OME evidence
+-> professional terminology anchor
+-> subjective attribute mapping
+-> online-AI review affordance
+```
+
+This means OME stream names must not directly become report prose.
+
+```text
+bad:
+  center_mid_lead -> this is the vocal
+
+preferred:
+  center_mid_lead
+  -> mid-side balance / harmonic structure / auditory stream grouping candidate
+  -> localization_quality / individual_source_width / timbral_clarity
+  -> voice-like foreground / lead melody / lead synth candidate
+  -> not an isolated vocal stem
+```
+
+Source chain:
+
+```text
+docs/a_professional_term_index.md
+-> scripts/professional_term_index.py
+-> docs/ome_spatial_filter_bank_handoff_contract.md
+-> docs/subjective_attribute_translation_index.md
+-> online_ai_listening_handoff.md
+```
+
 ## Implementation rule
 
 Before a machine field appears in a report-facing output, it must pass through a terminology lookup.
@@ -78,6 +113,27 @@ docs/a_professional_term_index.md
 | source separation stem activity | stem activity evidence | source-family support or weakening | source-family hypothesis, object-family anchor | final source truth |
 | vocal activity / F0 / voiced evidence | voice-like activity, pitch contour | vocal lock support, voice-like object continuity | foreground lead-line candidate, vocal-like contour | singer identity, ASR, lyric recognition |
 
+## OME Spatial Filter Bank terminology additions
+
+These rows constrain future OME stream handoff fields before the implementation exists.
+
+| Machine or mechanism field | Mechanism evidence term | Safe professional interpretation | MSSL report term candidates | Unsafe shortcut |
+|---|---|---|---|---|
+| `ome_spatial_band_streams` | receiver-side spatial-band auditory stream candidate | a bounded stream inferred from stereo spatial, spectral, and temporal evidence | OME auditory stream candidate, receiver-side stream | true stem, instrument truth |
+| `center_low_impact` | centered low-band transient support | low-frequency impact stream candidate | low-frequency pulse / low impact candidate | drum stem, kick truth |
+| `center_low_sustain` | centered low-band sustained support | low-frequency body stream candidate | bass-region / synth-bass support candidate | bass stem, bass instrument truth |
+| `center_mid_lead` | centered mid-band harmonic / foreground support | lead-like auditory stream candidate | voice-like foreground / lead melody / lead synth candidate | vocal stem, singer truth |
+| `side_harmonic_space` | lateral harmonic support | side harmonic or backing-field candidate | guitar / piano / pad-like side support candidate | accompaniment stem, exact instrument |
+| `wide_diffuse_texture` | decorrelated high/side texture support | diffuse texture / reverb-air candidate | reverb air / cymbal edge / noise texture / synth haze candidate | effects stem, real room proof |
+| `residual_unassigned` | weak or conflicting stream evidence | ambiguous remainder material | cautious residual evidence | trash, silence, negative judgment |
+| `primary_directional_component` | correlated / directional component evidence | primary-directional support | centered subject, direct foreground support | original center stem |
+| `ambient_diffuse_component` | diffuse / decorrelated component evidence | ambient or diffuse field support | lateral air, environmental texture | true surround channel |
+| `early_reflection_component` | reflection-like lateral evidence | early-reflection support proxy | side edge, spatial boundary cue | measured reflection path |
+| `late_reverb_component` | tail / diffuse decay evidence | late-reverb or diffuse-tail support proxy | reverb tail, air layer | measured RT60 |
+| `decorrelated_residual_component` | residual low-correlation evidence | decorrelated residual support | phase-colored edge, diffuse residue | real room, true separated FX |
+| `binaural_cue_validation` | ITD/ILD/IACC-like cue consistency proxy | receiver-side plausibility check | localization stability, naturalness risk | formal listener-test result |
+| `subjective_attribute_mapping` | report-side attribute mapping | inferred listening-attribute translation | localization quality, width, depth, presence, timbre | verified human-subject data |
+
 ## P0 textbook-backed professional terminology additions
 
 These rows are extracted from the P0 textbook terminology batch. They should be treated as the working bridge from current machine fields to professional report language.
@@ -98,7 +154,7 @@ These rows are extracted from the P0 textbook terminology batch. They should be 
 | spectral_centroid | Spectral energy center; correlated with brightness. | spectral centroid / brightness weighting | Does not identify instrument, genre, or quality. | 偏亮、偏暗、重心上移。 |
 | spectral_bandwidth | Dispersion of spectral energy around centroid. | spectral spread / bandwidth | Frequency spread, not stereo width. | 频谱铺开或收束。 |
 | spectral_rolloff | Upper frequency point containing a target energy percentage. | high-frequency energy extent / spectral roll-off | Does not prove airiness or fidelity. | 高频延伸、上沿打开。 |
-| spectral_flatness | Noise-likeness vs harmonic concentration. | spectral flatness / noise-likeness | High flatness is not automatically “bad noise.” | 颗粒、雾化、非音高化纹理。 |
+| spectral_flatness | Noise-likeness vs harmonic concentration. | spectral flatness / noise-likeness | High flatness is not automatically bad noise. | 颗粒、雾化、非音高化纹理。 |
 | low_mid_high_ratio | Band-wise energy distribution. | spectral tilt / band energy weighting | Band energy is not direct subjective loudness. | 低频底盘、中频前景、高频亮边。 |
 | low_body | Low-frequency and low-order harmonic support. | low-frequency foundation / low-order harmonic support | Does not identify bass, kick, or instrument. | 下盘、身体感、低频支撑。 |
 
@@ -148,11 +204,12 @@ Use these immediately in code/report language:
 
 ```text
 spectral_bandwidth -> spectral spread / bandwidth, never spatial width
-phase_correlation -> interchannel phase coherence / stereo decorrelation proxy
+phase_correlation -> interchannel phase coherence / stereo decorrelation proxy, preserving signed correlation when available
 object_candidates -> auditory stream grouping candidates, not source truth
 source_family_hypotheses -> source-family grouping hypothesis, not instrument truth
 perceived_width -> stereo image width proxy or apparent source width proxy, not physical source width
 envelopment -> listener envelopment proxy, not measured LEV or VR/HRTF truth
+OME stream evidence -> professional term anchor -> subjective attribute mapping -> review affordance
 ```
 
 Keep under review rather than default report fields:
@@ -164,6 +221,7 @@ information masking
 measured HRTF / BRIR / RT60 claims
 true instrument identification
 true lyric or singer identification
+direct review prose from raw OME stream names
 ```
 
 ## Current full-song evidence fields
@@ -196,6 +254,24 @@ E-space: left_right, near_far, high_low, perceived_pressure, perceived_width, pe
 ```
 
 The terminology layer should translate these into professional report language before online handoff generation.
+
+## Future OME Spatial Filter Bank packet fields
+
+Future OME stream packet fields must remain bounded:
+
+```text
+stream_id
+human_candidate_names
+professional_terminology_anchors
+subjective_attribute_mapping
+short_listening_description
+evidence_summary
+binaural_cue_validation
+review_affordance
+truth_boundary
+```
+
+These are placeholders until `ome_spatial_filter_bank_layer.json` exists.
 
 ## Current object candidates
 
@@ -230,7 +306,7 @@ proxy / candidate / supports / weakens / suggests / contributes to / bounded evi
 Avoid:
 
 ```text
-detected true drum / detected true singer / exact instrument / emotion truth / physical 3D location / room-size truth / lyric truth
+detected true drum / detected true singer / exact instrument / emotion truth / physical 3D location / room-size truth / lyric truth / raw OME stream name as final prose
 ```
 
 ## Update checklist for `scripts/professional_term_index.py`
@@ -238,6 +314,7 @@ detected true drum / detected true singer / exact instrument / emotion truth / p
 1. Does each machine field have a mechanism evidence term?
 2. Does each term have a safe interpretation boundary?
 3. Does each term have a qualitative value band?
-4. Does each term avoid unsupported genre, emotion, lyric, or instrument truth?
+4. Does each term avoid unsupported genre, emotion, lyric, instrument, room, or source-truth claims?
 5. Does the handoff show professional terms before accessible examples?
-6. Does every object/source term remain a candidate or hypothesis unless a stronger adapter supplies evidence?
+6. Does every object/source/OME stream term remain a candidate or hypothesis unless a stronger adapter supplies evidence?
+7. Does every OME handoff stream pass through professional terminology anchors before subjective attributes and review affordance?
