@@ -7,6 +7,10 @@ Axis:
 machine proxy -> mechanism evidence -> professional term -> boundary ->
 translation affordance.
 
+Result-first OME rule:
+OME stream evidence -> professional terminology anchor -> subjective attribute
+mapping -> online-AI review affordance.
+
 It intentionally contains terms and boundaries only. It does not read audio,
 run LLMs, search the web, identify instruments, recognize lyrics, or make final
 music-review claims. Because apparently one must write this down, or a machine
@@ -218,15 +222,15 @@ PROFESSIONAL_TERM_INDEX: dict[str, dict[str, str]] = {
         "translation_affordance": "敲击感、短促、颗粒点。",
     },
     "phase_correlation": {
-        "machine_field": "phase_correlation",
+        "machine_field": "phase_correlation / bandwise_signed_correlation",
         "professional_term": "interchannel phase coherence / stereo decorrelation proxy",
         "cn_term": "通道间相位一致性 / 立体声去相关代理",
         "domain": "stereo / spatial",
-        "definition": "How coherent or decorrelated the two stereo channels appear.",
-        "evidence_basis": "Phase correlation and interchannel similarity proxies.",
-        "scale": "decorrelated / partly diffuse / moderate / coherent / strongly coherent",
-        "boundary": "Low correlation is not automatically real spaciousness; it may come from mixing or effects.",
-        "translation_affordance": "中心稳、声像散、空间漂。",
+        "definition": "How coherent, decorrelated, or phase-opposed the stereo channels appear.",
+        "evidence_basis": "Phase correlation, signed correlation, positive/negative peaks, and interchannel similarity proxies.",
+        "scale": "phase-opposed / decorrelated / partly diffuse / coherent / strongly coherent",
+        "boundary": "Low or negative correlation is not automatically real spaciousness; it may come from mixing, widening, or effects.",
+        "translation_affordance": "中心稳、声像散、空间漂、相位感重。",
     },
     "left_right_balance": {
         "machine_field": "left_right_balance / left_right",
@@ -284,26 +288,92 @@ PROFESSIONAL_TERM_INDEX: dict[str, dict[str, str]] = {
         "translation_affordance": "一条线浮在前面，被耳朵跟住。",
     },
     "object_grouping": {
-        "machine_field": "object_candidates",
+        "machine_field": "object_candidates / OME spatial-band stream candidates",
         "professional_term": "auditory stream grouping candidates",
         "cn_term": "听觉声流分组候选",
         "domain": "auditory scene analysis",
         "definition": "Candidate grouping of full-mix components into plausible auditory streams.",
-        "evidence_basis": "Object-candidate scores from full-mix temporal, spectral, and stereo evidence.",
+        "evidence_basis": "Object-candidate scores and future OME stream evidence from temporal, spectral, and stereo cues.",
         "scale": "weak / possible / moderate / supported / prominent",
         "boundary": "Not source separation, not true source count, not instrument identity.",
         "translation_affordance": "系统怀疑有几条可分的听觉流。",
     },
+    "ome_stream": {
+        "machine_field": "ome_spatial_band_streams / center_low_impact / center_mid_lead / wide_diffuse_texture",
+        "professional_term": "receiver-side spatial-band auditory stream candidate",
+        "cn_term": "接收侧空间-波段听觉声流候选",
+        "domain": "OME / auditory scene analysis / stereo spatial decomposition",
+        "definition": "A bounded auditory object stream inferred from stereo spatial evidence, frequency-band behavior, and temporal behavior.",
+        "evidence_basis": "Future OME Spatial Filter Bank output: mid-side, correlation, phase/time, bandwise energy, primary/ambient, and direct/diffuse proxies.",
+        "scale": "placeholder / weak / possible / supported / prominent",
+        "boundary": "Not an original source stem, not isolated audio truth, and not an instrument label by itself.",
+        "translation_affordance": "一条可追踪的听觉对象流，而不是原始分轨。",
+    },
+    "primary_ambient_decomposition": {
+        "machine_field": "primary_directional_component / ambient_diffuse_component / decorrelated_residual_component",
+        "professional_term": "primary-ambient decomposition evidence",
+        "cn_term": "主体-环境成分分解证据",
+        "domain": "stereo / spatial decomposition",
+        "definition": "A planned decomposition of stereo material into directional, diffuse, reflection-like, and decorrelated components.",
+        "evidence_basis": "Future soft-mask or decomposition scores from OME Spatial Filter Bank.",
+        "scale": "placeholder / weak / possible / supported / prominent",
+        "boundary": "Not a proof of real room acoustics or original recording channels.",
+        "translation_affordance": "主体线索和环境/反射/扩散材料的区分。",
+    },
+    "binaural_validation": {
+        "machine_field": "cue_consistency / localization_stability / naturalness_risk / signed_correlation",
+        "professional_term": "binaural cue validation proxy",
+        "cn_term": "双耳线索验证代理",
+        "domain": "psychoacoustics / receiver-side validation",
+        "definition": "A planned validation layer for whether a spatial-band stream behaves like a plausible receiver-side auditory event.",
+        "evidence_basis": "Future bandwise ITD/ILD/IACC-like proxies, signed correlation, and cue-consistency labels.",
+        "scale": "unvalidated / unstable / partial / stable / strongly stable",
+        "boundary": "Not formal listener-test data and not measured HRTF/BRIR truth.",
+        "translation_affordance": "声像是否稳、是否自然、是否有相位化风险。",
+    },
+    "subjective_attribute_mapping": {
+        "machine_field": "localization_quality / source_width / presence / timbral_clarity / naturalness",
+        "professional_term": "subjective listening-attribute mapping",
+        "cn_term": "主观听感属性映射",
+        "domain": "report language / subjective evaluation",
+        "definition": "A report-side mapping from professional evidence anchors into listener-recognizable attributes.",
+        "evidence_basis": "Docs-level mapping from professional term anchors and future OME stream metadata.",
+        "scale": "placeholder / inferred / supported / listener-tested",
+        "boundary": "Inferred attributes are not formal subjective-test results unless a listening test is explicitly conducted.",
+        "translation_affordance": "定位、宽度、深度、包围感、清晰度、自然度等人耳属性。",
+    },
 }
+
+
+OME_RESULT_FIRST_LANGUAGE_CHAIN: tuple[str, ...] = (
+    "machine / OME evidence",
+    "professional terminology anchor",
+    "subjective attribute mapping",
+    "online-AI review affordance",
+)
+
+
+OME_REQUIRED_PACKET_FIELDS: tuple[str, ...] = (
+    "stream_id",
+    "human_candidate_names",
+    "professional_terminology_anchors",
+    "subjective_attribute_mapping",
+    "short_listening_description",
+    "evidence_summary",
+    "binaural_cue_validation",
+    "review_affordance",
+    "truth_boundary",
+)
 
 
 P0_REVIEW_DECISIONS: tuple[str, ...] = (
     "spectral_bandwidth -> spectral spread / bandwidth, never spatial width",
-    "phase_correlation -> interchannel phase coherence / stereo decorrelation proxy",
+    "phase_correlation -> interchannel phase coherence / stereo decorrelation proxy, preserving signed correlation when available",
     "object_candidates -> auditory stream grouping candidates, not source truth",
     "source_family_hypotheses -> source-family grouping hypothesis, not instrument truth",
     "perceived_width -> stereo image width proxy or apparent source width proxy, not physical source width",
     "envelopment -> listener envelopment proxy, not measured LEV or VR/HRTF truth",
+    "OME stream evidence -> professional term anchor -> subjective attribute mapping -> review affordance",
 )
 
 
@@ -314,6 +384,7 @@ P0_REVIEW_HOLD: tuple[str, ...] = (
     "measured HRTF / BRIR / RT60 claims",
     "true instrument identification",
     "true lyric or singer identification",
+    "direct review prose from raw OME stream names",
 )
 
 
@@ -344,11 +415,32 @@ def term_spec(machine_key: str) -> dict[str, str]:
         raise KeyError(f"Missing professional term index entry: {machine_key}") from exc
 
 
+def ome_result_first_policy() -> dict[str, Any]:
+    """Return placeholder constraints for future OME handoff integration."""
+    return {
+        "status": "placeholder_contract_not_runtime_extraction",
+        "chain": list(OME_RESULT_FIRST_LANGUAGE_CHAIN),
+        "required_packet_fields": list(OME_REQUIRED_PACKET_FIELDS),
+        "source_docs": [
+            "docs/ome_spatial_filter_bank_design.md",
+            "docs/ome_spatial_filter_bank_handoff_contract.md",
+            "docs/a_professional_term_index.md",
+            "docs/subjective_attribute_translation_index.md",
+        ],
+        "boundary": (
+            "Future OME stream evidence must be anchored to professional terms and subjective attributes "
+            "before it becomes online-AI review prose."
+        ),
+    }
+
+
 def p0_policy() -> dict[str, Any]:
     """Return P0 decisions for code and docs consistency checks."""
     return {
         "axis": "machine proxy -> professional audio term -> boundary -> translation affordance",
+        "ome_result_first_axis": "OME evidence -> professional terminology anchor -> subjective attribute mapping -> review affordance",
+        "ome_result_first_policy": ome_result_first_policy(),
         "review_decisions": list(P0_REVIEW_DECISIONS),
         "hold_for_review": list(P0_REVIEW_HOLD),
-        "default_boundary": "MSSL emits professional descriptors and candidates, not source truth, lyric truth, emotion truth, or room truth.",
+        "default_boundary": "MSSL emits professional descriptors and candidates, not source truth, lyric truth, emotion truth, room truth, or unanchored OME review prose.",
     }
