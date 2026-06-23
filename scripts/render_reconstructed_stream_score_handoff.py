@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import render_online_ai_review_evidence_digest as review_digest
+
 SECTION_TITLE = "## 8. Reconstructed Stream + Score Layer / MSSL 还原分轨与曲谱层"
 NEXT_SECTION = "## 8. Translation style guidance for online AI"
 
@@ -25,8 +27,9 @@ def main() -> None:
     handoff_path = Path(args.handoff_md)
     profile = json.loads(profile_path.read_text(encoding="utf-8-sig"))
     text = handoff_path.read_text(encoding="utf-8-sig")
-    section = render_section(profile)
-    handoff_path.write_text(insert_section(text, section), encoding="utf-8")
+    text = insert_section(text, render_section(profile))
+    text = review_digest.insert_section(text, review_digest.render_digest(profile))
+    handoff_path.write_text(text, encoding="utf-8")
     print(f"Updated {handoff_path}")
 
 
