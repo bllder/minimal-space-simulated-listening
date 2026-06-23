@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-Audio file -> full_song_profile.json -> professional audio terminology report -> online_ai_listening_handoff.md
+Audio file -> full_song_profile.json -> reconstructed stream / score layer -> professional audio terminology report -> online_ai_listening_handoff.md
 
 PCM WAV is read by the core analyzer directly. Other common local audio formats
 are decoded to a temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -17,6 +17,7 @@ from pathlib import Path
 DEFAULT_MAX_PROMPT_SEGMENTS = 24
 DEFAULT_PROMPT_INPUT_NAME = "original_song_listening_prompt_input.md"
 DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
+DEFAULT_RECONSTRUCTED_LAYER_NAME = "reconstructed_stream_score_layer.md"
 NATIVE_WAV_SUFFIXES = {".wav", ".wave"}
 
 
@@ -52,6 +53,7 @@ def main() -> None:
         if not profile_path.exists():
             raise FileNotFoundError(f"Profile JSON not found: {profile_path}")
         output_dir = Path(args.output_dir) if args.output_dir != "outputs" else profile_path.parent
+        output_dir.mkdir(parents=True, exist_ok=True)
     else:
         input_path = Path(args.input)
         if not input_path.exists():
@@ -59,21 +61,47 @@ def main() -> None:
         output_dir, profile_path, legacy_md, structural_inspection_md = run_full_song(script_dir, args, input_path)
         normalize_structural_markdown(legacy_md, structural_inspection_md, args.keep_structural_md)
 
+    reconstructed_summary = run_reconstructed_stream_score_builder(script_dir, profile_path, output_dir)
+    structural_summary = Path(args.structural_summary) if args.structural_summary else reconstructed_summary
+
     prompt_path = Path(args.translation_prompt)
     if not prompt_path.is_absolute():
         prompt_path = repo_root / prompt_path
 
-    run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path)
+    run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path, structural_summary)
 
     handoff_path = output_dir / DEFAULT_HANDOFF_NAME
     prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
     run_aesthetic_context_builder(script_dir, args, handoff_path, prompt_input_path)
 
+    print(f"Prepared reconstructed stream / score layer: {reconstructed_summary}")
     print(f"Prepared online AI handoff: {handoff_path}")
     print("Use this Markdown as the text/file to give to an online AI account instead of uploading audio.")
 
 
-def run_prompt_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path, prompt_path: Path) -> None:
+def run_reconstructed_stream_score_builder(script_dir: Path, profile_path: Path, output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = output_dir / DEFAULT_RECONSTRUCTED_LAYER_NAME
+    cmd = [
+        sys.executable,
+        str(script_dir / "build_reconstructed_stream_score_layers.py"),
+        "--profile",
+        str(profile_path),
+        "--output-md",
+        str(summary_path),
+    ]
+    subprocess.run(cmd, check=True)
+    return summary_path
+
+
+def run_prompt_builder(
+    script_dir: Path,
+    args: argparse.Namespace,
+    profile_path: Path,
+    output_dir: Path,
+    prompt_path: Path,
+    structural_summary: Path | None,
+) -> None:
     cmd = [
         sys.executable,
         str(script_dir / "build_listening_experience_prompt.py"),
@@ -86,8 +114,8 @@ def run_prompt_builder(script_dir: Path, args: argparse.Namespace, profile_path:
         "--translation-prompt",
         str(prompt_path),
     ]
-    if args.structural_summary:
-        cmd.extend(["--structural-summary", args.structural_summary])
+    if structural_summary:
+        cmd.extend(["--structural-summary", str(structural_summary)])
     if args.playlist_context:
         cmd.extend(["--playlist-context", args.playlist_context])
     for note in args.context_note:
