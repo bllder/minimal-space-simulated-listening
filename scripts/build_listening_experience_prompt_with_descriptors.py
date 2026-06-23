@@ -5,8 +5,8 @@ This script keeps the existing builder intact, then reopens its generated files
 and attaches the P0 subjective descriptor validation contract plus the
 profile-derived descriptor proxy layer to the JSON and Markdown outputs.
 
-It is a staging bridge for Step 1-4 before the same logic is merged directly
-into `scripts/build_listening_experience_prompt.py`.
+Default `online_ai_listening_handoff.md` is compact. The full audit trace is
+written separately as `online_ai_listening_handoff_full_trace.md`.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from extract_subjective_descriptor_proxies import (
     render_layer_md,
     render_packets_md,
 )
+from render_compact_online_handoff import render_compact_online_handoff
 from render_subjective_descriptor_validation import (
     attach_descriptor_contract_to_critical_brief,
     attach_descriptor_contract_to_evidence_pack,
@@ -32,6 +33,7 @@ PROXY_JSON_NAME = "subjective_descriptor_proxy_layer.json"
 PROXY_MD_NAME = "subjective_descriptor_proxy_layer.md"
 OME_PACKET_JSON_NAME = "ome_stream_descriptor_packets.json"
 OME_PACKET_MD_NAME = "ome_stream_descriptor_packets.md"
+FULL_TRACE_HANDOFF_NAME = "online_ai_listening_handoff_full_trace.md"
 
 
 def main() -> None:
@@ -48,6 +50,7 @@ def main() -> None:
     brief_path = output_dir / args.brief_name
     prompt_path = output_dir / args.md_name
     handoff_path = output_dir / args.handoff_name
+    full_trace_path = output_dir / FULL_TRACE_HANDOFF_NAME
     proxy_json_path = output_dir / PROXY_JSON_NAME
     proxy_md_path = output_dir / PROXY_MD_NAME
     ome_packet_json_path = output_dir / OME_PACKET_JSON_NAME
@@ -68,6 +71,12 @@ def main() -> None:
     evidence_pack = attach_descriptor_contract_to_evidence_pack(evidence_pack)
     evidence_pack["subjective_descriptor_proxy_layer"] = descriptor_proxy_layer
     evidence_pack["ome_stream_descriptor_packets"] = ome_stream_descriptor_packets
+    evidence_pack["handoff_output_policy"] = {
+        "default_handoff": args.handoff_name,
+        "default_handoff_role": "compact online-AI input",
+        "full_trace_handoff": FULL_TRACE_HANDOFF_NAME,
+        "full_trace_role": "audit trace with full JSON, descriptor tables, and OME packet details",
+    }
 
     critical_brief = attach_descriptor_contract_to_critical_brief(critical_brief)
     critical_brief["profile_derived_descriptor_proxy_summary"] = descriptor_proxy_layer.get("track_descriptor_summary")
@@ -76,6 +85,7 @@ def main() -> None:
         "boundary": ome_stream_descriptor_packets.get("boundary"),
         "stream_count": len(ome_stream_descriptor_packets.get("stream_packets") or []),
     }
+    critical_brief["handoff_output_policy"] = evidence_pack["handoff_output_policy"]
 
     structural_summary = base.read_text_optional(args.structural_summary)
     prompt_protocol = base.read_text_optional(args.translation_prompt)
@@ -91,15 +101,23 @@ def main() -> None:
     )
 
     base_handoff = base.render_online_ai_handoff(evidence_pack, critical_brief, structural_summary)
-    handoff_path.write_text(
-        base_handoff.rstrip() + "\n\n" + descriptor_section + "\n\n" + proxy_section + "\n\n" + ome_packet_section,
-        encoding="utf-8",
+    full_trace_handoff = base_handoff.rstrip() + "\n\n" + descriptor_section + "\n\n" + proxy_section + "\n\n" + ome_packet_section
+    full_trace_path.write_text(full_trace_handoff, encoding="utf-8")
+
+    compact_handoff = render_compact_online_handoff(
+        evidence_pack=evidence_pack,
+        critical_brief=critical_brief,
+        descriptor_proxy_layer=descriptor_proxy_layer,
+        ome_stream_descriptor_packets=ome_stream_descriptor_packets,
+        full_trace_filename=FULL_TRACE_HANDOFF_NAME,
     )
+    handoff_path.write_text(compact_handoff, encoding="utf-8")
 
     print(f"Attached P0 subjective descriptor validation tables to {evidence_path}")
     print(f"Attached P0 subjective descriptor validation tables to {brief_path}")
     print(f"Attached P0 subjective descriptor validation tables to {prompt_path}")
-    print(f"Attached P0 subjective descriptor validation tables to {handoff_path}")
+    print(f"Wrote compact handoff to {handoff_path}")
+    print(f"Wrote full trace handoff to {full_trace_path}")
     print(f"Wrote {proxy_json_path}")
     print(f"Wrote {proxy_md_path}")
     print(f"Wrote {ome_packet_json_path}")
