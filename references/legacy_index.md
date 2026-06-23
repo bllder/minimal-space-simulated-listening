@@ -36,6 +36,31 @@ It must not be used as the current project baseline.
 
 ---
 
+## Current result-first OME authority
+
+When work concerns OME Spatial Filter Bank, online handoff, or report-facing stream language, use this authority order before consulting any legacy material:
+
+1. `README.md`
+2. `docs/ome_spatial_filter_bank_design.md`
+3. `docs/ome_spatial_filter_bank_handoff_contract.md`
+4. `docs/a_professional_term_index.md`
+5. `scripts/professional_term_index.py`
+6. `docs/subjective_attribute_translation_index.md`
+7. `scripts/ome_spatial_handoff_contract.py`
+
+Required result-first chain:
+
+```text
+machine / OME evidence
+-> professional terminology anchor
+-> subjective attribute mapping
+-> online-AI review affordance
+```
+
+Legacy material must not override this chain.
+
+---
+
 ## Reference Priority
 
 When working on the new project, use this authority order:
@@ -83,6 +108,31 @@ Codex must not:
 - import unnecessary intermediate artifacts
 - copy large old files into the new project
 - use old files to override the new README
+- revive old source-separation or object-language assumptions that bypass the OME result-first chain
+
+---
+
+## OME / handoff-specific forbidden shortcuts
+
+Do not import or revive any legacy pattern that jumps directly from raw object names to review prose.
+
+Forbidden shortcut:
+
+```text
+object name / stream name
+-> final review language
+```
+
+Required shortcut replacement:
+
+```text
+object or OME evidence
+-> professional term anchor
+-> subjective attribute mapping
+-> bounded review affordance
+```
+
+This applies especially to language around instrument labels, source separation, emotion, room size, and spatial realism.
 
 ---
 
