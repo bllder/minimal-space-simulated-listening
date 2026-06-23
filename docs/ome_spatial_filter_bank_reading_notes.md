@@ -703,13 +703,341 @@ third principal component explains 0.63 variance
 
 That belongs in internal debug output, not in a listening handoff. No one wants linear algebra in the middle of a music review, because civilization has not fallen that far yet.
 
-## Updated MSSL concept after Chapters 7-8
+## Chapters 12-13: Binaural validation and perceptual metadata transfer
+
+### One-sentence summary
+
+```text
+Chapter 12 says spatial audio analysis should not stop at the stereo signal. It should ask what binaural cues and perceptual events are produced after the signal reaches the listener's two ears: ITD, ILD, IACC, loudness spectrum, ear-canal pressure spectrum, cue consistency, and localization stability.
+
+Chapter 13 says spatial audio recording and transmission must preserve not only per-channel waveforms, but also amplitude, phase, timing, and spatial relationships between channels. Modern spatial audio can also be organized through channels, objects, sound fields, and metadata.
+
+Together, these chapters push MSSL beyond decomposition into a binaural validation layer and a perceptual metadata packet for online AI handoff.
+```
+
+### Chapter 12: Binaural pressure and auditory-model analysis
+
+#### 1. OME must end at receiver-side / binaural-side evidence
+
+Chapter 12 begins by shifting analysis from external reconstructed sound fields to the listener's two-ear reception. The listener's head, pinnae, and body transform a physical sound field into binaural pressure signals. Spatial analysis should therefore consider binaural pressure and the auditory system's processing.
+
+Project implication:
+
+```text
+L/R spatial cues
+→ receiver-side spatial model
+→ binaural factors
+→ perceptual event
+```
+
+OME should not remain only a stereo-channel feature layer. It should eventually validate whether a spatial-band stream is likely to become a stable listening object at the binaural / perceptual level.
+
+#### 2. HRTF / HRIR is the sound-field-to-binaural transfer layer
+
+Chapter 12 uses HRTF / HRIR to compute binaural pressure for far-field plane waves, finite-distance point sources, and multichannel loudspeaker reproduction.
+
+Project implication:
+
+HRTF is not required for the first P0 spatial filter, but it is a useful P1/P2 validation reference:
+
+```text
+optional binaural validation
+→ use generic HRTF or simplified head model
+→ inspect whether stream cues behave like a stable auditory event
+```
+
+This validation is not primarily for headphone rendering. It is for checking:
+
+```text
+Does this spatial stream look like a believable listening object after two-ear receiving?
+```
+
+#### 3. ITD / ILD / IACC are validation signals, not just feature names
+
+Chapter 12 calculates spatial listening factors from binaural pressure:
+
+- ITD / interaural time difference
+- ILD / interaural level difference
+- dynamic ITD and ILD under head movement
+- ear-canal pressure spectrum
+- IACC / interaural cross-correlation
+
+Project implication:
+
+MSSL should add validation-oriented fields:
+
+```text
+bandwise_itd_proxy
+bandwise_ild_proxy
+bandwise_iacc_proxy
+signed_iacc_proxy
+cue_consistency_score
+localization_stability
+naturalness_risk
+binaural_width_state
+```
+
+#### 4. Correlation polarity matters
+
+Chapter 12's correlation-function analysis distinguishes several perceptual cases:
+
+```text
+clear positive maximum
+→ clear, well-localized virtual source
+
+lower / flatter positive correlation
+→ broader, less clear, more diffuse event
+
+strong negative correlation
+→ unnatural, head-inside, unstable, or anomalous event
+```
+
+Project decision:
+
+Do not collapse correlation into absolute magnitude only.
+
+Keep:
+
+```text
+signed_correlation
+positive_peak
+negative_peak
+correlation_stability
+```
+
+Otherwise MSSL will confuse natural width with phasey / anti-correlated width. That is exactly the sort of tiny machine laziness that eventually becomes a very confident wrong paragraph.
+
+#### 5. Bandwise cues are mandatory for serious spatial analysis
+
+Chapter 12 repeatedly shows that ITD and ILD can be computed over different frequency bands, including low-pass, high-pass, band-pass, 1/3-octave, or ERB-like bands.
+
+Project decision:
+
+```text
+Do not compute only one full-track phase_correlation or side_ratio.
+Compute bandwise cue maps.
+```
+
+Candidate fields:
+
+```text
+bandwise_itd
+bandwise_ild
+bandwise_iacc
+bandwise_loudness
+bandwise_cue_consistency
+bandwise_localization_stability
+```
+
+#### 6. Cue consistency is as important as cue strength
+
+Chapter 12 stresses that a stable virtual source requires different localization factors and frequency bands to agree well enough. If cues conflict, localization quality degrades, virtual sources may become unstable, and the event may become broad, blurry, or impossible to localize.
+
+Project decision:
+
+Each stream should carry cue-quality fields:
+
+```text
+cue_consistency
+localization_stability
+naturalness_risk
+frequency_position_drift
+```
+
+Example:
+
+```json
+{
+  "stream_id": "center_mid_lead",
+  "cue_consistency": "medium",
+  "localization_stability": "stable_center",
+  "naturalness_risk": "low"
+}
+```
+
+```json
+{
+  "stream_id": "wide_diffuse_texture",
+  "cue_consistency": "unstable",
+  "localization_stability": "diffuse",
+  "naturalness_risk": "phasey_width"
+}
+```
+
+#### 7. Frequency-dependent position drift is musically useful
+
+Chapter 12's examples show that virtual-source direction can drift by frequency and reproduction method. A signal may be stable in one band and spread or displaced in another.
+
+Project implication:
+
+MSSL should be able to describe split objects:
+
+```text
+low body centered
+upper edge spread sideways
+high-frequency tail diffuse
+```
+
+Human listening translation:
+
+```text
+The low body stays centered, while the upper edge spreads outward.
+```
+
+Chinese-facing translation:
+
+```text
+低处是稳的，但声音的边缘被拉到两侧。
+```
+
+#### 8. Auditory filterbanks are the upgrade path
+
+Chapter 12's auditory-model section points toward Gammatone / ERB-like filterbanks and binaural cue spectra.
+
+Project decision:
+
+P0 can still use coarse bands, but the schema must allow auditory-band upgrades:
+
+```text
+P0: low / low-mid / mid / high / air bands
+P1: ERB-like auditory filterbank
+P2: Gammatone filterbank + binaural cue spectrum
+```
+
+Useful schema field:
+
+```text
+band_schema: linear | octave | erb_like | gammatone
+```
+
+#### 9. Pressure should mean auditory pressure, not raw amplitude
+
+Chapter 12's loudness-model material supports an important MSSL clarification:
+
+```text
+perceived_pressure is a loudness-pressure proxy,
+not raw amplitude,
+not emotional intensity by itself.
+```
+
+Future implementation can move from RMS/dBFS toward excitation or loudness-derived proxies.
+
+### Chapter 13: Recording and transmission of spatial audio signals
+
+#### 1. Spatial information lives in channel relationships
+
+Chapter 13 explains that spatial audio recording and transmission must preserve not only each channel's time/frequency properties, but also inter-channel amplitude, phase, and timing relationships.
+
+Project implication:
+
+MSSL handoff cannot be only a list of per-channel or per-file features.
+
+It must preserve relationship metadata:
+
+```text
+mid/side relation
+phase/correlation relation
+bandwise timing/level relation
+primary/ambient relation
+direct/diffuse relation
+```
+
+#### 2. MSSL handoff should become a perceptual metadata packet
+
+Chapter 13 is about recording/transmission, but MSSL has an analogous problem:
+
+```text
+How do we transmit listening evidence to an online AI that cannot hear the audio?
+```
+
+Useful analogy:
+
+```text
+audio codec:
+  waveform + side information → decoder renders sound
+
+MSSL handoff:
+  audio evidence + spatial/perceptual metadata → online AI renders review language
+```
+
+Project decision:
+
+The online handoff should be treated as a perceptual metadata packet, not a plain report dump.
+
+Suggested packet sections:
+
+```text
+signal evidence
+spatial-band streams
+binaural cue validation
+object-like metadata
+human candidate names
+review translation affordances
+truth boundaries
+```
+
+#### 3. Perceptual selection matters
+
+Chapter 13's recording/transmission material connects back to psychoacoustic coding and perceptual selectivity.
+
+Project implication:
+
+Do not send every raw machine field to online AI.
+
+Prioritize fields that help a listening object become human-legible:
+
+```text
+object salience
+foreground/background relation
+bandwise spatial stability
+direct/diffuse split
+primary/ambient split
+movement / change points
+cue consistency
+naturalness risk
+```
+
+Avoid flooding handoff with:
+
+```text
+unexplained raw arrays
+context-free peak/RMS numbers
+internal debug-only fields
+```
+
+#### 4. Channels / objects / sound fields / metadata give MSSL a naming model
+
+Chapter 13's spatial audio recording and coding direction supports a useful MSSL analogy:
+
+```text
+stream != just audio track
+stream = object-like auditory stream + metadata
+```
+
+A future stream object should include:
+
+```json
+{
+  "stream_id": "center_mid_lead",
+  "audio_evidence": "...",
+  "spatial_metadata": "...",
+  "binaural_validation": "...",
+  "temporal_metadata": "...",
+  "human_candidate_names": ["vocal", "lead melody", "lead synth"],
+  "review_affordance": "foreground line, held center, partly buried"
+}
+```
+
+This is closer to object-based spatial audio thinking than to raw stem export.
+
+## Updated MSSL concept after Chapters 7-8 and 12-13
 
 ### The most important reframing
 
 ```text
 MSSL does not perform traditional true stem separation.
 MSSL performs OME-driven spatial-band stream decomposition.
+MSSL then validates those streams as receiver-side binaural/perceptual events.
 ```
 
 It estimates from stereo mix:
@@ -719,8 +1047,25 @@ It estimates from stereo mix:
 - correlated / decorrelated components
 - bandwise spatial behavior
 - transient / sustained behavior
+- binaural cue consistency
+- localization stability
+- naturalness / phase-artifact risk
 
-Then generates traceable object streams that can be analyzed, named, and written into critic-ready language.
+Then generates traceable object streams that can be analyzed, named, validated, and written into critic-ready language.
+
+### New layer name
+
+```text
+OME Binaural Cue Validation
+```
+
+Purpose:
+
+```text
+Validate whether spatial-band streams form plausible receiver-side auditory events using binaural cue proxies.
+```
+
+This is not a replacement for OME Spatial Filter Bank. It is the validation layer after it.
 
 ### Bottom-level decomposition labels
 
@@ -734,22 +1079,34 @@ late_reverb_component
 decorrelated_residual_component
 ```
 
+### Validation labels
+
+Add these as stream-quality labels:
+
+```text
+cue_consistency
+localization_stability
+naturalness_risk
+frequency_position_drift
+binaural_width_state
+```
+
 ### Mapping from decomposition labels to human candidates
 
 ```text
-primary_directional + mid-band + harmonic
+primary_directional + mid-band + harmonic + stable binaural cues
 → vocal / lead melody / lead synth candidate
 
-primary_directional + low-band + transient
+primary_directional + low-band + transient + stable low-frequency timing cues
 → kick drum / low-frequency hit candidate
 
-primary_directional + low-band + sustained
+primary_directional + low-band + sustained + centered low-body cues
 → bass / synth bass candidate
 
-ambient_diffuse + mid/high harmonic
+ambient_diffuse + mid/high harmonic + early-reflection cues
 → guitar / piano / pad / harmonic-space candidate
 
-decorrelated_residual + high-band + tail
+decorrelated_residual + high-band + tail + low/unstable correlation
 → cymbal edge / reverb air / noise texture candidate
 ```
 
@@ -758,14 +1115,16 @@ decorrelated_residual + high-band + tail
 ```text
 stereo
 → OME spatial-band streams
+→ binaural cue validation
 → per-stream analysis
 → object binding
+→ perceptual metadata packet
 → critic-ready handoff
 ```
 
 ### P0 implementation candidates
 
-Chapter 8 provides the closest first implementation path:
+Chapters 7-8 provide the closest first implementation path:
 
 ```text
 STFT
@@ -777,14 +1136,22 @@ adaptive LMS
 direction / ambience decomposition
 ```
 
-Chapter 7 provides the perceptual target structure:
+Chapter 12 provides the validation target:
 
 ```text
-direct sound
-source localization
-reflection
-ambient field
-listener envelopment
+ITD / ILD / IACC
+bandwise cue maps
+cue consistency
+localization stability
+naturalness risk
+```
+
+Chapter 13 provides the handoff / transmission model:
+
+```text
+object-like stream metadata
+perceptual metadata packet
+relationship metadata, not only waveform fields
 ```
 
 ## P0 stream candidates
@@ -798,6 +1165,7 @@ Evidence:
 - transient / impact-like
 - high mid coherence
 - primary_directional_component support
+- stable low-frequency timing cue support
 
 Human candidate names:
 
@@ -818,6 +1186,7 @@ Evidence:
 - sustained / continuous
 - low transient density
 - primary_directional_component support
+- centered low-body cue support
 
 Human candidate names:
 
@@ -839,6 +1208,7 @@ Evidence:
 - harmonic continuity
 - stable foreground line
 - primary_directional_component support
+- stable binaural cue support
 
 Human candidate names:
 
@@ -859,6 +1229,7 @@ Evidence:
 - mid/high band
 - width without pure noise dominance
 - ambient_diffuse_component or early_reflection_component support
+- controlled rather than chaotic width cues
 
 Human candidate names:
 
@@ -880,6 +1251,7 @@ Evidence:
 - high-frequency or reverb-tail behavior
 - diffuse / noisy / airy texture
 - late_reverb_component or decorrelated_residual_component support
+- low-localization / high-diffuseness cue support
 
 Human candidate names:
 
@@ -924,6 +1296,7 @@ Boundary:
       "direct_vs_diffuse_proxy",
       "primary_vs_ambient_decomposition"
     ],
+    "band_schema": "linear | octave | erb_like | gammatone",
     "components": [
       "primary_directional_component",
       "ambient_diffuse_component",
@@ -948,6 +1321,12 @@ Boundary:
         "time_rule": {
           "continuity": "sustained",
           "transient_density": "low_to_moderate"
+        },
+        "binaural_validation": {
+          "cue_consistency": "medium_to_high",
+          "localization_stability": "stable_center",
+          "naturalness_risk": "low",
+          "frequency_position_drift": "low_to_moderate"
         },
         "human_candidate_names": ["vocal", "lead melody", "lead synth"],
         "truth_boundary": "not isolated vocal stem"
@@ -1007,12 +1386,30 @@ Human-facing translation:
 There is a clearer subject line in the middle, while the sides carry a spread-out layer of space and reflection. The low-frequency subject behaves more like support, and the edges feel closer to air, reverb, or noise texture.
 ```
 
-## Implementation direction after reading Chapters 1-2 and 7-8
+Add binaural-cue language when useful:
+
+```text
+The object is not only wide; its upper band becomes less stable and more diffuse, while the low body remains centered.
+```
+
+Chinese-facing translation:
+
+```text
+它不是单纯“变宽”，而是低频身体还在中间，高频边缘散到两侧，所以听起来像主体带着一圈空气或相位边缘。
+```
+
+## Implementation direction after reading Chapters 1-2, 7-8, and 12-13
 
 P0 should be a design doc and prototype for:
 
 ```text
 OME Spatial Filter Bank
+```
+
+P1 should add:
+
+```text
+OME Binaural Cue Validation
 ```
 
 Core pipeline:
@@ -1027,7 +1424,9 @@ stereo audio
 → soft masks for spatial-band streams
 → stream wav reconstruction
 → per-stream MSSL analysis
+→ binaural cue validation
 → object binding
+→ perceptual metadata packet
 → online AI handoff digest
 ```
 
@@ -1039,3 +1438,5 @@ These are not implementation dependencies. They are conceptual anchors for later
 
 - DirAC-based Ambisonic coding: useful as a conceptual reference for parametric direction/diffuseness spatial coding.
 - Geometrically motivated primary-ambient decomposition with center-channel extraction: useful as a conceptual reference for stereo primary/ambient decomposition and upmix-oriented extraction.
+- Gammatone filterbank: useful as a conceptual reference for auditory-band filterbank upgrades beyond crude low/mid/high bands.
+- MPEG-H 3D Audio / object-channel-HOA framing: useful as a conceptual reference for treating MSSL streams as object-like audio evidence plus metadata, not only waveform tracks.
