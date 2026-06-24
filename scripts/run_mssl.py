@@ -3,7 +3,7 @@
 
 Default behavior runs the complete listening-experience continuation:
 
-Audio file -> structural profile -> reconstructed stream / score layer -> descriptor-aware professional evidence -> compact online AI handoff + full audit trace
+Audio file -> structural profile -> reconstructed stream / score layer -> OME Spatial Filter Bank runtime layer -> descriptor-aware professional evidence -> compact online AI handoff + full audit trace
 
 PCM WAV is read directly by the core analyzer. Other common local audio formats
 are decoded to temporary PCM WAV through ffmpeg when ffmpeg is available.
