@@ -13,6 +13,10 @@ from typing import Any
 SAFE_STREAM_STATUSES = {
     "profile_derived_descriptor_packet_not_ome_filterbank_stream",
 }
+OME_RUNTIME_STATUSES = {
+    "computed_numpy_runtime_not_stem_extraction",
+}
+OME_RUNTIME_STREAM_PREFIX = "ome_spatial_filter_bank_stream_v0"
 
 
 def render_compact_online_handoff(
@@ -23,6 +27,7 @@ def render_compact_online_handoff(
     full_trace_filename: str,
     reconstructed_stream_layer: dict[str, Any] | None = None,
     reconstructed_score_layer: dict[str, Any] | None = None,
+    ome_spatial_filter_bank_layer: dict[str, Any] | None = None,
 ) -> str:
     """Return a compact handoff optimized for online-AI reading."""
     global_ctx = as_dict(evidence_pack.get("global_context"))
@@ -34,6 +39,7 @@ def render_compact_online_handoff(
     p0 = as_dict(evidence_pack.get("p0_review_policy"))
     stream_layer = as_dict(reconstructed_stream_layer)
     score_layer = as_dict(reconstructed_score_layer)
+    ome_runtime_layer = as_dict(ome_spatial_filter_bank_layer or evidence_pack.get("ome_spatial_filter_bank_layer"))
 
     lines: list[str] = [
         "# Online AI Listening Handoff / Compact",
@@ -48,7 +54,7 @@ def render_compact_online_handoff(
         "Core chain:",
         "",
         "```text",
-        "machine proxy -> professional anchor -> subjective descriptor target -> bounded listening language",
+        "machine proxy -> OME runtime / professional anchor -> subjective descriptor target -> bounded listening language",
         "```",
         "",
         "Three-part handoff structure:",
@@ -59,7 +65,7 @@ def render_compact_online_handoff(
         "3. review writing style guidance / user-ear diagnostic method",
         "```",
         "",
-        "MSSL does not provide source truth, lyric truth, emotion truth, room truth, original stem truth, original MIDI truth, or completed OME Spatial Filter Bank output unless explicitly marked as such.",
+        "MSSL does not provide source truth, lyric truth, emotion truth, room truth, original stem truth, or original MIDI truth. The OME runtime layer, when present, is receiver-side stream support, not source separation.",
         "",
         "## 1. Review-direction prompt / online search task",
         "",
@@ -80,7 +86,7 @@ def render_compact_online_handoff(
         "",
         "## 3. Professional audio evidence / safe descriptor summary",
         "",
-        "These are profile-derived descriptor targets. They describe the track/segments, not separated OME streams.",
+        "These are profile-derived descriptor targets. They describe the track/segments, not separated streams. Use the OME runtime section below when stream-level support is available.",
         "",
         "### Dominant descriptor targets",
         "",
@@ -96,26 +102,8 @@ def render_compact_online_handoff(
     else:
         lines.append("- No object-candidate intersection is safe enough at profile level.")
 
-    lines.extend([
-        "",
-        "## 4. OME stream descriptor packets / gated",
-        "",
-        "Profile-derived descriptors may only enter a stream packet if they pass stream compatibility and minimum-evidence gates.",
-        "",
-        "| Stream | Status | Safe descriptor targets | Review use |",
-        "|---|---|---|---|",
-    ])
-    for packet in packets:
-        stream_id = str(packet.get("stream_id"))
-        status = str(packet.get("status"))
-        targets = ", ".join(list_strings(packet.get("subjective_descriptor_targets"))) or "—"
-        if status in SAFE_STREAM_STATUSES:
-            review_use = str(packet.get("review_affordance") or "Use only with boundary.")
-        else:
-            review_use = "Do not use as review language yet; stream-level OME evidence is required."
-        lines.append(f"| {stream_id} | {status} | {targets} | {review_use} |")
-
-    lines.extend(render_reconstructed_summary(stream_layer, score_layer))
+    lines.extend(render_ome_runtime_or_fallback(ome_runtime_layer, packets))
+    lines.extend(render_reconstructed_summary(stream_layer, score_layer, has_ome_runtime=is_ome_runtime_ready(ome_runtime_layer)))
 
     lines.extend([
         "",
@@ -168,7 +156,7 @@ def render_compact_online_handoff(
         "```text",
         "1. Verify song identity if possible.",
         "2. Search lyrics, release / album / artist background, public reviews, reception, and comments only after identity is reasonably confirmed.",
-        "3. Use MSSL as local listening evidence: sound field, pressure, low-end body, foreground contour, texture, motion, score design, and timeline arc.",
+        "3. Use MSSL as local listening evidence: sound field, OME stream support, pressure, low-end body, foreground contour, texture, motion, score design, and timeline arc.",
         "4. Combine verified external context with MSSL evidence into readable criticism.",
         "5. Keep uncertainty visible when identity or context is not confirmed.",
         "```",
@@ -176,6 +164,81 @@ def render_compact_online_handoff(
         "Do not directly quote raw numeric values unless the user asks for an audit. Do not treat OME stream names, reconstructed streams, score skeletons, object intersections, or source-family hypotheses as confirmed instruments, original stems, original MIDI, lyrics, or creator intent.",
     ])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_ome_runtime_or_fallback(ome_runtime_layer: dict[str, Any], profile_packets: list[dict[str, Any]]) -> list[str]:
+    if is_ome_runtime_ready(ome_runtime_layer):
+        return render_ome_runtime_summary(ome_runtime_layer)
+    return render_profile_ome_fallback(profile_packets, ome_runtime_layer)
+
+
+def render_ome_runtime_summary(layer: dict[str, Any]) -> list[str]:
+    lines = [
+        "",
+        "## 4. OME Spatial Filter Bank runtime / compact stream support",
+        "",
+        "This section is computed from local audio. It is receiver-side stream support, not source separation and not original stems.",
+        "",
+        f"Status: {layer.get('status')}",
+        "",
+        "| Stream | Runtime support | Binaural cue summary | Safe descriptor targets | Review use |",
+        "|---|---|---|---|---|",
+    ]
+    for packet in list_dicts(layer.get("stream_packets")):
+        stream_id = str(packet.get("stream_id"))
+        status = str(packet.get("status"))
+        evidence = as_dict(packet.get("evidence"))
+        binaural = as_dict(packet.get("binaural_validation"))
+        targets = ", ".join(list_strings(packet.get("subjective_descriptor_targets"))) or "—"
+        review_use = compact_ome_runtime_use(packet)
+        support = f"{status.replace(OME_RUNTIME_STREAM_PREFIX + '_', '')}; {evidence.get('support_band')} / coverage {evidence.get('active_coverage')}"
+        binaural_summary = (
+            f"side {binaural.get('mean_side_ratio_norm')} / corr {binaural.get('mean_signed_correlation_norm')} / "
+            f"diffuse {binaural.get('diffuse_proxy')}"
+        )
+        lines.append(f"| {stream_id} | {support} | {binaural_summary} | {targets} | {review_use} |")
+    lines.extend([
+        "",
+        "Use rule: prefer this runtime section over profile-derived stream placeholders. Still do not claim instruments, stems, lyrics, physical room geometry, or emotion truth.",
+    ])
+    return lines
+
+
+def render_profile_ome_fallback(profile_packets: list[dict[str, Any]], runtime_layer: dict[str, Any]) -> list[str]:
+    runtime_status = runtime_layer.get("status") or "not attached"
+    lines = [
+        "",
+        "## 4. OME stream descriptor packets / gated fallback",
+        "",
+        f"OME runtime status: {runtime_status}",
+        "",
+        "Profile-derived descriptors may only enter a stream packet if they pass stream compatibility and minimum-evidence gates. These fallback packets are weaker than OME runtime evidence.",
+        "",
+        "| Stream | Status | Safe descriptor targets | Review use |",
+        "|---|---|---|---|",
+    ]
+    for packet in profile_packets:
+        stream_id = str(packet.get("stream_id"))
+        status = str(packet.get("status"))
+        targets = ", ".join(list_strings(packet.get("subjective_descriptor_targets"))) or "—"
+        if status in SAFE_STREAM_STATUSES:
+            review_use = str(packet.get("review_affordance") or "Use only with boundary.")
+        else:
+            review_use = "Do not use as review language yet; stream-level OME evidence is required."
+        lines.append(f"| {stream_id} | {status} | {targets} | {review_use} |")
+    return lines
+
+
+def compact_ome_runtime_use(packet: dict[str, Any]) -> str:
+    evidence = as_dict(packet.get("evidence"))
+    if evidence.get("support_band") == "reduced":
+        return "Treat as weak or unresolved stream evidence; do not build a main review claim from it."
+    return str(packet.get("review_affordance") or "Use as bounded receiver-side stream support.")
+
+
+def is_ome_runtime_ready(layer: dict[str, Any]) -> bool:
+    status = str(layer.get("status") or "")
+    return status in OME_RUNTIME_STATUSES and bool(list_dicts(layer.get("stream_packets")))
 
 
 def render_key_moments_compact(key_moments: list[dict[str, Any]]) -> list[str]:
@@ -279,14 +342,19 @@ def compact_anchor(anchor: Any, limit: int = 4) -> str:
     return " + ".join(parts[:limit]) + " + ..."
 
 
-def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict[str, Any]) -> list[str]:
+def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict[str, Any], has_ome_runtime: bool) -> list[str]:
+    boundary = (
+        "Current boundary: stream spatial cues may be cross-checked against the attached OME runtime layer, but reconstructed streams remain functional full-mix reconstructions, not original physical coordinates."
+        if has_ome_runtime
+        else "Current boundary: stream spatial cues are weighted from segment-level O/M/E evidence. Because no OME runtime layer is attached, treat repeated spatial tendencies as full-mix receiver-side binding, not as per-stream physical coordinates."
+    )
     lines = [
         "",
         "## 5. MSSL reconstructed stream / score summary",
         "",
         "This is MSSL's functional reconstruction layer. It is reconstructed from full-mix evidence for listening analysis. It is not original DAW stems and not original MIDI transcription.",
         "",
-        "Current boundary: stream spatial cues are weighted from segment-level O/M/E evidence. Until the OME Spatial Filter Bank exists, treat repeated spatial tendencies as full-mix receiver-side binding, not as per-stream physical coordinates.",
+        boundary,
         "",
     ]
     if not stream_layer and not score_layer:
