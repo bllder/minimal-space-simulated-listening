@@ -14,16 +14,16 @@ Current target path:
 ```text
 local PCM WAV
 -> structural audio evidence
+-> reconstructed stream / score layer
 -> listening-experience evidence pack
--> critical listening brief
--> aesthetic context handoff
--> online AI handoff
+-> descriptor-gated OME packet staging
+-> compact online AI handoff + full audit trace
 -> bounded close-listening criticism by an online AI account
 ```
 
 MSSL does not need to rebuild every music-recognition capability itself. External model outputs, optional adapters, lyrics, comments, reviews, MIR notes, and user aesthetic material may be introduced as bounded context. MSSL organizes claim boundaries, evidence traceability, and handoff structure.
 
-The default project does **not** run a local LLM. The local pipeline prepares an uploadable handoff file for an online AI account.
+The default project does **not** run a local LLM. The local pipeline prepares an uploadable compact handoff file for an online AI account.
 
 ## O/M/E frame
 
@@ -54,6 +54,18 @@ wide_diffuse_texture
 residual_unassigned
 ```
 
+Current staging rule:
+
+```text
+existing full_song_profile
+-> profile-derived proxy values
+-> descriptor bands and object intersections
+-> gated OME stream descriptor packets
+-> compact handoff if safe, full trace if audit-only
+```
+
+The staging bridge is not the final OME runtime. It must remain replaceable by future stream-level OME evidence.
+
 Design notes:
 
 - [`docs/ome_spatial_filter_bank_reading_notes.md`](docs/ome_spatial_filter_bank_reading_notes.md) records the reading-derived rationale.
@@ -75,7 +87,7 @@ The modeling frame follows **O → M(A/B) → E**: source-centered wave expansio
 
 ![Overall Runtime Framework](./总体框架流程图.png)
 
-For the detailed execution-rule diagram, see [`docs/detailed_runtime_flow.md`](docs/detailed_runtime_flow.md).
+The current executable runtime is documented by the scripts themselves: `scripts/run_mssl.py` is the human entry point, and `scripts/run_listening_experience_pipeline.py` defines the default experience chain.
 
 ## Boundaries
 
@@ -88,13 +100,15 @@ The default structural layer does **not** produce or claim truth labels for:
 - instrument identity
 - lyric recognition or ASR
 - source-separation truth
+- original stem truth
+- original MIDI truth
 - music generation
 
 The listening-experience layer may use genre-like, emotion-like, or instrument-family language only when bounded by evidence, adapter output, online AI reasoning, user aesthetic context, or an explicit backend stage. These words belong in the language/context layer, not as unbounded structural truth.
 
 Any generated Markdown under `outputs/` is a local inspection artifact unless a future task explicitly promotes a curated example.
 
-External adapters are optional and not part of the minimal default dependency set. See `docs/optional_adapters.md`.
+External adapters are optional and not part of the minimal default dependency set. Optional dependency notes live under `requirements-optional/`.
 
 ## One-command entry point
 
@@ -111,11 +125,17 @@ By default this runs `experience` mode:
 ```text
 WAV
 -> full_song_profile.json
+-> reconstructed_stream_score_layer.md
 -> listening_experience_evidence_pack.json
 -> critical_listening_brief.json
 -> original_song_listening_prompt_input.md
+-> subjective_descriptor_proxy_layer.json / .md
+-> ome_stream_descriptor_packets.json / .md
 -> online_ai_listening_handoff.md
+-> online_ai_listening_handoff_full_trace.md
 ```
+
+`online_ai_listening_handoff.md` is the compact online-AI input. `online_ai_listening_handoff_full_trace.md` is the audit trace for debugging and review.
 
 If you have human/aesthetic context, add it explicitly:
 
@@ -133,7 +153,7 @@ Then use this file:
 online_ai_listening_handoff.md
 ```
 
-Copy or upload it to an online AI account. It is the MSSL handoff that replaces sending the audio file. Ask the online AI to write bounded close-listening criticism from it.
+Copy or upload it to an online AI account. It is the compact MSSL handoff that replaces sending the audio file. Ask the online AI to verify song identity when possible, search lyrics / background / public reviews if available, and write bounded close-listening criticism from the compact evidence.
 
 Other mode:
 
@@ -166,14 +186,17 @@ See [`docs/aesthetic_context_handoff.md`](docs/aesthetic_context_handoff.md).
 The current experience pipeline organizes these bounded claim layers:
 
 ```text
+reconstructed stream / score evidence
 source-family / instrument-family evidence
 melody or pitch-contour evidence
 vocal-object locking evidence
+profile-derived descriptor targets
+OME stream descriptor packets with gates
 style-behavior hypotheses
 affective-listening hypotheses
 ```
 
-It must not treat stems as instrument truth, style candidates as genre truth, vocal objects as singer identity, or affective tendencies as emotion truth. But it may translate these bounded claims into readable music-listening language when the handoff has adequate context.
+It must not treat reconstructed streams as original stems, score skeletons as original MIDI, style candidates as genre truth, vocal objects as singer identity, or affective tendencies as emotion truth. But it may translate these bounded claims into readable music-listening language when the handoff has adequate context.
 
 ## Current structural chain
 
@@ -184,7 +207,7 @@ local PCM WAV
 -> full-song structural profile
 ```
 
-Language simulation continues after this chain in `experience` mode through the online-AI handoff file.
+Language simulation continues after this chain in `experience` mode through reconstructed stream / score analysis, descriptor gating, and the online-AI handoff files.
 
 Default dependency file:
 
