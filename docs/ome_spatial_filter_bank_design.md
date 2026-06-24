@@ -189,7 +189,200 @@ Future profile JSON should expose OME streams as object-like metadata records:
 }
 ```
 
-## 10. Pipeline insertion plan
+## 10. Profile-Derived Descriptor Bridge and Stream-Gating Layer
+
+Status: P0 staging bridge.  
+Scope: acknowledge the current descriptor bridge and handoff split that exist before full OME Spatial Filter Bank runtime.  
+Non-scope: this layer is not OME runtime, not source separation, not final review writing, and not calibrated listener-test output.
+
+### 10.1 Profile-derived descriptor bridge
+
+The current bridge reads an existing `*_full_song_profile.json` and derives provisional descriptor material from fields that already exist in the profile.
+
+Current staging chain:
+
+```text
+existing full_song_profile
+-> profile-derived proxy values
+-> dimension descriptor bands
+-> object candidate intersections
+-> gated OME stream descriptor packets
+```
+
+This bridge must remain explicitly temporary.
+
+It does not:
+
+```text
+read audio
+run OME Spatial Filter Bank
+calculate real per-stream masks
+extract true receiver-side streams
+recover DAW stems
+perform source separation
+```
+
+It may summarize track-level or segment-level tendencies, but it must not promote those tendencies into stream-level OME truth.
+
+### 10.2 Descriptor validation layer
+
+Subjective descriptor targets are an output-side validation table.
+
+Required language chain:
+
+```text
+machine proxy
+-> professional audio anchor
+-> subjective descriptor dimension
+-> descriptor target
+-> bounded review affordance
+```
+
+This layer exists to prevent raw machine fields, raw stream IDs, or vague words such as `pressure`, `width`, or `atmosphere` from becoming unsupported review prose.
+
+Boundary:
+
+```text
+subjective descriptor target != final review sentence
+subjective descriptor target != emotion truth
+subjective descriptor target != instrument identity
+subjective descriptor target != calibrated perceptual threshold
+```
+
+The descriptor layer supplies constrained language affordances for an online AI. It does not write the final human-facing criticism.
+
+### 10.3 Stream compatibility gate
+
+The stream compatibility gate checks whether a descriptor target is allowed to enter a given stream packet at all.
+
+Example rule shape:
+
+```text
+track-level descriptor target
+-> check stream-compatible target set
+-> accept as provisional stream hint only if compatible
+-> otherwise reject and wait for stream-level OME runtime
+```
+
+Compatibility only means the word is not obviously wrong for the stream. It does not prove that the stream has enough evidence to speak.
+
+Example boundary:
+
+```text
+wide_diffuse_texture may accept wet / reverberant / diffuse / phase_colored / wide / surrounding.
+wide_diffuse_texture must not inherit dry / focused / narrow merely because the full track summary contains them.
+```
+
+### 10.4 Stream minimum evidence gate
+
+The stream minimum evidence gate decides whether a stream packet is allowed to enter review language.
+
+Compatibility is not enough. Each stream needs at least one core target that makes the stream itself plausible.
+
+Minimum P0 targets:
+
+| Stream ID | Required target, any of |
+|---|---|
+| `center_mid_lead` | `voice_like_or_lead_like` |
+| `center_low_impact` | `low_impact_like` |
+| `center_low_sustain` | `bass_like` |
+| `side_harmonic_space` | `guitar_like`, `piano_like`, `pad_like`, `wide`, `diffuse`, `phase_colored` |
+| `wide_diffuse_texture` | `wet`, `reverberant`, `diffuse`, `phase_colored`, `wide`, `surrounding`, `reverb_air_or_haze_like` |
+| `residual_unassigned` | runtime-only evidence |
+
+If the gate fails, the packet must say:
+
+```text
+subjective_descriptor_targets: stream_level_ome_required
+status: profile_layer_insufficient_stream_level_ome_required
+```
+
+Failed stream packets must not be used as review language. They are placeholders that point to the future OME runtime.
+
+Each packet should expose trace fields such as:
+
+```text
+required_any_of
+passed
+passed_targets
+compatible_targets_before_minimum_gate
+blocked_reason
+```
+
+The trace exists for debugging. It is not meant to become review prose.
+
+### 10.5 Compact / full-trace handoff split
+
+The descriptor bridge creates two different handoff surfaces.
+
+```text
+online_ai_listening_handoff.md
+= compact LLM-facing creative handoff
+
+online_ai_listening_handoff_full_trace.md
+= full audit trace with JSON, descriptor tables, and packet details
+```
+
+The compact handoff is not the final human-readable review.
+
+It is controlled creative fuel for an online AI account. It should provide:
+
+```text
+professional anchors
+descriptor targets
+translation affordances
+timeline hooks
+stream-gating status
+do-not-claim boundaries
+evidence limits
+```
+
+It should not provide:
+
+```text
+final review prose
+complete emotional interpretation
+confirmed lyrics / singer / instrument identity
+true stem claims
+raw JSON overload
+profile-derived stream claims that failed the gates
+```
+
+Correct downstream chain:
+
+```text
+MSSL local analysis
+-> professional anchors / descriptor affordances / boundaries
+-> compact LLM-facing handoff
+-> online LLM creative review writing
+-> human-readable close-listening criticism
+```
+
+### 10.6 Future runtime replacement
+
+The staging bridge must be replaceable.
+
+Future intended runtime chain:
+
+```text
+OME Spatial Filter Bank runtime
+-> per-stream proxy extraction
+-> per-stream descriptor targets
+-> per-stream object candidate intersections
+-> compact handoff packets
+```
+
+When true stream-level OME runtime exists, it should replace profile-derived placeholder evidence instead of layering more prose on top of it.
+
+Required replacement rule:
+
+```text
+profile-derived bridge may guide output shape
+profile-derived bridge must not become permanent fake OME
+real stream-level evidence wins when available
+```
+
+## 11. Pipeline insertion plan
 
 Do not insert this before the contract is stable.
 
@@ -200,6 +393,11 @@ Phase 0
 Phase 1
   Add design spec and handoff section contract.
   No Python change.
+
+Phase 1.5
+  Use profile-derived descriptor bridge as a staging layer.
+  Gate stream packets with compatibility and minimum-evidence rules.
+  Keep compact/full-trace handoff outputs separate.
 
 Phase 2
   Prototype OME Spatial Filter Bank as a new generated layer:
@@ -214,11 +412,11 @@ Phase 4
   Render OME streams into online_ai_listening_handoff.md as perceptual metadata.
 ```
 
-## 11. README rule
+## 12. README rule
 
 README should contain only a short project-facing explanation and links. It should not contain algorithm details, full stream schemas, or reading-note material.
 
-## 12. Handoff rule
+## 13. Handoff rule
 
 `online_ai_listening_handoff.md` should not receive raw theory notes.
 
@@ -234,10 +432,13 @@ review translation affordances
 truth boundaries
 ```
 
-## 13. Minimal rule
+When the descriptor bridge is used, the compact handoff should remain an LLM-facing creative substrate, not a final review and not a full debug trace.
+
+## 14. Minimal rule
 
 ```text
 MSSL does not recover original stems.
 MSSL derives receiver-side spatial-band auditory object streams from stereo evidence.
 Each stream must carry evidence, candidate human names, validation labels, review affordance, and truth boundaries.
+Profile-derived descriptor packets must stay gated until stream-level OME evidence exists.
 ```
