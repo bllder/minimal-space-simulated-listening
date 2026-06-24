@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import build_listening_experience_prompt as base
 import render_online_ai_review_evidence_digest as review_digest
@@ -66,6 +67,7 @@ def main() -> None:
     ome_stream_descriptor_packets = build_ome_packets(descriptor_proxy_layer)
     reconstructed_stream_layer = as_dict(profile.get("reconstructed_stream_layer"))
     reconstructed_score_layer = as_dict(profile.get("reconstructed_score_layer"))
+    ome_spatial_filter_bank_layer = as_dict(profile.get("ome_spatial_filter_bank_layer"))
 
     proxy_json_path.write_text(json.dumps(descriptor_proxy_layer, ensure_ascii=False, indent=2), encoding="utf-8")
     proxy_md_path.write_text(render_layer_md(descriptor_proxy_layer), encoding="utf-8")
@@ -75,13 +77,14 @@ def main() -> None:
     evidence_pack = attach_descriptor_contract_to_evidence_pack(evidence_pack)
     evidence_pack["subjective_descriptor_proxy_layer"] = descriptor_proxy_layer
     evidence_pack["ome_stream_descriptor_packets"] = ome_stream_descriptor_packets
+    evidence_pack["ome_spatial_filter_bank_layer"] = ome_spatial_filter_bank_layer
     evidence_pack["reconstructed_stream_layer"] = reconstructed_stream_layer
     evidence_pack["reconstructed_score_layer"] = reconstructed_score_layer
     evidence_pack["handoff_output_policy"] = {
         "default_handoff": args.handoff_name,
         "default_handoff_role": "compact online-AI input",
         "full_trace_handoff": FULL_TRACE_HANDOFF_NAME,
-        "full_trace_role": "audit trace with full JSON, descriptor tables, reconstructed stream / score sections, and OME packet details",
+        "full_trace_role": "audit trace with full JSON, descriptor tables, reconstructed stream / score sections, OME runtime layer, and OME packet details",
     }
 
     critical_brief = attach_descriptor_contract_to_critical_brief(critical_brief)
@@ -90,6 +93,12 @@ def main() -> None:
         "status": ome_stream_descriptor_packets.get("status"),
         "boundary": ome_stream_descriptor_packets.get("boundary"),
         "stream_count": len(ome_stream_descriptor_packets.get("stream_packets") or []),
+    }
+    critical_brief["ome_spatial_filter_bank_status"] = {
+        "status": ome_spatial_filter_bank_layer.get("status"),
+        "stream_count": len(ome_spatial_filter_bank_layer.get("stream_packets") or []),
+        "boundary": ome_spatial_filter_bank_layer.get("boundary"),
+        "use_rule": ome_spatial_filter_bank_layer.get("use_rule"),
     }
     critical_brief["reconstructed_stream_score_status"] = {
         "stream_layer_status": reconstructed_stream_layer.get("status"),
@@ -103,6 +112,7 @@ def main() -> None:
     prompt_protocol = base.read_text_optional(args.translation_prompt)
     descriptor_section = render_descriptor_validation_section()
     reconstructed_section = reconstructed_handoff.render_section(profile)
+    ome_runtime_section = render_ome_runtime_section(ome_spatial_filter_bank_layer)
     digest_section = review_digest.render_digest(profile)
     proxy_section = render_layer_md(descriptor_proxy_layer)
     ome_packet_section = render_packets_md(ome_stream_descriptor_packets)
@@ -119,6 +129,8 @@ def main() -> None:
         base_handoff.rstrip()
         + "\n\n"
         + reconstructed_section
+        + "\n\n"
+        + ome_runtime_section
         + "\n\n"
         + digest_section
         + "\n\n"
@@ -144,6 +156,7 @@ def main() -> None:
     print(f"Attached P0 subjective descriptor validation tables to {evidence_path}")
     print(f"Attached P0 subjective descriptor validation tables to {brief_path}")
     print(f"Attached P0 subjective descriptor validation tables to {prompt_path}")
+    print(f"Attached OME Spatial Filter Bank status to {evidence_path}")
     print(f"Wrote compact handoff to {handoff_path}")
     print(f"Wrote full trace handoff to {full_trace_path}")
     print(f"Wrote {proxy_json_path}")
@@ -152,8 +165,58 @@ def main() -> None:
     print(f"Wrote {ome_packet_md_path}")
 
 
+def render_ome_runtime_section(layer: dict[str, Any]) -> str:
+    lines = [
+        "## Full-trace C. OME Spatial Filter Bank Runtime Layer / OME 空间滤波运行层",
+        "",
+    ]
+    if not layer:
+        lines.extend([
+            "Status: not attached.",
+            "",
+            "Boundary: no OME Spatial Filter Bank runtime layer was found in the profile.",
+        ])
+        return "\n".join(lines).rstrip() + "\n"
+
+    lines.extend([
+        f"Status: {layer.get('status')}",
+        "",
+        f"Boundary: {layer.get('boundary')}",
+        "",
+        f"Use rule: {layer.get('use_rule')}",
+        "",
+        "| Stream | Status | Support | Active coverage | Descriptor targets |",
+        "|---|---|---|---:|---|",
+    ])
+    for packet in list_dicts(layer.get("stream_packets")):
+        evidence = as_dict(packet.get("evidence"))
+        targets = ", ".join(list_strings(packet.get("subjective_descriptor_targets"))) or "—"
+        lines.append(
+            f"| {packet.get('stream_id')} | {packet.get('status')} | "
+            f"{evidence.get('support_band')} / mean {evidence.get('mean_support')} | "
+            f"{evidence.get('active_coverage')} | {targets} |"
+        )
+    lines.extend([
+        "",
+        "Truth boundary: these packets are runtime receiver-side stream support, not separated stems, true instruments, physical room geometry, lyrics, singer identity, genre truth, or emotion truth.",
+    ])
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def as_dict(value: object) -> dict:
     return value if isinstance(value, dict) else {}
+
+
+def list_dicts(value: object) -> list[dict]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def list_strings(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if item not in (None, "")]
 
 
 if __name__ == "__main__":
