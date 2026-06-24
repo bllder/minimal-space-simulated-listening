@@ -150,6 +150,7 @@ def main() -> None:
         full_trace_filename=FULL_TRACE_HANDOFF_NAME,
         reconstructed_stream_layer=reconstructed_stream_layer,
         reconstructed_score_layer=reconstructed_score_layer,
+        ome_spatial_filter_bank_layer=ome_spatial_filter_bank_layer,
     )
     handoff_path.write_text(compact_handoff, encoding="utf-8")
 
