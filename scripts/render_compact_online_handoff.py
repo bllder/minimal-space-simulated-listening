@@ -51,16 +51,34 @@ def render_compact_online_handoff(
         "machine proxy -> professional anchor -> subjective descriptor target -> bounded listening language",
         "```",
         "",
+        "Three-part handoff structure:",
+        "",
+        "```text",
+        "1. review-direction prompt",
+        "2. professional audio evidence / numeric-to-term translation",
+        "3. review writing style guidance / user-ear diagnostic method",
+        "```",
+        "",
         "MSSL does not provide source truth, lyric truth, emotion truth, room truth, original stem truth, original MIDI truth, or completed OME Spatial Filter Bank output unless explicitly marked as such.",
         "",
-        "## 1. Track context",
+        "## 1. Review-direction prompt / online search task",
+        "",
+        "First try to verify the song identity using filename or user-supplied clues, duration, MSSL style / structure candidates, and your own search results.",
+        "",
+        "If identity is reasonably confirmed, search and synthesize lyrics, album / artist / release background, public reviews, reception notes, and relevant comments. Treat those as external context, not as local MSSL audio proof.",
+        "",
+        "If identity is uncertain, do not invent lyrics, background, exact song meaning, public reception, singer identity, or instrumentation. Write only from the bounded MSSL evidence and explicitly keep the identity/context uncertain.",
+        "",
+        "Write the final response as Chinese close-listening criticism, not an engineering checklist.",
+        "",
+        "## 2. Track context",
         "",
         f"- Analysis label: {global_ctx.get('analysis_label')}",
         f"- Duration: {global_ctx.get('duration_label') or global_ctx.get('duration_seconds')}",
         f"- Estimated BPM: {global_ctx.get('estimated_bpm')} / confidence: {global_ctx.get('tempo_confidence')}",
         f"- Section sequence: {', '.join(list_strings(global_ctx.get('section_sequence'))) or 'not supplied'}",
         "",
-        "## 2. Safe track-level descriptor summary",
+        "## 3. Professional audio evidence / safe descriptor summary",
         "",
         "These are profile-derived descriptor targets. They describe the track/segments, not separated OME streams.",
         "",
@@ -80,7 +98,7 @@ def render_compact_online_handoff(
 
     lines.extend([
         "",
-        "## 3. OME stream descriptor packets / gated",
+        "## 4. OME stream descriptor packets / gated",
         "",
         "Profile-derived descriptors may only enter a stream packet if they pass stream compatibility and minimum-evidence gates.",
         "",
@@ -101,7 +119,7 @@ def render_compact_online_handoff(
 
     lines.extend([
         "",
-        "## 5. Track-level professional anchors",
+        "## 6. Track-level professional anchors",
         "",
     ])
     for item in list_dicts(track_summary.get("dominant_professional_anchors"))[:16]:
@@ -109,7 +127,7 @@ def render_compact_online_handoff(
 
     lines.extend([
         "",
-        "## 6. Macro arc",
+        "## 7. Macro arc",
         "",
     ])
     for movement in macro_arc[:6]:
@@ -124,9 +142,10 @@ def render_compact_online_handoff(
         lines.append("")
 
     lines.extend(render_key_moments_compact(key_moments))
+    lines.extend(render_writing_style_guidance())
 
     lines.extend([
-        "## 8. P0 do-not-claim boundaries",
+        "## 9. P0 do-not-claim boundaries",
         "",
     ])
     for item in list_strings(p0.get("review_decisions")):
@@ -140,11 +159,19 @@ def render_compact_online_handoff(
 
     lines.extend([
         "",
-        "## 9. Output request",
+        "## 10. Output request",
         "",
-        "Use this compact professional audio report as local listening evidence. If online search is available and the user wants a public-facing review, first verify the song identity from the filename/title clues, duration, lyrics, release context, and public reviews or comments.",
+        "Using this compact professional audio report, write a Chinese close-listening review if asked by the user.",
         "",
-        "Then write a Chinese close-listening review that combines verified external context with the bounded MSSL evidence above.",
+        "Workflow:",
+        "",
+        "```text",
+        "1. Verify song identity if possible.",
+        "2. Search lyrics, release / album / artist background, public reviews, reception, and comments only after identity is reasonably confirmed.",
+        "3. Use MSSL as local listening evidence: sound field, pressure, low-end body, foreground contour, texture, motion, score design, and timeline arc.",
+        "4. Combine verified external context with MSSL evidence into readable criticism.",
+        "5. Keep uncertainty visible when identity or context is not confirmed.",
+        "```",
         "",
         "Do not directly quote raw numeric values unless the user asks for an audit. Do not treat OME stream names, reconstructed streams, score skeletons, object intersections, or source-family hypotheses as confirmed instruments, original stems, original MIDI, lyrics, or creator intent.",
     ])
@@ -153,7 +180,7 @@ def render_compact_online_handoff(
 
 def render_key_moments_compact(key_moments: list[dict[str, Any]]) -> list[str]:
     lines = [
-        "## 7. Key moments / compact evidence",
+        "## 8. Key moments / compact evidence",
         "",
     ]
     shared_examples = unique_translation_examples(key_moments, limit=8)
@@ -180,6 +207,52 @@ def render_key_moments_compact(key_moments: list[dict[str, Any]]) -> list[str]:
         lines.append(f"| {index} | {time_range.get('label')} | {compact_anchor(anchor)} |")
     lines.append("")
     return lines
+
+
+def render_writing_style_guidance() -> list[str]:
+    return [
+        "## 8.5 Review writing style guidance / user-ear method",
+        "",
+        "Do not copy seed cases or public comments as facts. Use them as diagnostic habits for making MSSL evidence readable.",
+        "",
+        "Human music criticism may combine:",
+        "",
+        "```text",
+        "arrangement / instrumentation family",
+        "sound field / atmosphere",
+        "lyric theme if verified",
+        "album, artist, release, or production context if verified",
+        "cover / visual / cultural context when relevant",
+        "public reception and comments if verified",
+        "body, scene, memory, and time",
+        "```",
+        "",
+        "User-ear diagnostic method:",
+        "",
+        "```text",
+        "Listen to the song first.",
+        "Then ask whether a comment, phrase, or public reading actually connects back to this song.",
+        "Transfer the question, not the answer.",
+        "```",
+        "",
+        "Diagnostic questions:",
+        "",
+        "- Where does the language enter the song?",
+        "- What does it connect to: lyric, sound, body, scene, memory, culture, or public use?",
+        "- What can it support: song structure, public reception, user context, or report-language hint?",
+        "- Does it detach into platform noise, fandom, generic emotion, private story, or empty meme?",
+        "",
+        "Guard examples:",
+        "",
+        "```text",
+        "青春流行 != automatically first love",
+        "舞曲 != automatically happiness",
+        "低频重 != automatically anger",
+        "空间大 != automatically grandeur",
+        "评论多 != song truth",
+        "```",
+        "",
+    ]
 
 
 def unique_translation_examples(key_moments: list[dict[str, Any]], limit: int) -> list[str]:
@@ -209,7 +282,7 @@ def compact_anchor(anchor: Any, limit: int = 4) -> str:
 def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict[str, Any]) -> list[str]:
     lines = [
         "",
-        "## 4. MSSL reconstructed stream / score summary",
+        "## 5. MSSL reconstructed stream / score summary",
         "",
         "This is MSSL's functional reconstruction layer. It is reconstructed from full-mix evidence for listening analysis. It is not original DAW stems and not original MIDI transcription.",
         "",
