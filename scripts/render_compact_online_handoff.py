@@ -123,21 +123,7 @@ def render_compact_online_handoff(
             lines.append(f"  - {term.get('term')} | support: {term.get('segment_support_count')}")
         lines.append("")
 
-    lines.extend([
-        "## 7. Key moments / compact evidence",
-        "",
-    ])
-    for index, moment in enumerate(key_moments[:8], start=1):
-        time_range = as_dict(moment.get("time_range"))
-        anchor = as_dict(moment.get("professional_style_anchor")).get("anchor")
-        examples = list_strings(as_dict(moment.get("translation_affordance")).get("examples"))[:5]
-        lines.extend([
-            f"### Moment {index}: {time_range.get('label')}",
-            f"- Professional style anchor: {anchor}",
-        ])
-        for example in examples:
-            lines.append(f"- Translation affordance: {example}")
-        lines.append("")
+    lines.extend(render_key_moments_compact(key_moments))
 
     lines.extend([
         "## 8. P0 do-not-claim boundaries",
@@ -165,12 +151,69 @@ def render_compact_online_handoff(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_key_moments_compact(key_moments: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        "## 7. Key moments / compact evidence",
+        "",
+    ]
+    shared_examples = unique_translation_examples(key_moments, limit=8)
+    if shared_examples:
+        lines.extend([
+            "### Shared translation affordance pool",
+            "",
+            "Use these as a vocabulary pool across the timeline; do not repeat every item for every moment.",
+            "",
+        ])
+        for example in shared_examples:
+            lines.append(f"- {example}")
+        lines.append("")
+
+    lines.extend([
+        "### Representative timeline hooks",
+        "",
+        "| Moment | Time | Professional style anchor |",
+        "|---|---|---|",
+    ])
+    for index, moment in enumerate(key_moments[:8], start=1):
+        time_range = as_dict(moment.get("time_range"))
+        anchor = as_dict(moment.get("professional_style_anchor")).get("anchor")
+        lines.append(f"| {index} | {time_range.get('label')} | {compact_anchor(anchor)} |")
+    lines.append("")
+    return lines
+
+
+def unique_translation_examples(key_moments: list[dict[str, Any]], limit: int) -> list[str]:
+    results: list[str] = []
+    seen: set[str] = set()
+    for moment in key_moments:
+        examples = list_strings(as_dict(moment.get("translation_affordance")).get("examples"))
+        for example in examples:
+            if example not in seen:
+                results.append(example)
+                seen.add(example)
+            if len(results) >= limit:
+                return results
+    return results
+
+
+def compact_anchor(anchor: Any, limit: int = 4) -> str:
+    text = str(anchor or "not supplied")
+    parts = [part.strip() for part in text.split("+") if part.strip()]
+    if not parts:
+        return text
+    if len(parts) <= limit:
+        return " + ".join(parts)
+    return " + ".join(parts[:limit]) + " + ..."
+
+
 def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict[str, Any]) -> list[str]:
     lines = [
         "",
         "## 4. MSSL reconstructed stream / score summary",
         "",
         "This is MSSL's functional reconstruction layer. It is reconstructed from full-mix evidence for listening analysis. It is not original DAW stems and not original MIDI transcription.",
+        "",
+        "Current boundary: stream spatial cues are weighted from segment-level O/M/E evidence. Until the OME Spatial Filter Bank exists, treat repeated spatial tendencies as full-mix receiver-side binding, not as per-stream physical coordinates.",
         "",
     ]
     if not stream_layer and not score_layer:
@@ -209,8 +252,8 @@ def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict
         spatial = as_dict(stream.get("spatial_binding"))
         score = as_dict(stream.get("score_binding"))
         score_cue = compact_score_cue(score)
-        spatial_cue = str(spatial.get("summary") or "no stable spatial summary")
-        review_use = str(stream.get("role") or "use as a reconstructed functional stream")
+        spatial_cue = compact_spatial_cue(support, spatial)
+        review_use = compact_stream_use(stream, support)
         lines.append(
             f"| {stream.get('stream_id')} / {stream.get('cn_name')} | {support.get('support_band')} / coverage {support.get('active_coverage')} | {score_cue} | {spatial_cue} | {review_use} |"
         )
@@ -219,6 +262,19 @@ def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict
         "Use rule: write about arrangement functions, score design, and receiver-side spatial behavior. Do not write that these are original separated tracks or exact instruments.",
     ])
     return lines
+
+
+def compact_spatial_cue(support: dict[str, Any], spatial: dict[str, Any]) -> str:
+    if to_float(support.get("active_coverage")) <= 0:
+        return "weak/inactive stream; do not use as an active stream-specific spatial claim"
+    return str(spatial.get("summary") or "no stable spatial summary")
+
+
+def compact_stream_use(stream: dict[str, Any], support: dict[str, Any]) -> str:
+    role = str(stream.get("role") or "use as a reconstructed functional stream")
+    if to_float(support.get("active_coverage")) <= 0:
+        return "Mention only as weak/inactive fallback evidence; do not build a review claim from it."
+    return role
 
 
 def compact_score_cue(score: dict[str, Any]) -> str:
@@ -246,3 +302,12 @@ def list_dicts(value: Any) -> list[dict[str, Any]]:
 
 def list_strings(value: Any) -> list[str]:
     return [str(item) for item in value if item is not None and str(item).strip()] if isinstance(value, list) else []
+
+
+def to_float(value: Any) -> float:
+    try:
+        if value is None:
+            return 0.0
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
