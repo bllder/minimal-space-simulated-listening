@@ -50,42 +50,55 @@ def main() -> None:
     args = parse_args()
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
+    analysis_audio_path: Path | None = None
+    decoded_temp = False
 
-    if args.profile:
-        profile_path = Path(args.profile)
-        if not profile_path.exists():
-            raise FileNotFoundError(f"Profile JSON not found: {profile_path}")
-        output_dir = Path(args.output_dir) if args.output_dir != "outputs" else profile_path.parent
-        output_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        input_path = Path(args.input)
-        if not input_path.exists():
-            raise FileNotFoundError(f"Audio file not found: {input_path}")
-        output_dir, profile_path, legacy_md, structural_inspection_md = run_full_song(script_dir, args, input_path)
-        normalize_structural_markdown(legacy_md, structural_inspection_md, args.keep_structural_md)
-        if not args.skip_tempo_refinement:
-            run_tempo_refinement(script_dir, input_path, profile_path)
+    try:
+        if args.profile:
+            profile_path = Path(args.profile)
+            if not profile_path.exists():
+                raise FileNotFoundError(f"Profile JSON not found: {profile_path}")
+            output_dir = Path(args.output_dir) if args.output_dir != "outputs" else profile_path.parent
+            output_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            input_path = Path(args.input)
+            if not input_path.exists():
+                raise FileNotFoundError(f"Audio file not found: {input_path}")
+            (
+                output_dir,
+                profile_path,
+                legacy_md,
+                structural_inspection_md,
+                analysis_audio_path,
+                decoded_temp,
+            ) = run_full_song(script_dir, args, input_path)
+            normalize_structural_markdown(legacy_md, structural_inspection_md, args.keep_structural_md)
+            if not args.skip_tempo_refinement:
+                run_tempo_refinement(script_dir, analysis_audio_path, profile_path)
 
-    reconstructed_summary = run_reconstructed_stream_score_builder(script_dir, profile_path, output_dir)
-    ome_summary = run_ome_spatial_filter_bank_builder(script_dir, args, profile_path, output_dir)
-    structural_summary = Path(args.structural_summary) if args.structural_summary else None
+        reconstructed_summary = run_reconstructed_stream_score_builder(script_dir, profile_path, output_dir)
+        ome_summary = run_ome_spatial_filter_bank_builder(script_dir, profile_path, output_dir, analysis_audio_path)
+        structural_summary = Path(args.structural_summary) if args.structural_summary else None
 
-    prompt_path = Path(args.translation_prompt)
-    if not prompt_path.is_absolute():
-        prompt_path = repo_root / prompt_path
+        prompt_path = Path(args.translation_prompt)
+        if not prompt_path.is_absolute():
+            prompt_path = repo_root / prompt_path
 
-    run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path, structural_summary)
+        run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path, structural_summary)
 
-    handoff_path = output_dir / DEFAULT_HANDOFF_NAME
-    full_trace_path = output_dir / DEFAULT_FULL_TRACE_HANDOFF_NAME
-    prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
-    run_aesthetic_context_builder(script_dir, args, handoff_path, prompt_input_path)
+        handoff_path = output_dir / DEFAULT_HANDOFF_NAME
+        full_trace_path = output_dir / DEFAULT_FULL_TRACE_HANDOFF_NAME
+        prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
+        run_aesthetic_context_builder(script_dir, args, handoff_path, prompt_input_path)
 
-    print(f"Prepared reconstructed stream / score layer: {reconstructed_summary}")
-    print(f"Prepared OME Spatial Filter Bank layer: {ome_summary}")
-    print(f"Prepared compact online AI handoff: {handoff_path}")
-    print(f"Prepared full audit trace handoff: {full_trace_path}")
-    print("Use the compact Markdown as the text/file to give to an online AI account instead of uploading audio.")
+        print(f"Prepared reconstructed stream / score layer: {reconstructed_summary}")
+        print(f"Prepared OME Spatial Filter Bank layer: {ome_summary}")
+        print(f"Prepared compact online AI handoff: {handoff_path}")
+        print(f"Prepared full audit trace handoff: {full_trace_path}")
+        print("Use the compact Markdown as the text/file to give to an online AI account instead of uploading audio.")
+    finally:
+        if decoded_temp and not args.keep_decoded_wav and analysis_audio_path and analysis_audio_path.exists():
+            analysis_audio_path.unlink()
 
 
 def run_tempo_refinement(script_dir: Path, input_path: Path, profile_path: Path) -> None:
@@ -117,9 +130,9 @@ def run_reconstructed_stream_score_builder(script_dir: Path, profile_path: Path,
 
 def run_ome_spatial_filter_bank_builder(
     script_dir: Path,
-    args: argparse.Namespace,
     profile_path: Path,
     output_dir: Path,
+    analysis_audio_path: Path | None,
 ) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / DEFAULT_OME_LAYER_NAME
@@ -133,8 +146,8 @@ def run_ome_spatial_filter_bank_builder(
         "--output-md",
         DEFAULT_OME_LAYER_NAME,
     ]
-    if args.input:
-        cmd.extend(["--input", args.input])
+    if analysis_audio_path:
+        cmd.extend(["--input", str(analysis_audio_path)])
     subprocess.run(cmd, check=True)
     return summary_path
 
@@ -190,7 +203,7 @@ def run_aesthetic_context_builder(script_dir: Path, args: argparse.Namespace, ha
     subprocess.run(cmd, check=True)
 
 
-def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) -> tuple[Path, Path, Path, Path]:
+def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) -> tuple[Path, Path, Path, Path, Path, bool]:
     output_base = Path(args.output_dir)
     safe_stem = safe_filename(input_path.stem)
     folder_source = args.output_folder_name or args.analysis_label or input_path.stem
@@ -199,31 +212,23 @@ def run_full_song(script_dir: Path, args: argparse.Namespace, input_path: Path) 
     output_dir.mkdir(parents=True, exist_ok=True)
 
     analysis_input, decoded_temp = prepare_audio_input(input_path, output_dir, safe_stem, args.ffmpeg_bin)
-    try:
-        cmd = [sys.executable, str(script_dir / "run_full_song_analysis.py"), "--input", str(analysis_input), "--output-dir", str(output_base)]
-        if args.output_folder_name or decoded_temp:
-            cmd.extend(["--output-folder-name", folder_source])
-        if args.flat_output:
-            cmd.append("--flat-output")
-        if args.analysis_label:
-            cmd.extend(["--analysis-label", args.analysis_label])
-        elif decoded_temp:
-            cmd.extend(["--analysis-label", input_path.stem])
-        subprocess.run(cmd, check=True)
-        if not input_path.suffix.lower() in NATIVE_WAV_SUFFIXES and not args.keep_decoded_wav:
-            # The conservative tempo refiner only reads WAV. Keep the decoded file
-            # long enough for downstream inspection by leaving profile users a clear trace.
-            pass
-    finally:
-        if decoded_temp and not args.keep_decoded_wav and analysis_input.exists():
-            analysis_input.unlink()
+    cmd = [sys.executable, str(script_dir / "run_full_song_analysis.py"), "--input", str(analysis_input), "--output-dir", str(output_base)]
+    if args.output_folder_name or decoded_temp:
+        cmd.extend(["--output-folder-name", folder_source])
+    if args.flat_output:
+        cmd.append("--flat-output")
+    if args.analysis_label:
+        cmd.extend(["--analysis-label", args.analysis_label])
+    elif decoded_temp:
+        cmd.extend(["--analysis-label", input_path.stem])
+    subprocess.run(cmd, check=True)
 
     profile_path = output_dir / f"{safe_stem}_full_song_profile.json"
     legacy_md = output_dir / f"{safe_stem}_full_song_report.md"
     structural_inspection_md = output_dir / f"{safe_stem}_full_song_structural_inspection.md"
     if not profile_path.exists():
         raise FileNotFoundError(f"Expected full-song profile not found: {profile_path}")
-    return output_dir, profile_path, legacy_md, structural_inspection_md
+    return output_dir, profile_path, legacy_md, structural_inspection_md, analysis_input, decoded_temp
 
 
 def prepare_audio_input(input_path: Path, output_dir: Path, safe_stem: str, ffmpeg_bin: str) -> tuple[Path, bool]:
