@@ -135,7 +135,15 @@ WAV
 -> online_ai_listening_handoff_full_trace.md
 ```
 
-`online_ai_listening_handoff.md` is the compact online-AI input. `online_ai_listening_handoff_full_trace.md` is the audit trace for debugging and review.
+`online_ai_listening_handoff.md` is the compact online-AI input. It is organized as:
+
+```text
+1. review-direction prompt / online search task
+2. professional audio evidence / numeric-to-term translation
+3. review writing style guidance / user-ear diagnostic method
+```
+
+`online_ai_listening_handoff_full_trace.md` is the audit trace for debugging and review.
 
 If you have human/aesthetic context, add it explicitly:
 
