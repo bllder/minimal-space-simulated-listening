@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Add reconstructed stream and score sections to an online-AI handoff."""
+"""Render reconstructed stream and score sections into a detailed handoff.
+
+The default experience pipeline now keeps `online_ai_listening_handoff.md` compact
+and writes these detailed sections into `online_ai_listening_handoff_full_trace.md`
+through `build_listening_experience_prompt_with_descriptors.py`.
+
+This standalone renderer remains available for deliberate expanded/audit handoff
+inspection. Do not use it to mutate the compact handoff unless a larger debug
+surface is intentionally desired.
+"""
 
 from __future__ import annotations
 
@@ -10,12 +19,12 @@ from typing import Any
 
 import render_online_ai_review_evidence_digest as review_digest
 
-SECTION_TITLE = "## 8. Reconstructed Stream + Score Layer / MSSL 还原分轨与曲谱层"
-NEXT_SECTION = "## 8. Translation style guidance for online AI"
+SECTION_TITLE = "## Reconstructed Stream + Score Layer / MSSL 还原分轨与曲谱层"
+NEXT_SECTION = "## Translation style guidance for online AI"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Render reconstructed stream / score sections into handoff markdown.")
+    parser = argparse.ArgumentParser(description="Render reconstructed stream / score sections into detailed handoff markdown.")
     parser.add_argument("--profile", required=True)
     parser.add_argument("--handoff-md", required=True)
     return parser.parse_args()
@@ -53,7 +62,7 @@ def render_section(profile: dict[str, Any]) -> str:
         "",
         "This section is MSSL's functional reconstruction layer. It summarizes reconstructed stream-like objects and a reconstructed score skeleton from full-mix evidence. It is useful for listening analysis, but it is not the song's original separated tracks or original MIDI file.",
         "",
-        "### 8.1 Whole-track reconstructed score skeleton / 整曲还原曲谱骨架",
+        "### Whole-track reconstructed score skeleton / 整曲还原曲谱骨架",
         "",
     ]
     tempo = as_dict(score_layer.get("tempo_grid"))
@@ -67,7 +76,7 @@ def render_section(profile: dict[str, Any]) -> str:
         f"- Dominant harmony design: {skeleton.get('dominant_harmony_design')}",
         f"- Dominant phrase shape: {skeleton.get('dominant_phrase_shape')}",
         "",
-        "### 8.2 Whole-track reconstructed streams / 整曲还原分轨对象",
+        "### Whole-track reconstructed streams / 整曲还原分轨对象",
         "",
     ])
     for stream in list_dicts(stream_layer.get("streams")):
@@ -93,7 +102,7 @@ def render_section(profile: dict[str, Any]) -> str:
         lines.extend(["", f"Boundary: {stream.get('boundary')}", ""])
 
     lines.extend([
-        "### 8.3 Section-level score map / 分段曲谱骨架图",
+        "### Section-level score map / 分段曲谱骨架图",
         "",
         "| Time range | Section role | Bars | Note density | Melodic contour | Bass motion | Harmony block | Phrase shape |",
         "|---|---|---|---|---|---|---|---|",
@@ -106,7 +115,7 @@ def render_section(profile: dict[str, Any]) -> str:
         )
     lines.extend([
         "",
-        "### 8.4 Expansion boundary / 增强边界",
+        "### Expansion boundary / 增强边界",
         "",
         "Future adapters may add note-level MIDI, stem-backed stream evidence, chord/key analysis, and lyric alignment. The default layer remains useful as MSSL's own reconstructed stream and score analysis.",
     ])
