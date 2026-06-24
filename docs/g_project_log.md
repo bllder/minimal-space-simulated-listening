@@ -82,3 +82,31 @@ machine terminology
 ```
 
 The docs root should remain small, readable, and useful for the next implementation step. If a future topic grows too large, split it deliberately instead of letting loose files breed in the root.
+
+### 2026-06-24 — Auditory object mapping correction
+
+The next MSSL implementation axis was clarified in `docs/h_auditory_object_mapping_layer.md`.
+
+Durable correction:
+
+```text
+OME runtime is not the object generator.
+OME runtime is the receiver-side spatial field / mapping layer.
+```
+
+Auditory object candidates should be formed first from:
+
+```text
+time-frequency-timbre continuity
++ optional external timbre / stem / transcription evidence
++ bounded source-family hypotheses
+```
+
+Then a later behavior layer may describe how those object candidates enter, flow, sustain, smear, mask, release, or attach to tails. Finally, OME maps those objects and behaviors into receiver-side spatial evidence.
+
+Important rule:
+
+```text
+Do not turn spatial bins, MIR tags, or external stems into source truth.
+Use them as bounded evidence for object-family candidates.
+```
