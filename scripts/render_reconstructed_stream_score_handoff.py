@@ -19,7 +19,7 @@ from typing import Any
 
 import render_online_ai_review_evidence_digest as review_digest
 
-SECTION_TITLE = "## Reconstructed Stream + Score Layer / MSSL 还原分轨与曲谱层"
+SECTION_TITLE = "## Full-trace A. Reconstructed Stream + Score Layer / MSSL 还原分轨与曲谱层"
 NEXT_SECTION = "## Translation style guidance for online AI"
 
 
@@ -62,7 +62,9 @@ def render_section(profile: dict[str, Any]) -> str:
         "",
         "This section is MSSL's functional reconstruction layer. It summarizes reconstructed stream-like objects and a reconstructed score skeleton from full-mix evidence. It is useful for listening analysis, but it is not the song's original separated tracks or original MIDI file.",
         "",
-        "### Whole-track reconstructed score skeleton / 整曲还原曲谱骨架",
+        "Current boundary: stream spatial cues are weighted from segment-level O/M/E evidence. Until the OME Spatial Filter Bank exists, treat repeated spatial tendencies as full-mix receiver-side binding, not as per-stream physical coordinates.",
+        "",
+        "### A.1 Whole-track reconstructed score skeleton / 整曲还原曲谱骨架",
         "",
     ]
     tempo = as_dict(score_layer.get("tempo_grid"))
@@ -76,7 +78,7 @@ def render_section(profile: dict[str, Any]) -> str:
         f"- Dominant harmony design: {skeleton.get('dominant_harmony_design')}",
         f"- Dominant phrase shape: {skeleton.get('dominant_phrase_shape')}",
         "",
-        "### Whole-track reconstructed streams / 整曲还原分轨对象",
+        "### A.2 Whole-track reconstructed streams / 整曲还原分轨对象",
         "",
     ])
     for stream in list_dicts(stream_layer.get("streams")):
@@ -102,7 +104,7 @@ def render_section(profile: dict[str, Any]) -> str:
         lines.extend(["", f"Boundary: {stream.get('boundary')}", ""])
 
     lines.extend([
-        "### Section-level score map / 分段曲谱骨架图",
+        "### A.3 Section-level score map / 分段曲谱骨架图",
         "",
         "| Time range | Section role | Bars | Note density | Melodic contour | Bass motion | Harmony block | Phrase shape |",
         "|---|---|---|---|---|---|---|---|",
@@ -115,7 +117,7 @@ def render_section(profile: dict[str, Any]) -> str:
         )
     lines.extend([
         "",
-        "### Expansion boundary / 增强边界",
+        "### A.4 Expansion boundary / 增强边界",
         "",
         "Future adapters may add note-level MIDI, stem-backed stream evidence, chord/key analysis, and lyric alignment. The default layer remains useful as MSSL's own reconstructed stream and score analysis.",
     ])
