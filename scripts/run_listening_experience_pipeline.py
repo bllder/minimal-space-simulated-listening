@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-Audio file -> full_song_profile.json -> conservative tempo refinement -> reconstructed stream / score layer -> professional audio terminology report -> online_ai_listening_handoff.md
+Audio file -> full_song_profile.json -> conservative tempo refinement -> reconstructed stream / score layer -> descriptor-aware professional audio terminology report -> compact online-AI handoff + full audit trace
 
 PCM WAV is read by the core analyzer directly. Other common local audio formats
 are decoded to a temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -17,6 +17,7 @@ from pathlib import Path
 DEFAULT_MAX_PROMPT_SEGMENTS = 24
 DEFAULT_PROMPT_INPUT_NAME = "original_song_listening_prompt_input.md"
 DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
+DEFAULT_FULL_TRACE_HANDOFF_NAME = "online_ai_listening_handoff_full_trace.md"
 DEFAULT_RECONSTRUCTED_LAYER_NAME = "reconstructed_stream_score_layer.md"
 NATIVE_WAV_SUFFIXES = {".wav", ".wave"}
 
@@ -74,14 +75,14 @@ def main() -> None:
     run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path, structural_summary)
 
     handoff_path = output_dir / DEFAULT_HANDOFF_NAME
-    run_reconstructed_stream_score_handoff_renderer(script_dir, profile_path, handoff_path)
-
+    full_trace_path = output_dir / DEFAULT_FULL_TRACE_HANDOFF_NAME
     prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
     run_aesthetic_context_builder(script_dir, args, handoff_path, prompt_input_path)
 
     print(f"Prepared reconstructed stream / score layer: {reconstructed_summary}")
-    print(f"Prepared online AI handoff: {handoff_path}")
-    print("Use this Markdown as the text/file to give to an online AI account instead of uploading audio.")
+    print(f"Prepared compact online AI handoff: {handoff_path}")
+    print(f"Prepared full audit trace handoff: {full_trace_path}")
+    print("Use the compact Markdown as the text/file to give to an online AI account instead of uploading audio.")
 
 
 def run_tempo_refinement(script_dir: Path, input_path: Path, profile_path: Path) -> None:
@@ -111,18 +112,6 @@ def run_reconstructed_stream_score_builder(script_dir: Path, profile_path: Path,
     return summary_path
 
 
-def run_reconstructed_stream_score_handoff_renderer(script_dir: Path, profile_path: Path, handoff_path: Path) -> None:
-    cmd = [
-        sys.executable,
-        str(script_dir / "render_reconstructed_stream_score_handoff.py"),
-        "--profile",
-        str(profile_path),
-        "--handoff-md",
-        str(handoff_path),
-    ]
-    subprocess.run(cmd, check=True)
-
-
 def run_prompt_builder(
     script_dir: Path,
     args: argparse.Namespace,
@@ -133,7 +122,7 @@ def run_prompt_builder(
 ) -> None:
     cmd = [
         sys.executable,
-        str(script_dir / "build_listening_experience_prompt.py"),
+        str(script_dir / "build_listening_experience_prompt_with_descriptors.py"),
         "--profile",
         str(profile_path),
         "--output-dir",
