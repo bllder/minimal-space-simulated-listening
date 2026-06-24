@@ -15,6 +15,7 @@ Current target path:
 local PCM WAV
 -> structural audio evidence
 -> reconstructed stream / score layer
+-> OME Spatial Filter Bank runtime layer
 -> listening-experience evidence pack
 -> descriptor-gated OME packet staging
 -> compact online AI handoff + full audit trace
@@ -55,6 +56,7 @@ By default this runs `experience` mode and writes:
 online_ai_listening_handoff.md
 online_ai_listening_handoff_full_trace.md
 reconstructed_stream_score_layer.md
+ome_spatial_filter_bank_layer.json / .md
 subjective_descriptor_proxy_layer.json / .md
 ome_stream_descriptor_packets.json / .md
 ```
