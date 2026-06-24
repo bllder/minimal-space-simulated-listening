@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 
 import build_listening_experience_prompt as base
+import render_online_ai_review_evidence_digest as review_digest
+import render_reconstructed_stream_score_handoff as reconstructed_handoff
 from extract_subjective_descriptor_proxies import (
     build_layer as build_subjective_descriptor_proxy_layer,
     build_ome_packets,
@@ -62,6 +64,8 @@ def main() -> None:
 
     descriptor_proxy_layer = build_subjective_descriptor_proxy_layer(profile, profile_path)
     ome_stream_descriptor_packets = build_ome_packets(descriptor_proxy_layer)
+    reconstructed_stream_layer = as_dict(profile.get("reconstructed_stream_layer"))
+    reconstructed_score_layer = as_dict(profile.get("reconstructed_score_layer"))
 
     proxy_json_path.write_text(json.dumps(descriptor_proxy_layer, ensure_ascii=False, indent=2), encoding="utf-8")
     proxy_md_path.write_text(render_layer_md(descriptor_proxy_layer), encoding="utf-8")
@@ -71,11 +75,13 @@ def main() -> None:
     evidence_pack = attach_descriptor_contract_to_evidence_pack(evidence_pack)
     evidence_pack["subjective_descriptor_proxy_layer"] = descriptor_proxy_layer
     evidence_pack["ome_stream_descriptor_packets"] = ome_stream_descriptor_packets
+    evidence_pack["reconstructed_stream_layer"] = reconstructed_stream_layer
+    evidence_pack["reconstructed_score_layer"] = reconstructed_score_layer
     evidence_pack["handoff_output_policy"] = {
         "default_handoff": args.handoff_name,
         "default_handoff_role": "compact online-AI input",
         "full_trace_handoff": FULL_TRACE_HANDOFF_NAME,
-        "full_trace_role": "audit trace with full JSON, descriptor tables, and OME packet details",
+        "full_trace_role": "audit trace with full JSON, descriptor tables, reconstructed stream / score sections, and OME packet details",
     }
 
     critical_brief = attach_descriptor_contract_to_critical_brief(critical_brief)
@@ -85,11 +91,19 @@ def main() -> None:
         "boundary": ome_stream_descriptor_packets.get("boundary"),
         "stream_count": len(ome_stream_descriptor_packets.get("stream_packets") or []),
     }
+    critical_brief["reconstructed_stream_score_status"] = {
+        "stream_layer_status": reconstructed_stream_layer.get("status"),
+        "stream_count": len(reconstructed_stream_layer.get("streams") or []),
+        "score_layer_status": reconstructed_score_layer.get("status"),
+        "boundary": "MSSL reconstructed stream / score layer, not original stems and not original MIDI.",
+    }
     critical_brief["handoff_output_policy"] = evidence_pack["handoff_output_policy"]
 
     structural_summary = base.read_text_optional(args.structural_summary)
     prompt_protocol = base.read_text_optional(args.translation_prompt)
     descriptor_section = render_descriptor_validation_section()
+    reconstructed_section = reconstructed_handoff.render_section(profile)
+    digest_section = review_digest.render_digest(profile)
     proxy_section = render_layer_md(descriptor_proxy_layer)
     ome_packet_section = render_packets_md(ome_stream_descriptor_packets)
 
@@ -101,7 +115,19 @@ def main() -> None:
     )
 
     base_handoff = base.render_online_ai_handoff(evidence_pack, critical_brief, structural_summary)
-    full_trace_handoff = base_handoff.rstrip() + "\n\n" + descriptor_section + "\n\n" + proxy_section + "\n\n" + ome_packet_section
+    full_trace_handoff = (
+        base_handoff.rstrip()
+        + "\n\n"
+        + reconstructed_section
+        + "\n\n"
+        + digest_section
+        + "\n\n"
+        + descriptor_section
+        + "\n\n"
+        + proxy_section
+        + "\n\n"
+        + ome_packet_section
+    )
     full_trace_path.write_text(full_trace_handoff, encoding="utf-8")
 
     compact_handoff = render_compact_online_handoff(
@@ -110,6 +136,8 @@ def main() -> None:
         descriptor_proxy_layer=descriptor_proxy_layer,
         ome_stream_descriptor_packets=ome_stream_descriptor_packets,
         full_trace_filename=FULL_TRACE_HANDOFF_NAME,
+        reconstructed_stream_layer=reconstructed_stream_layer,
+        reconstructed_score_layer=reconstructed_score_layer,
     )
     handoff_path.write_text(compact_handoff, encoding="utf-8")
 
@@ -122,6 +150,10 @@ def main() -> None:
     print(f"Wrote {proxy_md_path}")
     print(f"Wrote {ome_packet_json_path}")
     print(f"Wrote {ome_packet_md_path}")
+
+
+def as_dict(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
 
 
 if __name__ == "__main__":
