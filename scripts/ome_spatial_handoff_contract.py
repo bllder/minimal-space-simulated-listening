@@ -5,9 +5,6 @@ work has to think from the final handoff contract backward:
 
 OME evidence -> professional terminology anchors -> subjective descriptor
 validation tables -> online-AI review affordance.
-
-The important rule is result-first: define the listener-facing words first,
-then define which attribute dimensions and numeric bands can support those words.
 """
 
 from __future__ import annotations
@@ -26,23 +23,37 @@ OME_STREAM_IDS: tuple[str, ...] = (
     "residual_unassigned",
 )
 
-
 OME_REQUIRED_PACKET_FIELDS: tuple[str, ...] = (
     "stream_id",
+    "status",
     "human_candidate_names",
+    "evidence",
+    "binaural_validation",
     "professional_terminology_anchors",
     "subjective_attribute_mapping",
     "subjective_descriptor_targets",
     "object_candidate_intersections",
-    "attribute_threshold_bands",
-    "p0_output_validation_table",
-    "short_listening_description",
-    "evidence_summary",
-    "binaural_cue_validation",
     "review_affordance",
     "truth_boundary",
 )
 
+OME_HUMAN_CANDIDATE_NAMES_BY_STREAM: dict[str, tuple[str, ...]] = {
+    "center_mid_lead": ("voice-like foreground", "lead melody", "lead synth"),
+    "center_low_impact": ("low-frequency percussion", "low-frequency pulse", "electronic low impact"),
+    "center_low_sustain": ("bass", "synth bass", "low-frequency body"),
+    "side_harmonic_space": ("guitar", "piano", "synth pad", "harmonic backing"),
+    "wide_diffuse_texture": ("reverb air", "cymbal edge", "noise texture", "synth haze", "wide tail"),
+    "residual_unassigned": ("unassigned residue", "mixed remainder", "ambiguous material"),
+}
+
+OME_TRUTH_BOUNDARY_BY_STREAM: dict[str, str] = {
+    "center_mid_lead": "not an isolated vocal stem",
+    "center_low_impact": "not a true percussion stem",
+    "center_low_sustain": "not a true bass stem",
+    "side_harmonic_space": "not a true accompaniment stem",
+    "wide_diffuse_texture": "not a true effects stem",
+    "residual_unassigned": "not silence and not a negative judgment",
+}
 
 OME_PROFESSIONAL_ANCHORS_BY_STREAM: dict[str, tuple[str, ...]] = {
     "center_mid_lead": (
@@ -81,48 +92,6 @@ OME_PROFESSIONAL_ANCHORS_BY_STREAM: dict[str, tuple[str, ...]] = {
     ),
 }
 
-
-OME_SUBJECTIVE_ATTRIBUTES_BY_STREAM: dict[str, tuple[str, ...]] = {
-    "center_mid_lead": (
-        "localization_quality",
-        "individual_source_width",
-        "timbral_clarity",
-        "image_stability",
-        "naturalness",
-    ),
-    "center_low_impact": (
-        "presence",
-        "localization_quality",
-        "fullness",
-        "articulation",
-    ),
-    "center_low_sustain": (
-        "presence",
-        "source_distance",
-        "fullness",
-        "scene_depth_support",
-    ),
-    "side_harmonic_space": (
-        "individual_source_width",
-        "localization_quality",
-        "source_distance",
-        "timbral_clarity",
-    ),
-    "wide_diffuse_texture": (
-        "environment_width",
-        "environmental_envelopment",
-        "localization_quality",
-        "naturalness_risk",
-        "timbral_coloration",
-    ),
-    "residual_unassigned": (
-        "image_stability",
-        "naturalness_risk",
-        "evidence_confidence",
-    ),
-}
-
-
 OME_OBJECT_CANDIDATE_TARGETS_BY_STREAM: dict[str, tuple[str, ...]] = {
     "center_mid_lead": ("voice_like_or_lead_like", "piano_like"),
     "center_low_impact": ("low_impact_like",),
@@ -131,7 +100,6 @@ OME_OBJECT_CANDIDATE_TARGETS_BY_STREAM: dict[str, tuple[str, ...]] = {
     "wide_diffuse_texture": ("pad_like", "reverb_air_or_haze_like"),
     "residual_unassigned": (),
 }
-
 
 OME_STYLE_WORD_AVOID: tuple[str, ...] = (
     "body pressure",
@@ -145,11 +113,6 @@ OME_STYLE_WORD_AVOID: tuple[str, ...] = (
 
 
 def placeholder_ome_stream_packet(stream_id: str) -> dict[str, Any]:
-    """Return a non-runtime placeholder packet for design and handoff wiring.
-
-    This function deliberately refuses to compute scores. It only states which
-    fields future implementation must fill.
-    """
     if stream_id not in OME_STREAM_IDS:
         raise ValueError(f"Unknown OME stream id: {stream_id}")
     descriptor_index = public_subjective_descriptor_index()
@@ -157,19 +120,21 @@ def placeholder_ome_stream_packet(stream_id: str) -> dict[str, Any]:
         "stream_id": stream_id,
         "status": "placeholder_contract_not_computed_stream",
         "required_fields": list(OME_REQUIRED_PACKET_FIELDS),
+        "human_candidate_names": list(OME_HUMAN_CANDIDATE_NAMES_BY_STREAM[stream_id]),
+        "evidence": "must be generated before handoff use",
+        "binaural_validation": "must be generated before handoff use",
         "professional_terminology_anchors": list(OME_PROFESSIONAL_ANCHORS_BY_STREAM[stream_id]),
-        "subjective_attribute_mapping": list(OME_SUBJECTIVE_ATTRIBUTES_BY_STREAM[stream_id]),
+        "subjective_attribute_mapping": "must be selected from scripts/subjective_descriptor_index.py",
         "subjective_descriptor_targets": "must be selected from scripts/subjective_descriptor_index.py",
         "object_candidate_intersections": list(OME_OBJECT_CANDIDATE_TARGETS_BY_STREAM[stream_id]),
         "attribute_threshold_bands": descriptor_index["value_bands"],
         "p0_output_validation_table": descriptor_index["output_validation_table"],
         "style_word_avoid": list(OME_STYLE_WORD_AVOID),
-        "truth_boundary": "not a true source stem; requires generated evidence before handoff use",
+        "truth_boundary": OME_TRUTH_BOUNDARY_BY_STREAM[stream_id],
     }
 
 
 def public_ome_spatial_handoff_contract() -> dict[str, Any]:
-    """Return the result-first contract future code should satisfy."""
     descriptor_index = public_subjective_descriptor_index()
     return {
         "status": "placeholder_contract_not_runtime_extraction",
