@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Insert a critic-ready evidence digest into online_ai_listening_handoff.md."""
+"""Insert a critic-ready evidence digest into a detailed online-AI handoff."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-SECTION_TITLE = "## 9. Critic-Ready Evidence Digest / 乐评写作证据摘要"
+SECTION_TITLE = "## Full-trace B. Critic-Ready Evidence Digest / 乐评写作证据摘要"
 NEXT_SECTION_CANDIDATES = (
     "## 8. Translation style guidance for online AI",
     "## 9. Translation style guidance for online AI",
@@ -17,7 +17,7 @@ NEXT_SECTION_CANDIDATES = (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Insert critic-ready evidence digest into online AI handoff.")
+    parser = argparse.ArgumentParser(description="Insert critic-ready evidence digest into a detailed online AI handoff.")
     parser.add_argument("--profile", required=True)
     parser.add_argument("--handoff-md", required=True)
     return parser.parse_args()
@@ -67,16 +67,16 @@ def render_digest(profile: dict[str, Any]) -> str:
     lines = [
         SECTION_TITLE,
         "",
-        "This section is the compact material an online AI should use when it cannot hear the audio and cannot rely on search. It turns the MSSL profile, separated-stem evidence, stream binding, and score skeleton into critic-ready cues.",
+        "This section is compact critic-ready material for full-trace inspection. It turns the MSSL profile, optional separated-stem evidence, stream binding, and score skeleton into review-use cues without replacing the default compact handoff.",
         "",
-        "### 9.1 Minimum track facts / 最小曲目信息",
+        "### B.1 Minimum track facts / 最小曲目信息",
         "",
         f"- Analysis label: {profile.get('analysis_label')}",
         f"- Duration: {context.get('duration_label')} / {context.get('duration_seconds')} seconds",
         f"- Source audio path recorded locally: {profile.get('source_audio')}",
         "- Identity rule: these local facts can support writing, but they do not identify the song by themselves.",
         "",
-        "### 9.2 If no search is available, what can still be written? / 无搜索时仍可写什么",
+        "### B.2 If no search is available, what can still be written? / 无搜索时仍可写什么",
         "",
         "- The arrangement logic: which reconstructed stems or streams carry pulse, low weight, foreground contour, harmony, and texture.",
         "- The score logic: note-density tendency, melodic contour, bass motion, harmony block, phrase shape, and section-level change.",
@@ -94,7 +94,7 @@ def render_digest(profile: dict[str, Any]) -> str:
 
 def render_stem_digest(stem_layer: dict[str, Any]) -> list[str]:
     lines = [
-        "### 9.3 Adapter-backed stem evidence / 插件分离后的分轨证据",
+        "### B.3 Adapter-backed stem evidence / 插件分离后的分轨证据",
         "",
     ]
     stems = list_dicts(stem_layer.get("stems"))
@@ -143,7 +143,7 @@ def render_score_digest(score_layer: dict[str, Any]) -> list[str]:
     tempo = as_dict(score_layer.get("tempo_grid"))
     skeleton = as_dict(score_layer.get("whole_track_score_skeleton"))
     lines = [
-        "### 9.4 Whole-track score design cues / 整曲曲谱设计线索",
+        "### B.4 Whole-track score design cues / 整曲曲谱设计线索",
         "",
         f"- Estimated BPM: {tempo.get('estimated_bpm')} / confidence: {tempo.get('tempo_confidence')}",
         f"- Beat / bar assumption: {tempo.get('beats_per_bar_assumption')}",
@@ -169,7 +169,7 @@ def render_score_digest(score_layer: dict[str, Any]) -> list[str]:
 
 def render_stream_digest(stream_layer: dict[str, Any]) -> list[str]:
     lines = [
-        "### 9.5 Fallback full-mix stream cues / 全混音回退声流线索",
+        "### B.5 Fallback full-mix stream cues / 全混音回退声流线索",
         "",
         "Use these when adapter-backed stems are missing, or as cross-checks when stems exist.",
         "",
@@ -189,7 +189,7 @@ def render_writing_directives(stem_layer: dict[str, Any]) -> list[str]:
     has_stems = bool(list_dicts(stem_layer.get("stems")))
     source_rule = "Use adapter-backed stem evidence first, then use full-mix streams as cross-checks." if has_stems else "No separated-stem evidence is present; use full-mix reconstructed streams."
     return [
-        "### 9.6 Critic writing use / 乐评写作使用方式",
+        "### B.6 Critic writing use / 乐评写作使用方式",
         "",
         f"- Evidence priority: {source_rule}",
         "- Write about arrangement functions, not just isolated sound adjectives: who carries pulse, weight, foreground line, harmony, and texture?",
