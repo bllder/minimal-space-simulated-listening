@@ -37,6 +37,11 @@ REQUIRED_PERFORMANCE_FAMILIES = {
     "guitar_like_plucked_melodic_layer",
 }
 
+ALLOWED_GATE_STATUSES = {
+    "allowed_by_external_strong_recognition",
+    "functional_performance_allowed",
+}
+
 
 def main() -> None:
     identity_packet = read_json(IDENTITY_FIXTURE)
@@ -60,10 +65,18 @@ def main() -> None:
     blocked = [
         card for card in perf_layer.get("performance_cards", [])
         if card.get("object_family") in REQUIRED_PERFORMANCE_FAMILIES
-        and card.get("recognition_gate", {}).get("status") not in {"allowed_by_external_strong_recognition", "functional_language_allowed"}
+        and card.get("recognition_gate", {}).get("status") not in ALLOWED_GATE_STATUSES
     ]
     if blocked:
         raise SystemExit(f"FAILED: fixture performance cards blocked by gate: {blocked}")
+
+    imprecise = [
+        card for card in perf_layer.get("performance_cards", [])
+        if card.get("object_family") in REQUIRED_PERFORMANCE_FAMILIES
+        and ("allowed_language" in card or "forbidden_language" in card)
+    ]
+    if imprecise:
+        raise SystemExit(f"FAILED: fixture performance cards still expose old machine-language fields: {imprecise}")
 
     print("OK: fixture adapter flow validated")
     print(f"Identity: {identity_packet.get('title')} / {identity_packet.get('artist')}")
