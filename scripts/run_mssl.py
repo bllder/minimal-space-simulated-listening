@@ -3,7 +3,7 @@
 
 Default behavior runs the complete listening-experience continuation:
 
-Audio file -> structural profile -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> musical object performance layer -> descriptor-aware professional evidence -> compact online AI handoff + full audit trace
+Audio file -> structural profile -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> musical object performance layer -> descriptor-aware professional evidence -> compact online AI handoff + full audit trace
 
 PCM WAV is read directly by the core analyzer. Other common local audio formats
 are decoded to temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -24,16 +24,8 @@ NATIVE_WAV_SUFFIXES = {".wav", ".wave"}
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run MSSL from one entry point. Default mode: experience."
-    )
-    parser.add_argument(
-        "mode",
-        nargs="?",
-        default=DEFAULT_MODE,
-        choices=SUPPORTED_MODES,
-        help="Run mode: experience or structural. Default: experience.",
-    )
+    parser = argparse.ArgumentParser(description="Run MSSL from one entry point. Default mode: experience.")
+    parser.add_argument("mode", nargs="?", default=DEFAULT_MODE, choices=SUPPORTED_MODES, help="Run mode: experience or structural. Default: experience.")
     parser.add_argument("--input", help="Path to a local audio file.")
     parser.add_argument("--profile", help="Existing *_full_song_profile.json for experience mode.")
     parser.add_argument("--output-dir", default="outputs")
@@ -44,12 +36,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context-note", action="append", default=[])
     parser.add_argument("--aesthetic-context", action="append", default=[])
     parser.add_argument("--external-context", action="append", default=[])
-    parser.add_argument(
-        "--midi-adapter",
-        action="append",
-        default=[],
-        help="Optional JSON packet from Basic Pitch / MT3 / Omnizart / user MIDI adapter.",
-    )
+    parser.add_argument("--midi-adapter", action="append", default=[], help="Optional JSON packet from Basic Pitch / MT3 / Omnizart / user MIDI adapter.")
+    parser.add_argument("--external-recognition", action="append", default=[], help="Optional JSON packet from external vocal/instrument/stem/effect recognition tool.")
     parser.add_argument("--max-prompt-segments", type=int, default=None)
     parser.add_argument("--ffmpeg-bin", default="ffmpeg")
     parser.add_argument("--keep-decoded-wav", action="store_true")
@@ -84,6 +72,7 @@ def run_experience(repo_root: Path, args: argparse.Namespace) -> None:
     append_many(command, "--aesthetic-context", args.aesthetic_context)
     append_many(command, "--external-context", args.external_context)
     append_many(command, "--midi-adapter", args.midi_adapter)
+    append_many(command, "--external-recognition", args.external_recognition)
     append_optional(command, "--max-prompt-segments", args.max_prompt_segments)
     append_optional(command, "--ffmpeg-bin", args.ffmpeg_bin)
     if args.keep_decoded_wav:
@@ -107,12 +96,7 @@ def run_structural(repo_root: Path, args: argparse.Namespace) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     analysis_input, decoded_temp = prepare_audio_input(input_path, output_dir, safe_stem, args.ffmpeg_bin)
     try:
-        command = [
-            sys.executable,
-            str(repo_root / "scripts/run_full_song_analysis.py"),
-            "--input",
-            str(analysis_input),
-        ]
+        command = [sys.executable, str(repo_root / "scripts/run_full_song_analysis.py"), "--input", str(analysis_input)]
         append_common_output_args(command, args)
         if decoded_temp and not args.output_folder_name:
             command.extend(["--output-folder-name", folder_source])
@@ -128,27 +112,11 @@ def prepare_audio_input(input_path: Path, output_dir: Path, safe_stem: str, ffmp
     if input_path.suffix.lower() in NATIVE_WAV_SUFFIXES:
         return input_path, False
     decoded_path = output_dir / f"{safe_stem}.wav"
-    command = [
-        ffmpeg_bin,
-        "-y",
-        "-v",
-        "error",
-        "-i",
-        str(input_path),
-        "-vn",
-        "-ac",
-        "2",
-        "-c:a",
-        "pcm_s16le",
-        str(decoded_path),
-    ]
+    command = [ffmpeg_bin, "-y", "-v", "error", "-i", str(input_path), "-vn", "-ac", "2", "-c:a", "pcm_s16le", str(decoded_path)]
     try:
         subprocess.run(command, check=True)
     except FileNotFoundError as exc:
-        raise SystemExit(
-            "Non-WAV input requires ffmpeg. Install ffmpeg or provide --ffmpeg-bin path, "
-            "or convert the file to PCM WAV before running MSSL."
-        ) from exc
+        raise SystemExit("Non-WAV input requires ffmpeg. Install ffmpeg or provide --ffmpeg-bin path, or convert the file to PCM WAV before running MSSL.") from exc
     except subprocess.CalledProcessError as exc:
         raise SystemExit(f"ffmpeg failed to decode input audio: {input_path}") from exc
     return decoded_path, True
