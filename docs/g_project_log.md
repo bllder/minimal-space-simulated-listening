@@ -173,3 +173,46 @@ symbolic timeline MIDI != original MIDI truth
 adapter-backed MIDI evidence != source truth
 instrument-like / voice-like / FX-like performance language remains like-candidate language
 ```
+
+### 2026-06-25 — MSSL report target and external recognition command flow
+
+The project target was sharpened: MSSL is not OME. OME is the spatial layer inside MSSL.
+
+Durable target:
+
+```text
+MSSL output should help an online AI describe:
+- what kind of song it is;
+- how vocal, instrument, and effect-family material performs;
+- how MIDI / melody evidence behaves;
+- how OME spatial state changes that performance;
+- where the evidence boundary is.
+```
+
+Runtime correction:
+
+```text
+external recognition must not only be a manual JSON input.
+The main run must be able to call an external local command,
+collect the adapter JSON it writes,
+and fold it into the family gate and handoff.
+```
+
+New main-flow entry:
+
+```text
+--external-recognition-command "python recognizer.py --input {input} --output-json {output_json}"
+```
+
+The flow is now:
+
+```text
+full-song profile
+-> symbolic timeline MIDI layer
+-> external recognition command / adapter packet
+-> external strong recognition layer
+-> OME Spatial Filter Bank runtime layer
+-> object candidates
+-> musical object performance cards
+-> family gate in compact handoff / full trace
+```
