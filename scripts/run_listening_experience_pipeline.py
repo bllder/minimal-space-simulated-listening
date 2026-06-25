@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-Audio file -> full_song_profile.json -> conservative tempo refinement -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> musical object performance layer -> descriptor-aware professional audio terminology report -> compact online-AI handoff + full audit trace
+Audio file -> full_song_profile.json -> conservative tempo refinement -> song identity layer -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> musical object performance layer -> lyric context layer -> descriptor-aware professional audio terminology report -> compact online-AI handoff + full audit trace
 
 PCM WAV is read by the core analyzer directly. Other common local audio formats
 are decoded to a temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -18,12 +18,14 @@ DEFAULT_MAX_PROMPT_SEGMENTS = 24
 DEFAULT_PROMPT_INPUT_NAME = "original_song_listening_prompt_input.md"
 DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
 DEFAULT_FULL_TRACE_HANDOFF_NAME = "online_ai_listening_handoff_full_trace.md"
+DEFAULT_SONG_IDENTITY_LAYER_NAME = "song_identity_layer.md"
 DEFAULT_RECONSTRUCTED_LAYER_NAME = "reconstructed_stream_score_layer.md"
 DEFAULT_SYMBOLIC_MIDI_LAYER_NAME = "symbolic_timeline_midi_layer.md"
 DEFAULT_EXTERNAL_RECOGNITION_LAYER_NAME = "external_strong_recognition_layer.md"
 DEFAULT_OME_LAYER_NAME = "ome_spatial_filter_bank_layer.md"
 DEFAULT_OBJECT_CANDIDATE_LAYER_NAME = "temporal_timbre_object_candidate_layer.md"
 DEFAULT_PERFORMANCE_LAYER_NAME = "musical_object_performance_layer.md"
+DEFAULT_LYRIC_CONTEXT_LAYER_NAME = "lyric_context_layer.md"
 NATIVE_WAV_SUFFIXES = {".wav", ".wave"}
 
 
@@ -43,6 +45,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context-note", action="append", default=[])
     parser.add_argument("--aesthetic-context", action="append", default=[])
     parser.add_argument("--external-context", action="append", default=[])
+    parser.add_argument("--song-title", default=None)
+    parser.add_argument("--song-artist", default=None)
+    parser.add_argument("--song-album", default=None)
+    parser.add_argument("--song-year", default=None)
+    parser.add_argument("--song-identity-json", default=None)
+    parser.add_argument("--song-lookup-note", action="append", default=[])
+    parser.add_argument("--lyrics-file", default=None)
+    parser.add_argument("--lyric-alignment", default=None)
     parser.add_argument("--midi-adapter", action="append", default=[], help="Optional JSON packet from Basic Pitch / MT3 / Omnizart / user MIDI adapter.")
     parser.add_argument("--external-recognition", action="append", default=[], help="Optional JSON packet from external vocal/instrument/stem/effect recognition tool.")
     parser.add_argument("--external-recognition-command", action="append", default=[], help="Command template that writes an external recognition adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
@@ -83,6 +93,7 @@ def main() -> None:
             if not args.skip_tempo_refinement:
                 run_tempo_refinement(script_dir, analysis_audio_path, profile_path)
 
+        song_identity_summary = run_song_identity_builder(script_dir, args, profile_path, output_dir)
         run_external_recognition_commands(args, profile_path, output_dir, analysis_audio_path)
         reconstructed_summary = run_reconstructed_stream_score_builder(script_dir, profile_path, output_dir)
         symbolic_midi_summary = run_symbolic_timeline_midi_builder(script_dir, args, profile_path, output_dir)
@@ -90,6 +101,7 @@ def main() -> None:
         ome_summary = run_ome_spatial_filter_bank_builder(script_dir, profile_path, output_dir, analysis_audio_path)
         object_candidate_summary = run_temporal_timbre_object_candidate_builder(script_dir, profile_path, output_dir)
         performance_summary = run_musical_object_performance_builder(script_dir, profile_path, output_dir)
+        lyric_context_summary = run_lyric_context_builder(script_dir, args, profile_path, output_dir)
         structural_summary = Path(args.structural_summary) if args.structural_summary else None
 
         prompt_path = Path(args.translation_prompt)
@@ -104,18 +116,40 @@ def main() -> None:
         prompt_input_path = output_dir / DEFAULT_PROMPT_INPUT_NAME
         run_aesthetic_context_builder(script_dir, args, handoff_path, prompt_input_path)
 
+        print(f"Prepared song identity layer: {song_identity_summary}")
         print(f"Prepared reconstructed stream / score layer: {reconstructed_summary}")
         print(f"Prepared symbolic timeline MIDI layer: {symbolic_midi_summary}")
         print(f"Prepared external strong recognition layer: {external_recognition_summary}")
         print(f"Prepared OME Spatial Filter Bank layer: {ome_summary}")
         print(f"Prepared temporal-timbre object candidate layer: {object_candidate_summary}")
         print(f"Prepared musical object performance layer: {performance_summary}")
+        print(f"Prepared lyric context layer: {lyric_context_summary}")
         print(f"Prepared compact online AI handoff: {handoff_path}")
         print(f"Prepared full audit trace handoff: {full_trace_path}")
         print("Use the compact Markdown as the text/file to give to an online AI account instead of uploading audio.")
     finally:
         if decoded_temp and not args.keep_decoded_wav and analysis_audio_path and analysis_audio_path.exists():
             analysis_audio_path.unlink()
+
+
+def run_song_identity_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = output_dir / DEFAULT_SONG_IDENTITY_LAYER_NAME
+    cmd = [sys.executable, str(script_dir / "build_song_identity_layer.py"), "--profile", str(profile_path), "--output-dir", str(output_dir), "--output-md", DEFAULT_SONG_IDENTITY_LAYER_NAME]
+    optional_pairs = [
+        ("--title", args.song_title),
+        ("--artist", args.song_artist),
+        ("--album", args.song_album),
+        ("--year", args.song_year),
+        ("--identity-json", args.song_identity_json),
+    ]
+    for flag, value in optional_pairs:
+        if value:
+            cmd.extend([flag, str(value)])
+    for note in args.song_lookup_note:
+        cmd.extend(["--lookup-note", note])
+    subprocess.run(cmd, check=True)
+    return summary_path
 
 
 def run_external_recognition_commands(args: argparse.Namespace, profile_path: Path, output_dir: Path, analysis_audio_path: Path | None) -> None:
@@ -125,12 +159,7 @@ def run_external_recognition_commands(args: argparse.Namespace, profile_path: Pa
     generated_paths: list[str] = []
     for index, template in enumerate(args.external_recognition_command, start=1):
         output_json = output_dir / f"external_recognition_command_{index:02d}.json"
-        command = template.format(
-            input=input_value,
-            profile=str(profile_path),
-            output_dir=str(output_dir),
-            output_json=str(output_json),
-        )
+        command = template.format(input=input_value, profile=str(profile_path), output_dir=str(output_dir), output_json=str(output_json))
         subprocess.run(command, shell=True, check=True)
         if not output_json.exists():
             raise FileNotFoundError(f"External recognition command did not write expected JSON: {output_json}")
@@ -195,6 +224,18 @@ def run_musical_object_performance_builder(script_dir: Path, profile_path: Path,
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / DEFAULT_PERFORMANCE_LAYER_NAME
     cmd = [sys.executable, str(script_dir / "build_musical_object_performance_layer.py"), "--profile", str(profile_path), "--output-dir", str(output_dir), "--output-md", DEFAULT_PERFORMANCE_LAYER_NAME]
+    subprocess.run(cmd, check=True)
+    return summary_path
+
+
+def run_lyric_context_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = output_dir / DEFAULT_LYRIC_CONTEXT_LAYER_NAME
+    cmd = [sys.executable, str(script_dir / "build_lyric_context_layer.py"), "--profile", str(profile_path), "--output-dir", str(output_dir), "--output-md", DEFAULT_LYRIC_CONTEXT_LAYER_NAME]
+    if args.lyrics_file:
+        cmd.extend(["--lyrics-file", str(args.lyrics_file)])
+    if args.lyric_alignment:
+        cmd.extend(["--lyric-alignment", str(args.lyric_alignment)])
     subprocess.run(cmd, check=True)
     return summary_path
 
