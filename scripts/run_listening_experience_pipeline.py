@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-Audio file -> full_song_profile.json -> conservative tempo refinement -> reconstructed stream / score layer -> OME Spatial Filter Bank runtime layer -> descriptor-aware professional audio terminology report -> compact online-AI handoff + full audit trace
+Audio file -> full_song_profile.json -> conservative tempo refinement -> reconstructed stream / score layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> descriptor-aware professional audio terminology report -> compact online-AI handoff + full audit trace
 
 PCM WAV is read by the core analyzer directly. Other common local audio formats
 are decoded to a temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -20,6 +20,7 @@ DEFAULT_HANDOFF_NAME = "online_ai_listening_handoff.md"
 DEFAULT_FULL_TRACE_HANDOFF_NAME = "online_ai_listening_handoff_full_trace.md"
 DEFAULT_RECONSTRUCTED_LAYER_NAME = "reconstructed_stream_score_layer.md"
 DEFAULT_OME_LAYER_NAME = "ome_spatial_filter_bank_layer.md"
+DEFAULT_OBJECT_CANDIDATE_LAYER_NAME = "temporal_timbre_object_candidate_layer.md"
 NATIVE_WAV_SUFFIXES = {".wav", ".wave"}
 
 
@@ -78,6 +79,7 @@ def main() -> None:
 
         reconstructed_summary = run_reconstructed_stream_score_builder(script_dir, profile_path, output_dir)
         ome_summary = run_ome_spatial_filter_bank_builder(script_dir, profile_path, output_dir, analysis_audio_path)
+        object_candidate_summary = run_temporal_timbre_object_candidate_builder(script_dir, profile_path, output_dir)
         structural_summary = Path(args.structural_summary) if args.structural_summary else None
 
         prompt_path = Path(args.translation_prompt)
@@ -93,6 +95,7 @@ def main() -> None:
 
         print(f"Prepared reconstructed stream / score layer: {reconstructed_summary}")
         print(f"Prepared OME Spatial Filter Bank layer: {ome_summary}")
+        print(f"Prepared temporal-timbre object candidate layer: {object_candidate_summary}")
         print(f"Prepared compact online AI handoff: {handoff_path}")
         print(f"Prepared full audit trace handoff: {full_trace_path}")
         print("Use the compact Markdown as the text/file to give to an online AI account instead of uploading audio.")
@@ -148,6 +151,23 @@ def run_ome_spatial_filter_bank_builder(
     ]
     if analysis_audio_path:
         cmd.extend(["--input", str(analysis_audio_path)])
+    subprocess.run(cmd, check=True)
+    return summary_path
+
+
+def run_temporal_timbre_object_candidate_builder(script_dir: Path, profile_path: Path, output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = output_dir / DEFAULT_OBJECT_CANDIDATE_LAYER_NAME
+    cmd = [
+        sys.executable,
+        str(script_dir / "build_temporal_timbre_object_candidate_layer.py"),
+        "--profile",
+        str(profile_path),
+        "--output-dir",
+        str(output_dir),
+        "--output-md",
+        DEFAULT_OBJECT_CANDIDATE_LAYER_NAME,
+    ]
     subprocess.run(cmd, check=True)
     return summary_path
 
