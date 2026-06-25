@@ -58,7 +58,14 @@ def main() -> None:
     if args.tool_command:
         run_tool_command(args, tool_output_dir, stems_dir, output_path)
 
+    if args.stems_dir and not stems_dir.exists():
+        raise SystemExit(f"Stem directory not found: {stems_dir}\nUse a real Demucs/UVR stem folder, not a placeholder such as path\\to\\stems.")
+
     detections = detect_stems(stems_dir, args.default_confidence)
+    if args.stems_dir and stems_dir.exists() and not detections:
+        recognized = ", ".join(sorted(STEM_FAMILY_MAP.keys()))
+        raise SystemExit(f"No recognizable stem audio files found under: {stems_dir}\nExpected audio filenames containing one of: {recognized}")
+
     packet = {
         "adapter_name": args.adapter_name,
         "adapter_type": args.adapter_type,
