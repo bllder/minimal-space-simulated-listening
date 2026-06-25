@@ -45,6 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--external-context", action="append", default=[])
     parser.add_argument("--midi-adapter", action="append", default=[], help="Optional JSON packet from Basic Pitch / MT3 / Omnizart / user MIDI adapter.")
     parser.add_argument("--external-recognition", action="append", default=[], help="Optional JSON packet from external vocal/instrument/stem/effect recognition tool.")
+    parser.add_argument("--external-recognition-command", action="append", default=[], help="Command template that writes an external recognition adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
     parser.add_argument("--ffmpeg-bin", default="ffmpeg", help="ffmpeg executable used for non-WAV input decoding.")
     parser.add_argument("--keep-structural-md", action="store_true")
     parser.add_argument("--keep-decoded-wav", action="store_true", help="Keep the temporary decoded WAV for inspection.")
@@ -82,6 +83,7 @@ def main() -> None:
             if not args.skip_tempo_refinement:
                 run_tempo_refinement(script_dir, analysis_audio_path, profile_path)
 
+        run_external_recognition_commands(args, profile_path, output_dir, analysis_audio_path)
         reconstructed_summary = run_reconstructed_stream_score_builder(script_dir, profile_path, output_dir)
         symbolic_midi_summary = run_symbolic_timeline_midi_builder(script_dir, args, profile_path, output_dir)
         external_recognition_summary = run_external_strong_recognition_builder(script_dir, args, profile_path, output_dir)
@@ -114,6 +116,26 @@ def main() -> None:
     finally:
         if decoded_temp and not args.keep_decoded_wav and analysis_audio_path and analysis_audio_path.exists():
             analysis_audio_path.unlink()
+
+
+def run_external_recognition_commands(args: argparse.Namespace, profile_path: Path, output_dir: Path, analysis_audio_path: Path | None) -> None:
+    if not args.external_recognition_command:
+        return
+    input_value = str(analysis_audio_path) if analysis_audio_path else ""
+    generated_paths: list[str] = []
+    for index, template in enumerate(args.external_recognition_command, start=1):
+        output_json = output_dir / f"external_recognition_command_{index:02d}.json"
+        command = template.format(
+            input=input_value,
+            profile=str(profile_path),
+            output_dir=str(output_dir),
+            output_json=str(output_json),
+        )
+        subprocess.run(command, shell=True, check=True)
+        if not output_json.exists():
+            raise FileNotFoundError(f"External recognition command did not write expected JSON: {output_json}")
+        generated_paths.append(str(output_json))
+    args.external_recognition.extend(generated_paths)
 
 
 def run_tempo_refinement(script_dir: Path, input_path: Path, profile_path: Path) -> None:
