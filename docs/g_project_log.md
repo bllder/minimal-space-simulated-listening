@@ -110,3 +110,31 @@ Important rule:
 Do not turn spatial bins, MIR tags, or external stems into source truth.
 Use them as bounded evidence for object-family candidates.
 ```
+
+### 2026-06-25 — Professional term anchoring correction
+
+The temporal-timbre object candidate runtime was corrected to stop surfacing raw machine-style labels as its main language.
+
+Durable correction:
+
+```text
+object-family candidate
+-> professional terminology anchors
+-> formation chain
+-> continuous object sentence
+-> truth boundary
+```
+
+The runtime should use `scripts/professional_term_index.py` terms such as:
+
+```text
+harmonic structure / tonal support
+attack-dominant transient profile
+band energy distribution / spectral tilt
+melodic contour / foreground pitch stream candidate
+interchannel phase coherence / stereo decorrelation proxy
+apparent source width proxy / stereo image width
+spatial spread / diffuseness proxy
+```
+
+Docs consolidation also started by merging the object mapping boundary into `docs/b_mssl_scope_boundary.md`. Remaining standalone notes should be folded into A/B/C/E/F/G instead of breeding new docs files. The repository, naturally, tried to become paperwork compost again.
