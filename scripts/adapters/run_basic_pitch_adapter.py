@@ -46,11 +46,19 @@ def main() -> None:
     if args.tool_command:
         run_tool_command(args, tool_output_dir, notes_json, notes_csv, output_path)
 
+    if args.notes_json and not notes_json.exists():
+        raise SystemExit(f"Notes JSON not found: {notes_json}\nUse a real transcription JSON, not a placeholder such as path\\to\\notes.json.")
+    if args.notes_csv and not notes_csv.exists():
+        raise SystemExit(f"Notes CSV not found: {notes_csv}\nUse a real transcription CSV, not a placeholder such as path\\to\\notes.csv.")
+
     notes = []
     if notes_json.exists():
         notes.extend(read_notes_json(notes_json))
     if notes_csv.exists():
         notes.extend(read_notes_csv(notes_csv))
+
+    if (args.notes_json or args.notes_csv) and not notes:
+        raise SystemExit("Explicit note file was found but produced zero usable notes. Expected fields such as start_seconds/end_seconds/pitch/confidence/track_family.")
 
     packet = build_packet(args, notes)
     output_path.write_text(json.dumps(packet, ensure_ascii=False, indent=2), encoding="utf-8")
