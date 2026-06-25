@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-Audio file -> full_song_profile.json -> conservative tempo refinement -> song identity layer -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> musical object performance layer -> lyric context layer -> descriptor-aware professional audio terminology report -> compact online-AI handoff + full audit trace
+Audio file -> full_song_profile.json -> conservative tempo refinement -> song identity layer -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> external family candidate seeding -> musical object performance layer -> lyric context layer -> descriptor-aware professional audio terminology report -> compact online-AI handoff + full audit trace
 
 PCM WAV is read by the core analyzer directly. Other common local audio formats
 are decoded to a temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -96,7 +96,8 @@ def main() -> None:
         symbolic_midi_summary = run_symbolic_timeline_midi_builder(script_dir, args, profile_path, output_dir)
         external_recognition_summary = run_external_strong_recognition_builder(script_dir, args, profile_path, output_dir)
         ome_summary = run_ome_spatial_filter_bank_builder(script_dir, profile_path, output_dir, analysis_audio_path)
-        object_candidate_summary = run_temporal_timbre_object_candidate_builder(script_dir, profile_path, output_dir)
+        object_candidate_summary = run_temporal_timbre_object_candidate_builder(script_dir, args, profile_path, output_dir)
+        seeded_object_candidate_summary = run_external_family_candidate_seeder(script_dir, profile_path, output_dir)
         performance_summary = run_musical_object_performance_builder(script_dir, profile_path, output_dir)
         lyric_context_summary = run_lyric_context_builder(script_dir, args, profile_path, output_dir)
         structural_summary = Path(args.structural_summary) if args.structural_summary else None
@@ -119,6 +120,7 @@ def main() -> None:
         print(f"Prepared external strong recognition layer: {external_recognition_summary}")
         print(f"Prepared OME Spatial Filter Bank layer: {ome_summary}")
         print(f"Prepared temporal-timbre object candidate layer: {object_candidate_summary}")
+        print(f"Seeded external family candidates: {seeded_object_candidate_summary}")
         print(f"Prepared musical object performance layer: {performance_summary}")
         print(f"Prepared lyric context layer: {lyric_context_summary}")
         print(f"Prepared compact online AI handoff: {handoff_path}")
@@ -221,10 +223,22 @@ def run_ome_spatial_filter_bank_builder(script_dir: Path, profile_path: Path, ou
     return summary_path
 
 
-def run_temporal_timbre_object_candidate_builder(script_dir: Path, profile_path: Path, output_dir: Path) -> Path:
+def run_temporal_timbre_object_candidate_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / DEFAULT_OBJECT_CANDIDATE_LAYER_NAME
     cmd = [sys.executable, str(script_dir / "build_temporal_timbre_object_candidate_layer.py"), "--profile", str(profile_path), "--output-dir", str(output_dir), "--output-md", DEFAULT_OBJECT_CANDIDATE_LAYER_NAME]
+    for path in args.external_recognition:
+        cmd.extend(["--external-evidence", path])
+    for path in args.midi_adapter:
+        cmd.extend(["--external-evidence", path])
+    subprocess.run(cmd, check=True)
+    return summary_path
+
+
+def run_external_family_candidate_seeder(script_dir: Path, profile_path: Path, output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = output_dir / DEFAULT_OBJECT_CANDIDATE_LAYER_NAME
+    cmd = [sys.executable, str(script_dir / "seed_external_family_candidates.py"), "--profile", str(profile_path), "--output-dir", str(output_dir), "--output-md", DEFAULT_OBJECT_CANDIDATE_LAYER_NAME]
     subprocess.run(cmd, check=True)
     return summary_path
 
