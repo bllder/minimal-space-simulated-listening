@@ -50,10 +50,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--song-album", default=None)
     parser.add_argument("--song-year", default=None)
     parser.add_argument("--song-identity-json", default=None)
+    parser.add_argument("--song-identity-command", action="append", default=[], help="Command template that writes a song identity JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
     parser.add_argument("--song-lookup-note", action="append", default=[])
     parser.add_argument("--lyrics-file", default=None)
     parser.add_argument("--lyric-alignment", default=None)
     parser.add_argument("--midi-adapter", action="append", default=[], help="Optional JSON packet from Basic Pitch / MT3 / Omnizart / user MIDI adapter.")
+    parser.add_argument("--midi-adapter-command", action="append", default=[], help="Command template that writes a MIDI adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
     parser.add_argument("--external-recognition", action="append", default=[], help="Optional JSON packet from external vocal/instrument/stem/effect recognition tool.")
     parser.add_argument("--external-recognition-command", action="append", default=[], help="Command template that writes an external recognition adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
     parser.add_argument("--ffmpeg-bin", default="ffmpeg", help="ffmpeg executable used for non-WAV input decoding.")
@@ -81,21 +83,16 @@ def main() -> None:
             input_path = Path(args.input)
             if not input_path.exists():
                 raise FileNotFoundError(f"Audio file not found: {input_path}")
-            (
-                output_dir,
-                profile_path,
-                legacy_md,
-                structural_inspection_md,
-                analysis_audio_path,
-                decoded_temp,
-            ) = run_full_song(script_dir, args, input_path)
+            output_dir, profile_path, legacy_md, structural_inspection_md, analysis_audio_path, decoded_temp = run_full_song(script_dir, args, input_path)
             normalize_structural_markdown(legacy_md, structural_inspection_md, args.keep_structural_md)
             if not args.skip_tempo_refinement:
                 run_tempo_refinement(script_dir, analysis_audio_path, profile_path)
 
+        run_song_identity_commands(args, profile_path, output_dir, analysis_audio_path)
         song_identity_summary = run_song_identity_builder(script_dir, args, profile_path, output_dir)
         run_external_recognition_commands(args, profile_path, output_dir, analysis_audio_path)
         reconstructed_summary = run_reconstructed_stream_score_builder(script_dir, profile_path, output_dir)
+        run_midi_adapter_commands(args, profile_path, output_dir, analysis_audio_path)
         symbolic_midi_summary = run_symbolic_timeline_midi_builder(script_dir, args, profile_path, output_dir)
         external_recognition_summary = run_external_strong_recognition_builder(script_dir, args, profile_path, output_dir)
         ome_summary = run_ome_spatial_filter_bank_builder(script_dir, profile_path, output_dir, analysis_audio_path)
@@ -132,17 +129,44 @@ def main() -> None:
             analysis_audio_path.unlink()
 
 
+def run_song_identity_commands(args: argparse.Namespace, profile_path: Path, output_dir: Path, analysis_audio_path: Path | None) -> None:
+    if not args.song_identity_command:
+        return
+    generated_paths = run_json_commands(args.song_identity_command, output_dir, "song_identity_command", profile_path, analysis_audio_path)
+    if generated_paths:
+        args.song_identity_json = generated_paths[-1]
+
+
+def run_midi_adapter_commands(args: argparse.Namespace, profile_path: Path, output_dir: Path, analysis_audio_path: Path | None) -> None:
+    if not args.midi_adapter_command:
+        return
+    args.midi_adapter.extend(run_json_commands(args.midi_adapter_command, output_dir, "midi_adapter_command", profile_path, analysis_audio_path))
+
+
+def run_external_recognition_commands(args: argparse.Namespace, profile_path: Path, output_dir: Path, analysis_audio_path: Path | None) -> None:
+    if not args.external_recognition_command:
+        return
+    args.external_recognition.extend(run_json_commands(args.external_recognition_command, output_dir, "external_recognition_command", profile_path, analysis_audio_path))
+
+
+def run_json_commands(templates: list[str], output_dir: Path, prefix: str, profile_path: Path, analysis_audio_path: Path | None) -> list[str]:
+    input_value = str(analysis_audio_path) if analysis_audio_path else ""
+    generated_paths: list[str] = []
+    for index, template in enumerate(templates, start=1):
+        output_json = output_dir / f"{prefix}_{index:02d}.json"
+        command = template.format(input=input_value, profile=str(profile_path), output_dir=str(output_dir), output_json=str(output_json))
+        subprocess.run(command, shell=True, check=True)
+        if not output_json.exists():
+            raise FileNotFoundError(f"Command did not write expected JSON: {output_json}")
+        generated_paths.append(str(output_json))
+    return generated_paths
+
+
 def run_song_identity_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / DEFAULT_SONG_IDENTITY_LAYER_NAME
     cmd = [sys.executable, str(script_dir / "build_song_identity_layer.py"), "--profile", str(profile_path), "--output-dir", str(output_dir), "--output-md", DEFAULT_SONG_IDENTITY_LAYER_NAME]
-    optional_pairs = [
-        ("--title", args.song_title),
-        ("--artist", args.song_artist),
-        ("--album", args.song_album),
-        ("--year", args.song_year),
-        ("--identity-json", args.song_identity_json),
-    ]
+    optional_pairs = [("--title", args.song_title), ("--artist", args.song_artist), ("--album", args.song_album), ("--year", args.song_year), ("--identity-json", args.song_identity_json)]
     for flag, value in optional_pairs:
         if value:
             cmd.extend([flag, str(value)])
@@ -150,21 +174,6 @@ def run_song_identity_builder(script_dir: Path, args: argparse.Namespace, profil
         cmd.extend(["--lookup-note", note])
     subprocess.run(cmd, check=True)
     return summary_path
-
-
-def run_external_recognition_commands(args: argparse.Namespace, profile_path: Path, output_dir: Path, analysis_audio_path: Path | None) -> None:
-    if not args.external_recognition_command:
-        return
-    input_value = str(analysis_audio_path) if analysis_audio_path else ""
-    generated_paths: list[str] = []
-    for index, template in enumerate(args.external_recognition_command, start=1):
-        output_json = output_dir / f"external_recognition_command_{index:02d}.json"
-        command = template.format(input=input_value, profile=str(profile_path), output_dir=str(output_dir), output_json=str(output_json))
-        subprocess.run(command, shell=True, check=True)
-        if not output_json.exists():
-            raise FileNotFoundError(f"External recognition command did not write expected JSON: {output_json}")
-        generated_paths.append(str(output_json))
-    args.external_recognition.extend(generated_paths)
 
 
 def run_tempo_refinement(script_dir: Path, input_path: Path, profile_path: Path) -> None:
