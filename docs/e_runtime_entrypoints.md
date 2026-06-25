@@ -31,6 +31,9 @@ Current user-facing path:
 ```text
 audio file
 -> full-song structural profile
+-> reconstructed stream / score layer
+-> OME Spatial Filter Bank runtime layer
+-> temporal-timbre object candidate layer
 -> professional audio terminology report
 -> online AI handoff Markdown
 ```
@@ -69,13 +72,31 @@ Single human entrypoint. Normal users should start here.
 scripts/run_listening_experience_pipeline.py
 ```
 
-Continuation pipeline. It connects full-song structural analysis, professional terminology handoff generation, and optional context injection.
+Continuation pipeline. It connects full-song structural analysis, reconstructed stream / score generation, OME runtime mapping, temporal-timbre object candidates, professional terminology handoff generation, and optional context injection.
 
 ```text
 scripts/run_full_song_analysis.py
 ```
 
-Structural front half. Produces the full-song profile used by the professional terminology builder.
+Structural front half. Produces the full-song profile used by the downstream object, terminology, and handoff builders.
+
+```text
+scripts/build_reconstructed_stream_score_layers.py
+```
+
+Aggregates segment-level full-mix evidence into functional reconstructed streams and a MIDI-like score skeleton. This is not original stem recovery and not true MIDI transcription.
+
+```text
+scripts/build_ome_spatial_filter_bank_layer.py
+```
+
+Builds a receiver-side OME spatial field / spatial-band support layer. This maps supported material into spatial evidence; it must not be read as the sole object generator.
+
+```text
+scripts/build_temporal_timbre_object_candidate_layer.py
+```
+
+Builds auditory object-family candidates from time-frequency-timbre continuity, source-family hints, optional external adapter evidence, and optional OME mapping support. Object candidates come before behavior summaries.
 
 ```text
 scripts/build_listening_experience_prompt.py
@@ -103,10 +124,30 @@ Read it as:
 recorded signal evidence
 -> structural segments
 -> audio mechanism evidence
--> O/M/E translation
--> object candidates
+-> reconstructed stream / score skeleton
+-> OME receiver-side field mapping
+-> temporal-timbre object candidates
 -> professional terminology report
 -> online handoff
+```
+
+Important boundary:
+
+```text
+spatial bin -> object identity
+```
+
+is forbidden.
+
+Use:
+
+```text
+time-frequency-timbre evidence
++ bounded source-family hints
++ optional external adapter evidence
+-> object-family candidate
+-> later behavior summary
+-> OME receiver-side mapping
 ```
 
 ## Full-song segment unit
@@ -130,8 +171,12 @@ outputs/<song-folder>/
   <input-stem>_full_song_profile.json
   listening_experience_evidence_pack.json
   critical_listening_brief.json
+  reconstructed_stream_score_layer.md
+  ome_spatial_filter_bank_layer.json / .md
+  temporal_timbre_object_candidate_layer.json / .md
   original_song_listening_prompt_input.md
   online_ai_listening_handoff.md
+  online_ai_listening_handoff_full_trace.md
 ```
 
 Generated output files are local artifacts and should not be committed unless explicitly curated.
