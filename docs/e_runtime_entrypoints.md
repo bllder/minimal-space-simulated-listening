@@ -11,6 +11,9 @@ Consolidated from:
 - `full_song_analysis_pipeline.md`
 - `detailed_runtime_flow.md`
 - `portable_path_audit.md`
+- `ome_spatial_filter_bank_design.md`
+- `ome_spatial_filter_bank_handoff_contract.md`
+- `ome_spatial_filter_bank_reading_notes.md`
 
 ## Current human entrypoint
 
@@ -109,6 +112,34 @@ scripts/build_aesthetic_context_handoff.py
 ```
 
 Injects optional local context into the handoff Markdown. Context is not treated as local truth.
+
+## OME runtime contract
+
+The OME runtime layer is the receiver-side spatial field / mapping support layer. It is not a source extractor and not the object identity generator.
+
+Input evidence belongs to stereo and time-frequency analysis:
+
+```text
+channel level difference
+channel phase / time relation
+mid-side energy
+interchannel correlation
+frequency-band behavior
+primary / ambient evidence
+direct / reflected / diffuse response cues
+transient vs sustained behavior
+```
+
+Output should be read as:
+
+```text
+receiver-side spatial-band support
+-> professional terminology anchor
+-> subjective attribute mapping
+-> online-AI review affordance
+```
+
+Do not let OME stream names directly become review prose.
 
 ## Runtime reading
 
