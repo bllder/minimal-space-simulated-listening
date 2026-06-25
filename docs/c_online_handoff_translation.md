@@ -1,8 +1,8 @@
 # C. Online Handoff and Translation
 
-Status: consolidated online-AI handoff, translation style, and external-context alignment guide.
+Status: consolidated online-AI handoff, translation style, subjective descriptor, and external-context alignment guide.
 
-Use this file as the default prompt protocol source for `scripts/run_listening_experience_pipeline.py` and as the policy source for `translation_style_guidance` in `scripts/build_listening_experience_prompt.py`.
+Use this file as the default prompt protocol source for `scripts/run_listening_experience_pipeline.py` and as the policy source for handoff translation.
 
 Consolidated from:
 
@@ -10,8 +10,10 @@ Consolidated from:
 - `aesthetic_context_handoff.md`
 - `comment_corpus_audit_notes_v0.md`
 - `user_ear_seed_cases_v0.md`
+- `subjective_attribute_translation_index.md`
+- `subjective_descriptor_lexicon.md`
 
-## Current local responsibility
+## Local responsibility
 
 MSSL locally produces:
 
@@ -19,6 +21,7 @@ MSSL locally produces:
 professional audio descriptors
 timeline anchors
 object / layer hypotheses
+subjective descriptor targets
 translation examples
 external-context alignment slots
 ```
@@ -27,9 +30,9 @@ MSSL locally does not produce:
 
 ```text
 final review content
-lyrics
-external reviews
-artist background text
+full lyric text
+external review facts
+artist background truth
 song meaning truth
 genre truth
 emotion truth
@@ -37,7 +40,7 @@ emotion truth
 
 The online AI may use its own available context and rules. MSSL gives professional anchors, timeline structure, and a report-facing task frame.
 
-## Core handoff axis
+## Handoff axis
 
 ```text
 MSSL professional audio report
@@ -47,9 +50,23 @@ MSSL professional audio report
 
 External context should be aligned to the MSSL timeline. It should not replace the local audio descriptors.
 
-## Online-AI report presentation
+## Professional descriptor chain
 
-The uploadable online-AI handoff should be presented as three distinct parts:
+The handoff must move through this chain before review prose:
+
+```text
+machine proxy band
+-> professional terminology anchor
+-> subjective attribute dimension
+-> descriptor target
+-> bounded review wording
+```
+
+The goal is to prevent raw terms such as `pressure`, `width`, or OME stream names from appearing as unexplained review language.
+
+## Handoff parts
+
+The uploadable online-AI handoff should keep three parts separate:
 
 ```text
 1. review-direction prompt
@@ -57,47 +74,26 @@ The uploadable online-AI handoff should be presented as three distinct parts:
 3. review writing style guidance / public-review examples
 ```
 
-These parts must not be merged into one undifferentiated prompt. Each part has a different job.
-
-### Part 1 — Review-direction prompt
-
-This part tells the online AI what to do with the handoff.
+## Part 1 — Review-direction prompt
 
 Required content:
 
 ```text
 You have not received the audio file.
 You are receiving local MSSL listening evidence.
-First, try to verify the song identity using filename or user-supplied clues, duration, MSSL style candidates, and your own search results.
-If identity is reasonably confirmed, search lyrics, album / artist / release background, public reviews, reception notes, and relevant comments.
-If identity is uncertain, do not invent lyrics, background, exact song meaning, or public reception.
+Use filename, duration, user-supplied clues, MSSL style candidates, and your own context tools only as identity support.
+If identity is uncertain, do not invent background, exact text, public reception, or song meaning.
 Write a Chinese close-listening review by combining MSSL audio evidence with verified external context.
 ```
 
-Important boundary:
+Boundary:
 
 ```text
 MSSL evidence can help constrain identity and style hypotheses, but it is not an audio fingerprint.
 Do not claim the numbers alone identify a song.
 ```
 
-The online AI may use search, but its search results must be treated as an external context layer, not as local MSSL audio proof.
-
-### Part 2 — Professional audio evidence / numeric-to-term translation
-
-This part is the local MSSL evidence layer.
-
-It should use the already built numeric-to-professional-term translation path:
-
-```text
-machine field / numeric proxy
--> mechanism evidence term
--> qualitative professional band
--> professional report descriptor
--> human listening affordance
-```
-
-Raw numbers may remain available for traceability, but they should not be the main prose surface of the handoff. The online AI should see professional descriptors first, then use hidden or secondary numeric evidence only for self-checking.
+## Part 2 — Professional audio evidence
 
 Preferred presentation:
 
@@ -112,13 +108,14 @@ Pressure and intensity:
 
 Low-frequency foundation:
 - light / stable / thickening / grounding low-end support
-- boundary: not bass-instrument truth
+- boundary: not low-source truth
 
-Foreground and source-family candidates:
+Object and source-family candidates:
 - vocal-like foreground stream candidate
 - percussive pulse layer candidate
 - harmonic support layer candidate
-- boundary: not singer, lyric, or exact instrument identity
+- instrument-like or effect-like family candidate only when evidence supports it
+- boundary: not exact source identity
 
 Texture and motion:
 - blurred edges / dense masking load / pulsing / drifting / forward pressure
@@ -141,77 +138,123 @@ The low-frequency foundation remains present and grows more weight-bearing towar
 The foreground stream remains trackable, but it should be described as vocal-like or lead-line-like unless external context confirms identity.
 ```
 
-### Part 3 — Review writing style guidance / public-review examples
+## Subjective attribute translation
 
-This part gives the online AI a human writing target.
+Attribute judgments come before preference ratings.
+
+```text
+attribute judgments
+-> descriptive judgments about perceived sound properties
+
+preference ratings
+-> liking / preference / overall favorability
+```
+
+## Professional anchors to subjective attributes
+
+| Professional term anchor | Subjective attribute mapping | Report-language direction |
+|---|---|---|
+| perceived loudness / pressure proxy | presence, fullness, pressure tendency | close, supported, filled-in, pressing forward |
+| spectral centroid / brightness weighting | brightness, timbral color, high-edge position | bright, dark, upper edge, softened top |
+| spectral spread / bandwidth | timbral breadth, not spatial width | spectrum opens or narrows |
+| spectral flatness / noise-likeness | timbral coloration, airiness, roughness, diffuse texture | grain, haze, non-pitched texture |
+| band energy distribution / spectral tilt | low body, mid foreground, high edge | low foundation, center body, bright edge |
+| attack strength / transient salience | articulation, impact, presence | hard entrance, sharp edge, sudden event |
+| onset event density / transient density | rhythmic articulation, pulse density | many points, pulsed, busy or sparse |
+| mid-side balance / center-to-side distribution | image width, center solidity, side openness | center is solid, sides open out |
+| interchannel phase coherence / stereo decorrelation proxy | localization quality, diffuseness, naturalness risk | centered, diffuse, phase-heavy, unstable |
+| lateral image bias / interchannel level balance | left-right position, image bias | centered, left-leaning, right-leaning |
+| apparent source width proxy / stereo image width | individual_source_width, scene_width | narrow lead, wide backing, open scene |
+| spatial spread / diffuseness proxy | environment_width, diffuseness, envelopment | edges blur, field diffuses outward |
+| listener envelopment proxy | environmental_envelopment, listener_envelopment | lightly surrounded, wrapped by side field |
+| distance / direct-to-reverberant impression proxy | source_distance, scene_depth, presence | near, recessed, tail suggests distance |
+| harmonic structure / tonal support | timbral clarity, line continuity, harmonic backing | trackable tone, sustained support |
+| auditory stream grouping candidates | object/event grouping confidence | possible listening streams, not source truth |
+
+## Scene-level and stream-level attributes
+
+Scene-level attributes:
+
+```text
+scene_width
+scene_depth
+environment_width
+environment_depth
+environmental_envelopment
+presence
+overall_naturalness
+overall_clarity
+```
+
+Stream-level attributes:
+
+```text
+individual_source_width
+individual_source_distance
+individual_source_depth
+source_envelopment
+localization_quality
+timbral_clarity
+brightness
+fullness
+naturalness
+fidelity_or_stability
+```
+
+Timbral attributes must remain separate from spatial attributes:
+
+```text
+Do not let spatial vocabulary swallow timbre.
+```
+
+## Descriptor targets
+
+| Dimension | Descriptor targets | Boundary |
+|---|---|---|
+| timbral_color.warm_cold | cold, cool, pale, grey, warm, rounded, amber, full | temperature words describe timbral color, not emotion truth |
+| timbral_color.bright_dark | dark, bright, clear, glassy, sharp, soft_top | brightness is timbral weighting, not quality or mood by itself |
+| timbral_texture.rough_smooth | smooth, grainy, sandy, rough, metallic, velvet | texture words are inferred color words, not material proof |
+| space.dry_wet | dry, exposed, wet, reverberant, tail-heavy, distant | dry/wet is mix impression, not measured room response |
+| space.focus_diffuse | focused, pinpoint, soft-edged, diffuse, smeared, phase-colored | diffuse does not prove real spaciousness or real room |
+| space.width_envelopment | narrow, center-held, wide, open, surrounding, wraparound | width and envelopment are receiver-side proxies, not physical geometry |
+
+## Pressure wording rule
+
+Do not output `pressure` as a final descriptor by itself.
+
+| Proxy intersection | Descriptor target |
+|---|---|
+| pressure + low_body | fullness / low-body support / grounded |
+| pressure + onset | impact / punch / attack force |
+| pressure + near_far close | close / upfront / pressing forward |
+| pressure + spectral_density | dense / packed / compressed-feeling |
+| pressure + harsh high edge | harsh / abrasive / fatiguing |
+
+## Part 3 — Review style guidance
 
 The goal is not to copy public reviews, comments, or seed cases. The goal is to show how human music criticism often combines:
 
 ```text
 arrangement / instrumentation family
 sound field / atmosphere
-lyric theme
+text theme if verified
 album, artist, release, or production context
 cover / visual / cultural context when relevant
 public reception and comments
 body, scene, memory, and time
 ```
 
-Useful public-review-style patterns:
-
-```text
-A track description may combine guitar-like harmonic material, soft chordal support, reduced percussive impact, instrumental whitespace, lyric solitude, and private atmosphere.
-A song review may connect mid-tempo melodic narration, low-frequency support, arrangement movement, core lyric metaphor, and album-wide imagery.
-An album review may connect musical transformation, character identity, cover design, public genre position, and the artist's career movement.
-```
-
-Use this as style guidance, not a source of facts for the target song.
-
-Diagnostic guard:
-
-```text
-Do not assume:
-青春流行 = 初恋主题
-舞曲 = 快乐主题
-低频重 = 愤怒主题
-空间大 = 宏大主题
-评论多 = 歌曲真义
-```
-
-Instead ask:
-
-```text
-What do the verified lyrics, arrangement, sound field, public context, and MSSL evidence actually support?
-Is the song about first love, memory, distance, public nostalgia, bodily release, resistance, solitude, or something else?
-What concrete sensory objects, body actions, scenes, or public uses let the review language enter this song?
-```
-
-The transferable unit is the diagnostic question, not the seed-case answer.
-
-## Claim layers
-
-When present, treat these as bounded layers:
-
-```text
-source-family hypothesis
-melody or pitch-contour proxy
-vocal-object hypothesis
-style-behavior hypothesis
-affective-listening tendency
-external song context
-public comment or review context
-user aesthetic seed
-```
+Use style examples as style guidance, not as facts for the target song.
 
 ## Claim discipline
 
 ```text
 source-family hypothesis != instrument truth
 melody proxy != full transcription
-vocal-object hypothesis != singer identity
+vocal-object hypothesis != identity truth
 style-behavior hypothesis != genre truth
 affective-listening tendency != emotion truth
-lyrics / reviews / comments != MSSL audio proof
+external text / reviews / comments != MSSL audio proof
 ```
 
 Allowed wording:
@@ -223,28 +266,10 @@ sounds like / resembles / behaves like / leans toward / suggests / supports a we
 Avoid unsupported wording:
 
 ```text
-is definitely / proves / the true genre is / the exact instrument is / the song means
+is definitely / proves / the true genre is / the exact source is / the song means
 ```
-
-## Translation style guidance
-
-The online AI should translate professional descriptors into accessible language only when useful.
-
-Preferred movement:
-
-```text
-professional descriptor
--> perceptible language
--> time range
--> relation to foreground / background / space / rhythm / texture
--> verified lyric / background / review context when available
-```
-
-Do not turn the final review into an engineering checklist.
 
 ## Accessible translation examples
-
-These are style examples, not mandatory wording.
 
 | Professional anchor | Possible accessible translation direction |
 |---|---|
@@ -253,132 +278,6 @@ These are style examples, not mandatory wording.
 | reduced transient energy | attacks feel softened or less percussive |
 | pronounced rhythmic articulation | the pulse becomes easier to follow physically |
 | low-frequency foundation | the bottom of the mix gives weight or ground support |
-| foreground lead-line candidate | a traceable front line leads the segment without proving singer or instrument identity |
+| foreground lead-line candidate | a traceable front line leads the segment without proving source identity |
 | diffuse texture masking | edges blur or a texture bed softens object boundaries |
 | harmonic spatial widening | the support layer opens the field around the foreground |
-
-## External context alignment
-
-If external context is available to the online AI, align it to the local report through these targets:
-
-```text
-time range
-professional spatial terms
-foreground lead-line / source-family hypotheses
-texture and layering
-dynamics and motion
-timbre and low-frequency foundation
-lyrics and lyric images if identity is confirmed
-album / artist / release background if identity is confirmed
-public reviews and reception if identity is confirmed
-```
-
-MSSL does not supply or police the external context itself. The online AI handles its own search, platform rules, and final output behavior.
-
-## Aesthetic context role
-
-Use MSSL as:
-
-```text
-structural constraint
-evidence organizer
-boundary checker
-professional audio anchor
-```
-
-Use aesthetic / external context as:
-
-```text
-human listening entry
-vocabulary source
-cultural and memory context
-criticism orientation
-```
-
-Do not let MSSL act as the only mouth of the report.
-
-## Context classification before interpretation
-
-Before interpreting an external name, note, playlist title, or uploaded text, classify it lightly:
-
-```text
-private naming
-style cluster
-label entry
-single-work research
-test / probe set
-memory anchor
-external metadata
-unknown
-```
-
-Do not poetically expand context before classification. Yes, this rule exists because machines keep trying to make every filename into a prophecy.
-
-## Comment and user-ear use
-
-Comments are not evidence of what the song is. They are evidence of how humans may enter the song.
-
-A useful comment or review pattern must reconnect to the song's listening field through at least one of:
-
-```text
-sound
-body
-scene
-time
-memory
-lyric meaning
-public use
-performance
-production
-cultural context
-```
-
-Use comment-derived material only as possible human-language entry points after paraphrase and filtering.
-
-## User-ear diagnostic habit
-
-For any new song:
-
-```text
-Listen to the song first.
-Then ask whether a comment or phrase actually connects back to that song.
-Transfer the question, not the answer.
-```
-
-Reusable diagnostic questions:
-
-```text
-Where does the language enter the song?
-What does it connect to: lyric, sound, body, scene, memory, culture, or public use?
-What can it support: structure, context, reception, or translation style?
-Does it detach into platform noise, fandom, generic emotion, private story, or meme?
-```
-
-## Online AI output request pattern
-
-Use this shape when the user asks the online AI to write:
-
-```text
-Read the professional audio report and timeline.
-Use the professional terms as anchors, not as mandatory wording.
-First verify the song identity if possible through filename / user clues, duration, MSSL style candidates, and public search.
-If identity is confirmed, search lyrics, album / artist / release background, public reviews, reception notes, and comments.
-If identity is uncertain, do not invent external context.
-Write a time-grounded, space-grounded close-listening review in accessible Chinese.
-Do not replace the local audio descriptors with generic background or mood claims.
-Do not directly quote raw numeric values in the final review unless the user explicitly asks for technical evidence.
-```
-
-## Red lines for local MSSL handoff
-
-The local handoff should not include:
-
-```text
-ratings
-taste judgment
-marketing language
-unsupported labels
-unsupported lyric interpretation
-claims that MSSL personally heard the song
-raw long comments or copied review bodies
-```
