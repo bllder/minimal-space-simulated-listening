@@ -12,6 +12,7 @@ Consolidated from:
 - `source_receiver_mapping.md`
 - `representation_prediction.md`
 - `runtime_pipeline.md`
+- `h_auditory_object_mapping_layer.md`
 
 ## One-sentence project frame
 
@@ -45,6 +46,85 @@ spatiotemporal mapping domain
 
 The model can discuss direction, distance, spatialization, envelopment, pressure, and candidate points, but only as receiver-side auditory coordinates or listening-space proxies.
 
+## Object mapping correction
+
+The corrected object path is:
+
+```text
+timbre / instrument-family evidence
++ temporal continuity
++ spectral / harmonic / noise structure
+-> auditory object candidate
+-> object behavior
+-> receiver-side OME spatial mapping
+-> perceptual metadata packet
+-> online-AI handoff
+```
+
+Practical rule:
+
+```text
+Space does not generate objects by itself.
+Time alone does not name objects by itself.
+An MSSL auditory object candidate is formed from time-frequency-timbre continuity, with optional external timbre / stem / transcription evidence, then mapped into the receiver-side OME field.
+```
+
+OME runtime is not downgraded. It is placed in the correct role:
+
+```text
+OME runtime = receiver-side spatial field / mapping layer
+```
+
+It helps describe where an already-supported object appears, how stable it is, how diffuse it becomes, and how it relates to pressure, width, masking, tail, and envelopment.
+
+It must not be used as the sole generator of object identity.
+
+## Object before behavior
+
+Do not write behavior before an object candidate exists.
+
+Bad order:
+
+```text
+This layer flows like guitar.
+```
+
+Better order:
+
+```text
+A guitar-like melodic-layer candidate is supported by timbre / harmonic / contour evidence.
+That candidate forms a continuous melodic flow over the time axis.
+OME mapping places the flow as near-center with a mild diffuse tail and low-body support.
+```
+
+Object candidate first. Then behavior. Then receiver-side mapping.
+
+## Object definition
+
+Working definition:
+
+```text
+An MSSL auditory object is not a spatial bin and not a source-separated stem.
+It is a persistent time-frequency-timbre structure, optionally supported by external timbre / stem / transcription evidence, mapped into the receiver-side OME field.
+```
+
+A valid object candidate should carry at least some of these supports:
+
+```text
+temporal continuity
+spectral-envelope continuity
+timbre fingerprint
+harmonic / percussive / noise bias
+pitch or contour support
+onset / sustain / tail pattern
+repetition or phrase pattern
+source-family hint, if supported
+external adapter evidence, if present
+receiver-side OME mapping, if present
+```
+
+No single support is enough to claim source truth.
+
 ## Minimal mapping packet
 
 A single time window can be represented as:
@@ -52,34 +132,9 @@ A single time window can be represented as:
 ```text
 mapping_packet {
   time_window
-
-  source_space {
-    origin_O
-    main_axis_A
-    B_points
-    OB_vector_family
-    wavefront
-    cone_surface
-    projection_plane
-  }
-
-  mapping_domain {
-    AB_mapping
-    local_projection_geometry
-    layered_sphere_intersections
-    temporal_continuity
-  }
-
-  receiver_space {
-    receiver_E
-    layered_auditory_sphere
-    candidate_points
-    direction
-    distance
-    spatialization
-    envelopment
-    pressure
-  }
+  source_space
+  mapping_domain
+  receiver_space
 }
 ```
 
@@ -100,7 +155,8 @@ recorded signal evidence
 -> spatiotemporal windows
 -> audio mechanism evidence
 -> O/M/E translation
--> auditory object tracking
+-> temporal-timbre object candidates
+-> object behavior, only after candidates exist
 -> professional terminology report
 -> online-AI handoff
 ```
@@ -183,9 +239,10 @@ Keep these layers separate:
 1. mechanism evidence
 2. O/M/E interpretation
 3. professional audio terminology
-4. object tracking
-5. external or human calibration
-6. final report prose by online AI
+4. object candidate formation
+5. object behavior summary, only after candidates exist
+6. external or human calibration
+7. final report prose by online AI
 ```
 
 The local MSSL output should stop at professional descriptors, timeline anchors, and translation examples. Final review content belongs to the online AI and the user's prompt context.
