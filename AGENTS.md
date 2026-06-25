@@ -4,9 +4,9 @@
 
 This repository is a clean rebuild.
 
-The current formal project name is:
+The formal project name is:
 
-**Minimal Space for Simulated Listening**
+**Minimal Space for Simulated Listening (MSSL)**
 
 “Groove Ear” is a historical codename and may appear in legacy materials.
 
@@ -15,9 +15,11 @@ The current project source of truth is:
 1. `README.md`
 2. `AGENTS.md`
 3. current files in this repository
-4. legacy materials only when explicitly referenced through `references/legacy_index.md`
+4. `docs/e_runtime_entrypoints.md` for runtime path details
+5. `docs/g_project_log.md` for durable recent pivots
+6. legacy materials only when explicitly referenced through `references/legacy_index.md`
 
-If any legacy material conflicts with `README.md` or `AGENTS.md`, the current repository files win.
+If any legacy material conflicts with `README.md`, `AGENTS.md`, or current runtime files, the current repository files win.
 
 ---
 
@@ -27,14 +29,17 @@ For every task, follow this order:
 
 1. Read `AGENTS.md`.
 2. Read `README.md` to understand the current project baseline.
-3. Read `references/legacy_index.md` before consulting any legacy material.
-4. If legacy reference is needed, ask for or use the local legacy archive path recorded in `references/legacy_index.md`.
-5. Treat any legacy archive as read-only background material.
-6. Extract only the useful essence from legacy materials.
-7. Rewrite, simplify, or adapt legacy ideas into the new project.
-8. Do not directly revive old project structure, old architecture, or old output sprawl.
-9. If any legacy material is reused, update `docs/migration_log.md`.
-10. Summarize what was changed, what legacy material was consulted, and what was intentionally not imported.
+3. Read `docs/e_runtime_entrypoints.md` before changing runtime behavior.
+4. Read `docs/g_project_log.md` for recent pivots and boundary corrections.
+5. Read `references/legacy_index.md` only when the task explicitly needs legacy material.
+6. Treat any legacy archive as read-only background material.
+7. Extract only the useful essence from legacy materials.
+8. Rewrite, simplify, or adapt legacy ideas into the new project.
+9. Do not directly revive old project structure, old architecture, or old output sprawl.
+10. If any legacy material is reused, update `docs/migration_log.md`.
+11. Every response after implementation must state what was changed, what was not done, and what remains risky.
+
+Do not ask the user to run a real song until the relevant chain is actually wired and at least a no-audio validator or static check exists. “Please run locally” is not a substitute for implementation. Humanity has enough rituals already.
 
 ---
 
@@ -46,66 +51,523 @@ Do not create branches, PRs, or parallel worktrees by default. Keep changes smal
 
 ---
 
-## MSSL Core Boundary
+## Core Target: What MSSL Must Produce
 
-This project builds a traceable simulation path from audio evidence to bounded human-readable listening language.
+MSSL must produce an uploadable compact handoff that helps an online AI write bounded close-listening criticism.
+
+The target report must let an online AI answer:
+
+```text
+what kind of song this is;
+how vocal, instrument, and effect-family material performs;
+how vocal delivery and verified lyric context relate;
+how MIDI / melody / rhythm behavior supports the hearing;
+how general audio evidence supports the hearing;
+how OME receiver-side spatial state changes the performance;
+where the evidence boundary is.
+```
+
+MSSL is not only OME. OME is one receiver-side spatial layer inside MSSL. Do not collapse the project into OME-only language.
+
+Correct mental model:
+
+```text
+song identity / external context
++ source-family recognition
++ MIDI / melody evidence
++ general audio evidence
++ OME spatial state
++ lyric alignment anchors
+-> bounded online-AI listening handoff
+```
+
+MSSL is best understood as a music-listening evidence compiler, not a local all-knowing review generator.
+
+---
+
+## Current Runtime Path
+
+Current normal path:
+
+```text
+local audio
+-> full-song structural profile
+-> song identity command / song identity layer
+-> reconstructed stream / score layer
+-> MIDI adapter command / symbolic timeline MIDI layer
+-> external recognition command / external strong recognition layer
+-> OME Spatial Filter Bank runtime layer
+-> temporal-timbre object candidate layer
+-> external family candidate seeding
+-> musical object performance layer
+-> lyric context layer
+-> listening-experience evidence pack
+-> compact online AI handoff + full audit trace
+-> bounded close-listening criticism by an online AI account
+```
+
+Core entrypoint:
+
+```text
+scripts/run_mssl.py
+```
+
+Continuation pipeline:
+
+```text
+scripts/run_listening_experience_pipeline.py
+```
+
+Default compact output:
+
+```text
+online_ai_listening_handoff.md
+```
+
+Full trace output:
+
+```text
+online_ai_listening_handoff_full_trace.md
+```
+
+The local project does not run a default local LLM. Final prose is generated by a clearly enabled backend stage or by giving `online_ai_listening_handoff.md` to an online AI account.
+
+---
+
+## Current Implemented Layers
+
+### Implemented runtime layers
+
+The following layers exist and are part of the intended MSSL chain:
+
+```text
+scripts/build_song_identity_layer.py
+scripts/build_reconstructed_stream_score_layers.py
+scripts/build_symbolic_timeline_midi_layer.py
+scripts/build_external_strong_recognition_layer.py
+scripts/build_ome_spatial_filter_bank_layer.py
+scripts/build_temporal_timbre_object_candidate_layer.py
+scripts/seed_external_family_candidates.py
+scripts/build_musical_object_performance_layer.py
+scripts/build_lyric_context_layer.py
+scripts/build_listening_experience_prompt_with_descriptors.py
+scripts/render_compact_online_handoff.py
+scripts/attach_family_gate.py
+```
+
+### Implemented adapter wrappers / normalizers
+
+The following wrapper scripts exist:
+
+```text
+scripts/adapters/run_basic_pitch_adapter.py
+scripts/adapters/run_demucs_adapter.py
+scripts/adapters/run_song_identity_adapter.py
+scripts/adapters/normalize_external_recognition_packet.py
+```
+
+Current command slots exposed by `run_mssl.py`:
+
+```text
+--song-identity-command
+--midi-adapter-command
+--external-recognition-command
+```
+
+These slots let the main pipeline call local external tools, collect JSON, and fold it back into MSSL evidence. They must not be reduced back to “user manually prepares everything.”
+
+---
+
+## Critical Recent Correction: Instrument Layer Loop
+
+A prior version had a hidden break:
+
+```text
+external recognition evidence
+-> external_strong_recognition_layer
+-> performance gate allowed families
+BUT object candidate layer did not receive external evidence
+```
+
+This was wrong. It allowed instrument names in one layer while starving the object/performance layers.
+
+The current loop must stay closed:
+
+```text
+external_recognition / midi_adapter
+-> external_strong_recognition_layer
+-> temporal_timbre_object_candidate_layer with --external-evidence
+-> seed_external_family_candidates.py
+-> build_musical_object_performance_layer.py
+-> compact report-composer handoff
+```
+
+Do not remove or bypass `seed_external_family_candidates.py` unless a stronger replacement is implemented.
+
+No-audio validator:
+
+```text
+scripts/validate_instrument_layer_loop.py
+```
+
+This validator checks that retained external family evidence can seed object candidates and produce musical object performance cards for guitar, drums, and bass. Before asking the user to run a real song, use or inspect this validator. If it fails, fix the code first.
+
+---
+
+## What Is Done
+
+### Done: report target clarified
+
+MSSL’s output target is no longer just “produce an OME-ish handoff.” The compact handoff must be shaped for online AI close listening:
+
+```text
+song identity / lookup instruction
+source-family permission table
+vocal performance + lyric alignment anchors
+instrument / vocal / FX performance cards
+MIDI / melody / rhythm skeleton
+general audio evidence
+OME spatial performance state
+macro arc / key moments
+writing instruction
+boundaries
+```
+
+### Done: song identity layer
+
+Implemented:
+
+```text
+scripts/build_song_identity_layer.py
+scripts/adapters/run_song_identity_adapter.py
+```
+
+Supported evidence:
+
+```text
+--song-title
+--song-artist
+--song-album
+--song-year
+--song-identity-json
+--song-identity-command
+metadata JSON
+fpcalc / Chromaprint-style output
+external lookup JSON
+```
+
+Boundary:
+
+```text
+MSSL audio features alone do not prove song title or artist.
+Fingerprint output does not prove song identity unless matched or verified.
+```
+
+### Done: lyric context layer
+
+Implemented:
+
+```text
+scripts/build_lyric_context_layer.py
+```
+
+Supported evidence:
+
+```text
+--lyrics-file
+--lyric-alignment
+verified online lookup by the final online AI
+```
+
+Boundary:
+
+```text
+MSSL must not export full lyrics into report-facing handoff by default.
+Lyrics, lyric meaning, exact line timing, and singer identity are not proved by MSSL audio features.
+```
+
+### Done: symbolic MIDI / melody support
+
+Implemented:
+
+```text
+scripts/build_symbolic_timeline_midi_layer.py
+scripts/adapters/run_basic_pitch_adapter.py
+```
+
+Supported evidence:
+
+```text
+full-mix symbolic timeline
+Basic Pitch / MT3 style notes JSON or CSV
+--midi-adapter
+--midi-adapter-command
+```
+
+Boundary:
+
+```text
+symbolic timeline MIDI != original MIDI truth
+transcription-backed adapter evidence != original score truth
+track family hint != confirmed source identity
+```
+
+### Done: external family recognition and stem evidence
+
+Implemented:
+
+```text
+scripts/build_external_strong_recognition_layer.py
+scripts/adapters/run_demucs_adapter.py
+scripts/adapters/normalize_external_recognition_packet.py
+```
+
+Supported evidence:
+
+```text
+Demucs / UVR stems
+vocals / bass / drums / other stem files
+instrument classifier JSON
+generic external JSON normalized into MSSL packet
+--external-recognition
+--external-recognition-command
+```
+
+Boundary:
+
+```text
+stem separation != original DAW stems
+external classifier output != source truth
+mixed accompaniment / other stem != specific instrument claim
+```
+
+### Done: musical object performance layer
+
+Implemented:
+
+```text
+scripts/build_musical_object_performance_layer.py
+```
+
+Purpose:
+
+```text
+vocal / instrument / effect-family musical expression over the whole song
+```
+
+It is not a machine behavior layer. It must describe performance expression, not debug labels such as generic entry/masking/release behavior.
+
+Specific instrument/effect performance cards require the external family gate. Without external family evidence, collapse to functional language such as foreground line, low body, pulse, harmonic bed, or diffuse texture.
+
+### Done: compact report-composer handoff
+
+Implemented:
+
+```text
+scripts/render_compact_online_handoff.py
+```
+
+The compact handoff is a report-composer schema, not a debug dump. It must guide the online AI to combine identity, family permission, vocal/lyric anchors, instrument performance, MIDI, general audio, and OME state.
+
+---
+
+## What Still Must Be Done
+
+### Must do: validate instrument layer loop before real song run
+
+Run or inspect:
+
+```text
+python scripts/validate_instrument_layer_loop.py
+```
+
+Expected: the synthetic validator proves that guitar, drums, and bass external family evidence produce corresponding musical performance cards.
+
+If the validator fails, fix the instrument loop before asking the user to run real audio.
+
+### Must do: add readable fake adapter fixtures
+
+Create small curated fixtures, not generated output dumps:
+
+```text
+tests/fixtures/mssl_midi_adapter_example.json
+tests/fixtures/mssl_external_recognition_adapter_example.json
+tests/fixtures/mssl_song_identity_adapter_example.json
+```
+
+These fixtures should be tiny and human-readable. They must prove the adapter schema without committing real audio, copyrighted material, or bulky outputs.
+
+### Must do: strengthen docs for adapter workflow
+
+Keep `README.md` and `docs/e_runtime_entrypoints.md` aligned with actual runnable commands:
+
+```text
+--song-identity-command
+--midi-adapter-command
+--external-recognition-command
+```
+
+Avoid fake commands that look runnable but require unknown local paths without explanation.
+
+### Must do: eventually test with real external tool outputs
+
+Only after synthetic validation passes, test with at least one real external output packet from:
+
+```text
+Basic Pitch / MT3 style notes JSON or CSV
+Demucs / UVR stem folder
+metadata / fpcalc / external lookup JSON
+```
+
+Do not commit the generated real-song outputs unless the user explicitly requests a curated small fixture.
+
+### Must do: improve linkage between MIDI events and instrument families
+
+Current MIDI adapter can summarize notes and track families, but future work should improve how MIDI adapter family hints link to performance cards:
+
+```text
+transcription track family
+-> symbolic timeline support
+-> object candidate
+-> performance card event support
+```
+
+This must remain bounded as transcription evidence, not source truth.
+
+### Must do: improve lyric alignment handoff quality
+
+The lyric context layer exists, but the final handoff should keep improving how it states:
+
+```text
+verified lyric source
++ vocal timing / phrase density
++ MIDI contour
++ OME foreground state
+-> lyric-performance interpretation prompt
+```
+
+Never dump full lyrics by default.
+
+---
+
+## What Must Be Abandoned / Not Revived
+
+### Abandon: OME-only project framing
+
+Do not describe MSSL as if OME is the whole project. OME is only receiver-side spatial simulation inside the larger MSSL evidence compiler.
+
+### Abandon: pure internal instrument recognition fantasy
+
+Do not claim that MSSL can accurately identify all instruments from internal heuristics alone.
+
+Correct position:
+
+```text
+instrument / vocal / FX family naming requires external recognition, stem, transcription, metadata, or user-supplied evidence.
+```
+
+Internal audio evidence can support functional object language, not confirmed source identity.
+
+### Abandon: asking user to run before chain is closed
+
+Do not ask the user to run local real audio when:
+
+```text
+adapter output is not wired into the next layer;
+object candidates do not receive external evidence;
+performance cards cannot be produced from retained external families;
+no validator or static check exists for the target chain.
+```
+
+### Abandon: machine behavior layer
+
+Do not build or revive a generic “machine behavior layer.” The current accepted layer is:
+
+```text
+musical object performance layer
+```
+
+It describes vocal, instrumental, and effect-family expression.
+
+### Abandon: long lyric ingestion as default output
+
+Do not copy full lyrics into MSSL report-facing outputs. Use lyric source status, alignment anchors, and online AI verification instructions.
+
+### Abandon: unbounded music review generation
+
+MSSL must not silently become a generic review generator. Any final prose must be traceable to evidence, adapter output, metadata, lyric context, user context, or clearly marked online lookup.
+
+### Abandon: external adapter evidence as truth
+
+Do not promote adapter evidence to source truth:
+
+```text
+stem separation != original stems
+MIDI transcription != original MIDI
+fingerprint output != identity unless matched
+external classifier != exact instrument truth
+other/accompaniment stem != all instruments inside it
+```
+
+### Abandon: doc sprawl and root clutter
+
+Do not add broad standalone docs unless the topic cannot be folded into the existing A/B/C/D/E/F/G docs. Keep root clean.
+
+### Abandon: generated-output commits
+
+Do not commit `outputs/`, audio, big generated reports, stem folders, real-song transcriptions, or local caches.
+
+---
+
+## Current Runtime Boundary
+
+The repository prepares evidence and handoff material. It does not claim that the local script has personally heard the song, and it does not turn genre-like, emotion-like, source-family, memory, comment, lyric, or playlist-context language into truth labels.
+
+Final prose may be generated only by a clearly enabled LLM/backend stage or by pasting `online_ai_listening_handoff.md` into an online AI account.
+
+---
+
+## MSSL Core Boundary
 
 MSSL must not silently become:
 
 - an unbounded music review generator
+- an OME-only spatial demo
 - a fixed listening-report renderer
 - a genre classifier
 - an emotion classifier
 - a taste or recommendation system
-- a singer or exact instrument identity system
-- a lyrics / ASR / semantic song-meaning system
+- a singer identity system
+- an exact instrument identity system without external evidence
+- a lyrics / ASR / semantic song-meaning system by default
 - a scraped comment analysis system
 - a music generation system
 - a human calibration layer unless explicitly requested
 
 Allowed core language:
 
+- MSSL evidence compiler
+- song identity status
+- source-family permission
 - O / M / E source-to-receiver mapping
 - audio evidence
-- structural candidate
-- auditory hypothesis
-- temporal-spatial object tracking
-- scene relation
-- structural summary
+- symbolic MIDI / melody skeleton
+- external adapter evidence
+- temporal-timbre object candidate
+- musical object performance card
+- lyric context anchor
 - listening-experience evidence pack
 - critical listening brief
-- aesthetic context handoff
+- compact online AI handoff
 - bounded close-listening criticism
 
-The listening-experience layer may use human listening language only when it is a bounded rendering of evidence, adapter output, user-supplied context, external context, or explicit backend reasoning.
-
----
-
-## Current Runtime Boundary
-
-Current normal path:
-
-```text
-local PCM WAV
--> structural audio evidence
--> O/M/E listening-space simulation
--> object / relation / scene evidence
--> listening-experience evidence pack
--> critical_listening_brief.json
--> aesthetic context handoff section when context is provided
--> online AI handoff
--> bounded human-readable close-listening criticism
-```
-
-The repository prepares evidence and handoff material. It does not claim that the local script has personally heard the song, and it does not turn genre-like, emotion-like, source-family, memory, comment, or playlist-context language into truth labels.
-
-Final prose may be generated only by a clearly enabled LLM/backend stage or by pasting `online_ai_listening_handoff.md` into an online AI account.
+The listening-experience layer may use human listening language only when it is a bounded rendering of evidence, adapter output, user-supplied context, external context, verified lyric context, or explicit backend reasoning.
 
 ---
 
 ## Aesthetic Context Boundary
 
-MSSL must not try to make human listening language emerge from denser internal structure.
+MSSL must not try to make human listening language emerge from denser internal structure alone.
 
 The human-facing layer may start from:
 
@@ -113,7 +575,7 @@ The human-facing layer may start from:
 - playlist names and playlist type
 - user notes, comments, or memory anchors
 - platform comments with timestamp/context boundaries
-- lyrics or lyric alignment when available
+- verified lyrics or lyric alignment when available
 - reviews, metadata, label/version context
 - MIR or external adapter notes
 
@@ -128,6 +590,8 @@ Examples:
 Starless = King Crimson "Starless" version/material research
 Test.py / Math AI = test/probe set
 ```
+
+Do not use emergence language to hand-wave missing mechanisms. Add explicit interfaces instead.
 
 ---
 
@@ -148,8 +612,6 @@ NetEase / platform comments and private comments are often timestamped memory ma
 
 Playlist names must be disambiguated before interpretation. Do not poeticize every playlist name by default.
 
-Do not use emergence language to hand-wave missing mechanisms. Add explicit interfaces instead.
-
 ---
 
 ## Output Boundary
@@ -157,7 +619,13 @@ Do not use emergence language to hand-wave missing mechanisms. Add explicit inte
 Generated summaries and Markdown outputs must clearly distinguish:
 
 - structural understanding
-- readable structural rendering
+- song identity status
+- external adapter evidence
+- symbolic MIDI support
+- object candidate layer
+- musical object performance layer
+- OME spatial state
+- lyric context anchors
 - critical listening brief
 - aesthetic context handoff
 - bounded close-listening criticism
@@ -177,6 +645,8 @@ Do not commit:
 - `outputs/`
 - audio files
 - generated WAV / MP3 / FLAC files
+- separated stem files
+- real-song transcription dumps
 - datasets
 - scraped comments
 - local cache files
@@ -200,6 +670,8 @@ Every implementation task must end with a short report containing:
 7. known risks or follow-up tasks
 
 If no tests exist, report that explicitly instead of inventing a test result.
+
+If a chain is not validated, say so. Do not imply success from file creation alone. File creation is not proof of runtime quality, despite generations of software teams pretending otherwise.
 
 ---
 
@@ -244,7 +716,9 @@ Legacy material is allowed to influence the new project only after being intenti
 
 Whenever legacy material is reused, update:
 
-`docs/migration_log.md`
+```text
+docs/migration_log.md
+```
 
 Each migration entry must include:
 
@@ -273,3 +747,5 @@ The new project should stay minimal, readable, and structurally clean.
 ## Python Environment Rules
 
 This project should be runnable from any cloned project folder.
+
+Avoid adding default dependencies unless they are required for the core path. Adapter wrappers may call external tools through command slots without making those tools default dependencies.
