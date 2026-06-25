@@ -1,0 +1,120 @@
+{
+  "adapter_name": "synthetic_fixture_midi_transcription",
+  "adapter_type": "midi_transcription",
+  "schema": "mssl_midi_adapter_v0_1",
+  "status": "attached_transcription_notes",
+  "note_count": 8,
+  "tracks": [
+    {
+      "track_family": "guitar_like_plucked_melodic_layer",
+      "time_range": [8.0, 34.0],
+      "pitch_contour": "rising_then_falling",
+      "note_density": "medium",
+      "rhythmic_alignment": "adapter_timing_evidence_unquantized",
+      "confidence": 0.78,
+      "note_count": 4,
+      "boundary": "fixture transcription track summary, not original MIDI or source truth"
+    },
+    {
+      "track_family": "bass_like_low_body_layer",
+      "time_range": [0.0, 42.0],
+      "pitch_contour": "level_or_wavering",
+      "note_density": "sparse",
+      "rhythmic_alignment": "adapter_timing_evidence_unquantized",
+      "confidence": 0.82,
+      "note_count": 4,
+      "boundary": "fixture transcription track summary, not original MIDI or source truth"
+    }
+  ],
+  "events": [
+    {
+      "track_family": "guitar_like_plucked_melodic_layer",
+      "start_seconds": 8.0,
+      "end_seconds": 8.5,
+      "time_range": [8.0, 8.5],
+      "pitch": 64,
+      "velocity": 82,
+      "confidence": 0.78,
+      "basis": "synthetic fixture note event",
+      "boundary": "fixture note evidence, not original MIDI truth"
+    },
+    {
+      "track_family": "guitar_like_plucked_melodic_layer",
+      "start_seconds": 9.0,
+      "end_seconds": 9.4,
+      "time_range": [9.0, 9.4],
+      "pitch": 67,
+      "velocity": 80,
+      "confidence": 0.77,
+      "basis": "synthetic fixture note event",
+      "boundary": "fixture note evidence, not original MIDI truth"
+    },
+    {
+      "track_family": "guitar_like_plucked_melodic_layer",
+      "start_seconds": 11.0,
+      "end_seconds": 11.6,
+      "time_range": [11.0, 11.6],
+      "pitch": 69,
+      "velocity": 79,
+      "confidence": 0.76,
+      "basis": "synthetic fixture note event",
+      "boundary": "fixture note evidence, not original MIDI truth"
+    },
+    {
+      "track_family": "guitar_like_plucked_melodic_layer",
+      "start_seconds": 13.0,
+      "end_seconds": 13.4,
+      "time_range": [13.0, 13.4],
+      "pitch": 65,
+      "velocity": 78,
+      "confidence": 0.75,
+      "basis": "synthetic fixture note event",
+      "boundary": "fixture note evidence, not original MIDI truth"
+    },
+    {
+      "track_family": "bass_like_low_body_layer",
+      "start_seconds": 0.0,
+      "end_seconds": 1.0,
+      "time_range": [0.0, 1.0],
+      "pitch": 40,
+      "velocity": 90,
+      "confidence": 0.83,
+      "basis": "synthetic fixture bass note event",
+      "boundary": "fixture note evidence, not original MIDI truth"
+    },
+    {
+      "track_family": "bass_like_low_body_layer",
+      "start_seconds": 4.0,
+      "end_seconds": 5.0,
+      "time_range": [4.0, 5.0],
+      "pitch": 40,
+      "velocity": 88,
+      "confidence": 0.82,
+      "basis": "synthetic fixture bass note event",
+      "boundary": "fixture note evidence, not original MIDI truth"
+    },
+    {
+      "track_family": "bass_like_low_body_layer",
+      "start_seconds": 8.0,
+      "end_seconds": 9.0,
+      "time_range": [8.0, 9.0],
+      "pitch": 43,
+      "velocity": 89,
+      "confidence": 0.81,
+      "basis": "synthetic fixture bass note event",
+      "boundary": "fixture note evidence, not original MIDI truth"
+    },
+    {
+      "track_family": "bass_like_low_body_layer",
+      "start_seconds": 12.0,
+      "end_seconds": 13.0,
+      "time_range": [12.0, 13.0],
+      "pitch": 38,
+      "velocity": 87,
+      "confidence": 0.8,
+      "basis": "synthetic fixture bass note event",
+      "boundary": "fixture note evidence, not original MIDI truth"
+    }
+  ],
+  "truth_boundary": "Synthetic fixture for schema validation only. It is not original MIDI, not note-level truth, and not source identity."
+}
