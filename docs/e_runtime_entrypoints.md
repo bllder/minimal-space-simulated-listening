@@ -34,6 +34,7 @@ Current user-facing path:
 ```text
 audio file
 -> full-song structural profile
+-> song identity layer
 -> reconstructed stream / score layer
 -> symbolic timeline MIDI layer
 -> optional external recognition command / adapter packet
@@ -41,8 +42,9 @@ audio file
 -> OME Spatial Filter Bank runtime layer
 -> temporal-timbre object candidate layer
 -> musical object performance layer
+-> lyric context layer
 -> professional audio terminology report
--> online AI handoff Markdown
+-> compact online AI handoff + full trace
 ```
 
 The main local artifact is:
@@ -79,13 +81,19 @@ Single human entrypoint. Normal users should start here.
 scripts/run_listening_experience_pipeline.py
 ```
 
-Continuation pipeline. It connects full-song structural analysis, reconstructed stream / score generation, symbolic timeline MIDI generation, optional external recognition commands, external family evidence normalization, OME runtime mapping, temporal-timbre object candidates, musical object performance cards, professional terminology handoff generation, family gate insertion, and optional context injection.
+Continuation pipeline. It connects full-song structural analysis, song identity, reconstructed stream / score generation, symbolic timeline MIDI generation, optional external recognition commands, external family evidence normalization, OME runtime mapping, temporal-timbre object candidates, musical object performance cards, lyric context, professional terminology handoff generation, family gate insertion, and optional context injection.
 
 ```text
 scripts/run_full_song_analysis.py
 ```
 
-Structural front half. Produces the full-song profile used by the downstream MIDI, object, performance, terminology, and handoff builders.
+Structural front half. Produces the full-song profile used by the downstream identity, MIDI, object, performance, terminology, lyric-context, and handoff builders.
+
+```text
+scripts/build_song_identity_layer.py
+```
+
+Builds bounded song identity status from supplied metadata, identity JSON, and filename/analysis hints. It does not infer title or artist from raw audio features by itself.
 
 ```text
 scripts/build_reconstructed_stream_score_layers.py
@@ -103,13 +111,19 @@ Builds the music-time skeleton: beat/bar context, section timeline, and symbolic
 scripts/build_external_strong_recognition_layer.py
 ```
 
-Normalizes external family evidence from command-generated or pre-existing adapter JSON packets. This layer decides which vocal, instrument, and effect-family names may be used downstream. It does not prove source truth, performer identity, exact original stems, or creator intent.
+Normalizes external family evidence from command-generated or pre-existing adapter JSON packets. This layer decides which vocal, instrument, and effect-family names may be used downstream. It does not prove source truth, performer identity, exact original stems, lyric truth, or creator intent.
+
+```text
+scripts/adapters/normalize_external_recognition_packet.py
+```
+
+Normalizes generic external tool JSON into the MSSL external recognition adapter packet shape.
 
 ```text
 scripts/attach_family_gate.py
 ```
 
-Post-pass that inserts the family gate into the evidence pack, critical brief, compact handoff, and full trace handoff. This is now called by the main experience pipeline.
+Post-pass that inserts the family gate into the evidence pack, critical brief, compact handoff, and full trace handoff. This is called by the main experience pipeline.
 
 ```text
 scripts/build_ome_spatial_filter_bank_layer.py
@@ -130,6 +144,12 @@ scripts/build_musical_object_performance_layer.py
 Builds vocal / instrumental / effect-family performance cards. This layer is intentionally not a machine behavior layer. Specific family cards require the external family gate; otherwise the layer collapses to functional object language.
 
 ```text
+scripts/build_lyric_context_layer.py
+```
+
+Builds bounded lyric context from optional local lyric/alignment files plus MSSL vocal, MIDI, and OME anchors. It does not export full lyrics into report-facing handoff.
+
+```text
 scripts/build_listening_experience_prompt.py
 ```
 
@@ -139,13 +159,57 @@ Builds the professional evidence pack, critical brief, technical prompt input, a
 scripts/build_listening_experience_prompt_with_descriptors.py
 ```
 
-Descriptor-aware wrapper. It attaches subjective descriptor validation, OME packet material, symbolic timeline MIDI layer, musical object performance layer, compact handoff, and full trace handoff.
+Descriptor-aware wrapper. It attaches song identity, lyric context, subjective descriptor validation, OME packet material, symbolic timeline MIDI layer, external recognition status, musical object performance layer, compact handoff, and full trace handoff.
+
+```text
+scripts/render_compact_online_handoff.py
+```
+
+Renders the compact online handoff as a report-composer schema: song identity, source-family permission, vocal/lyric anchors, instrument/source-family performance, MIDI/melody/rhythm skeleton, general audio evidence, OME spatial performance state, macro arc, and writing boundaries.
 
 ```text
 scripts/build_aesthetic_context_handoff.py
 ```
 
 Injects optional local context into the handoff Markdown. Context is not treated as local truth.
+
+## Song identity contract
+
+Song identity can be supplied through:
+
+```text
+--song-title
+--song-artist
+--song-album
+--song-year
+--song-identity-json
+```
+
+Boundary:
+
+```text
+MSSL audio evidence alone does not prove title or artist.
+Song identity requires supplied metadata, external identity evidence, fingerprint/search context, or online verification.
+```
+
+## Lyric context contract
+
+Lyric context can be supplied through:
+
+```text
+--lyrics-file path/to/lyrics.txt
+--lyric-alignment path/to/alignment.json
+```
+
+MSSL does not copy full lyrics into the report-facing handoff. It records source/alignment status and connects verified lyric context to vocal timing, MIDI phrase behavior, and OME spatial anchors.
+
+Boundary:
+
+```text
+lyric file != lyric truth unless externally verified
+lyric alignment != exact performance truth unless adapter quality is known
+MSSL vocal anchors != singer identity
+```
 
 ## MIDI layer contract
 
@@ -193,7 +257,7 @@ song type / listening context
 -> online-AI close-listening handoff
 ```
 
-There are two accepted paths.
+There are three accepted paths.
 
 Pre-existing packet:
 
@@ -205,6 +269,12 @@ Main-flow command:
 
 ```text
 --external-recognition-command "python recognizer.py --input {input} --output-json {output_json}"
+```
+
+Generic normalization:
+
+```text
+python scripts/adapters/normalize_external_recognition_packet.py --input-json raw_tool_output.json --output-json recognition_packet.json
 ```
 
 Placeholders:
@@ -259,6 +329,7 @@ Read it as:
 ```text
 recorded signal evidence
 -> structural segments
+-> song identity status
 -> audio mechanism evidence
 -> reconstructed stream / score skeleton
 -> symbolic timeline MIDI layer
@@ -266,6 +337,7 @@ recorded signal evidence
 -> OME receiver-side field mapping
 -> temporal-timbre object candidates
 -> musical object performance cards
+-> lyric context anchors
 -> professional terminology report
 -> online handoff
 ```
@@ -300,6 +372,7 @@ frame evidence = internal support layer
 beat / bar grid = rhythm reference layer
 symbolic MIDI events = music-time support layer
 external recognition events = optional family evidence layer
+lyric alignment anchors = optional semantic timing layer
 ```
 
 One-second frames may still exist for inspection, but they should not become the main listening unit.
@@ -313,12 +386,14 @@ outputs/<song-folder>/
   <input-stem>_full_song_profile.json
   listening_experience_evidence_pack.json
   critical_listening_brief.json
+  song_identity_layer.json / .md
   reconstructed_stream_score_layer.md
   symbolic_timeline_midi_layer.json / .md
   external_strong_recognition_layer.json / .md
   ome_spatial_filter_bank_layer.json / .md
   temporal_timbre_object_candidate_layer.json / .md
   musical_object_performance_layer.json / .md
+  lyric_context_layer.json / .md
   original_song_listening_prompt_input.md
   online_ai_listening_handoff.md
   online_ai_listening_handoff_full_trace.md
@@ -347,6 +422,12 @@ Windows:
 
 ```powershell
 python .\scripts\run_mssl.py experience --input "path\to\local_audio.mp3"
+```
+
+With identity and lyric context:
+
+```powershell
+python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --song-title "Song title" --song-artist "Artist" --lyrics-file "path\to\lyrics.txt" --lyric-alignment "path\to\lyric_alignment.json"
 ```
 
 With optional MIDI adapter:
