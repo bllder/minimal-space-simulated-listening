@@ -18,6 +18,7 @@ The current project source of truth is:
 
 ```text
 README.md
+AGENTS.md
 current files in this repository
 ```
 
@@ -139,18 +140,6 @@ Durable correction:
 ```text
 Do not build a machine behavior layer.
 Build a musical object performance layer: vocal, instrumental, and effect-family expression over the whole song.
-```
-
-A real runtime symbolic timeline MIDI layer was added before OME/object/performance handoff:
-
-```text
-full-song profile
--> reconstructed stream / score layer
--> symbolic timeline MIDI layer
--> OME Spatial Filter Bank runtime layer
--> temporal-timbre object candidates
--> musical object performance cards
--> compact online-AI handoff
 ```
 
 Boundary:
@@ -276,4 +265,42 @@ transcription-backed MIDI != original MIDI
 stem separation != original DAW stems
 fingerprint output != song identity unless matched or verified
 mixed accompaniment / other stem != specific instrument claim
+```
+
+### 2026-06-25 — Adapter fixtures and fixture-flow validation
+
+Curated synthetic fixtures were added to validate adapter schemas without real audio or generated dumps.
+
+New fixtures:
+
+```text
+tests/fixtures/mssl_external_recognition_adapter_example.json
+tests/fixtures/mssl_midi_adapter_example.json
+tests/fixtures/mssl_song_identity_adapter_example.json
+```
+
+New validator:
+
+```text
+scripts/validate_fixture_adapter_flow.py
+```
+
+Validation intent:
+
+```text
+song identity fixture
++ MIDI adapter fixture
++ external recognition fixture
+-> external strong recognition layer
+-> external family candidate seeding
+-> musical object performance cards
+```
+
+Boundary:
+
+```text
+fixtures are schema examples only;
+fixtures are not real audio output;
+fixtures must not be replaced by bulky real-song outputs;
+fixture validation does not prove real-world recognition quality.
 ```
