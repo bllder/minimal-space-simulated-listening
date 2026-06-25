@@ -3,7 +3,7 @@
 
 Default behavior runs the complete listening-experience continuation:
 
-Audio file -> structural profile -> reconstructed stream / score layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> descriptor-aware professional evidence -> compact online AI handoff + full audit trace
+Audio file -> structural profile -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> musical object performance layer -> descriptor-aware professional evidence -> compact online AI handoff + full audit trace
 
 PCM WAV is read directly by the core analyzer. Other common local audio formats
 are decoded to temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -44,6 +44,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context-note", action="append", default=[])
     parser.add_argument("--aesthetic-context", action="append", default=[])
     parser.add_argument("--external-context", action="append", default=[])
+    parser.add_argument(
+        "--midi-adapter",
+        action="append",
+        default=[],
+        help="Optional JSON packet from Basic Pitch / MT3 / Omnizart / user MIDI adapter.",
+    )
     parser.add_argument("--max-prompt-segments", type=int, default=None)
     parser.add_argument("--ffmpeg-bin", default="ffmpeg")
     parser.add_argument("--keep-decoded-wav", action="store_true")
@@ -77,6 +83,7 @@ def run_experience(repo_root: Path, args: argparse.Namespace) -> None:
     append_many(command, "--context-note", args.context_note)
     append_many(command, "--aesthetic-context", args.aesthetic_context)
     append_many(command, "--external-context", args.external_context)
+    append_many(command, "--midi-adapter", args.midi_adapter)
     append_optional(command, "--max-prompt-segments", args.max_prompt_segments)
     append_optional(command, "--ffmpeg-bin", args.ffmpeg_bin)
     if args.keep_decoded_wav:
