@@ -37,9 +37,9 @@ def main() -> None:
         data["external_strong_recognition_status"] = short_status(layer)
         write_json(br, data)
     if compact.exists():
-        compact.write_text(insert_before(compact.read_text(encoding="utf-8-sig"), compact_block(layer), "## 6. Musical object performance"), encoding="utf-8")
+        compact.write_text(update_compact(compact.read_text(encoding="utf-8-sig"), compact_block(layer)), encoding="utf-8")
     if trace.exists():
-        trace.write_text(insert_before(trace.read_text(encoding="utf-8-sig"), trace_block(layer), "## Full-trace C."), encoding="utf-8")
+        trace.write_text(update_trace(trace.read_text(encoding="utf-8-sig"), trace_block(layer)), encoding="utf-8")
     print(f"Updated {ev}")
     print(f"Updated {br}")
     print(f"Updated {compact}")
@@ -61,7 +61,7 @@ def compact_block(layer: dict[str, Any]) -> str:
     gate = as_dict(layer.get("performance_gate"))
     fams = list_dicts(layer.get("recognized_families"))
     lines = [
-        "## 5.8 Family gate",
+        "## 2.8 Family gate post-pass",
         "",
         f"- Status: {layer.get('status') or 'not_attached'}",
         f"- Adapter packets: {layer.get('adapter_packet_count') or 0}",
@@ -94,6 +94,18 @@ def trace_block(layer: dict[str, Any]) -> str:
     for item in fams:
         lines.append(f"| {item.get('family')} | {item.get('group')} | {item.get('evidence_tier')} | {item.get('best_confidence')} |")
     return "\n".join(lines).rstrip() + "\n"
+
+
+def update_compact(text: str, section: str) -> str:
+    if "## 2. Source-family permission table" in text:
+        return text
+    return insert_before(text, section, "## 4. Instrument / vocal / FX performance cards")
+
+
+def update_trace(text: str, section: str) -> str:
+    if "## Full-trace B3. External Strong Recognition Layer" in text or "## Full-trace B3. Family Gate" in text:
+        return text
+    return insert_before(text, section, "## Full-trace C.")
 
 
 def insert_before(text: str, section: str, marker: str) -> str:
