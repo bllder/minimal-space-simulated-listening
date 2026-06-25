@@ -6,6 +6,12 @@ summarization. It builds bounded object-family candidates from segment-level
 time, timbre, spectral, harmonic/percussive, source-hypothesis, and optional
 external-adapter evidence, then attaches receiver-side OME mapping support
 when available.
+
+The output is intentionally organized as continuous object cards, not as loose
+feature tables. The card order is:
+
+object-family hypothesis -> formation chain -> temporal / timbre continuity ->
+OME spatial projection -> allowed listening language -> truth boundary.
 """
 
 from __future__ import annotations
@@ -23,7 +29,9 @@ ACTIVE_THRESHOLD = 0.38
 
 
 CANDIDATE_FAMILIES: dict[str, dict[str, Any]] = {
+    # Functional listening-object families.
     "voice_like_foreground_line": {
+        "group": "functional_object_family",
         "primary_object_id": "object_04_vocal_contour_candidate",
         "cn_name": "人声样 / 主线前景对象候选",
         "role": "voice-like or lead-line foreground candidate formed from midrange harmonic contour evidence",
@@ -32,44 +40,152 @@ CANDIDATE_FAMILIES: dict[str, dict[str, Any]] = {
         "forbidden_language": ["confirmed vocal stem", "singer identity", "lyric truth"],
     },
     "low_body_layer": {
+        "group": "functional_object_family",
         "primary_object_id": "object_02_low_end_body",
         "cn_name": "低频身体对象候选",
         "role": "low-frequency body candidate for grounding, pressure, and bottom continuity",
-        "source_terms": ["bass", "low"],
+        "source_terms": ["bass", "low", "sub"],
         "allowed_language": ["bass-like low body", "low-frequency body support", "low-body stream"],
         "forbidden_language": ["confirmed bass stem", "original bass track"],
     },
     "rhythmic_pulse_layer": {
+        "group": "functional_object_family",
         "primary_object_id": "object_01_near_rhythmic_pulse",
         "cn_name": "节奏 / 瞬态脉冲对象候选",
         "role": "rhythmic or percussive pulse candidate formed from onset and transient support",
-        "source_terms": ["drum", "percussive", "pulse", "rhythm"],
+        "source_terms": ["drum", "percussive", "pulse", "rhythm", "kick", "snare", "hat"],
         "allowed_language": ["percussive pulse candidate", "rhythmic transient stream", "pulse layer"],
         "forbidden_language": ["confirmed drum stem", "original drum track"],
     },
     "harmonic_bed_layer": {
+        "group": "functional_object_family",
         "primary_object_id": "object_03_harmonic_layer",
         "cn_name": "和声铺底对象候选",
         "role": "sustained harmonic-bed candidate for chordal mass, backing field, and support continuity",
-        "source_terms": ["harmonic", "pad", "synth", "piano", "guitar"],
+        "source_terms": ["harmonic", "pad", "synth", "piano", "guitar", "string"],
         "allowed_language": ["harmonic bed candidate", "sustained backing layer", "chordal support flow"],
         "forbidden_language": ["confirmed accompaniment stem", "confirmed instrument stem"],
     },
     "diffuse_texture_layer": {
+        "group": "functional_object_family",
         "primary_object_id": "object_05_noise_or_texture_mass",
         "cn_name": "扩散纹理 / 尾流对象候选",
         "role": "diffuse texture candidate for haze, air, noise mass, masking edge, and tail support",
-        "source_terms": ["noise", "texture", "reverb", "air", "haze"],
+        "source_terms": ["noise", "texture", "reverb", "air", "haze", "fx"],
         "allowed_language": ["diffuse texture candidate", "reverb-air or haze-like tail", "noise-texture field"],
         "forbidden_language": ["confirmed effects stem", "true room reverb"],
     },
-    "guitar_like_melodic_layer": {
+
+    # Instrument-like timbre families. These are not source-truth labels.
+    "guitar_like_plucked_melodic_layer": {
+        "group": "instrument_like_timbre_family",
         "primary_object_id": None,
-        "cn_name": "吉他样旋律层对象候选",
-        "role": "guitar-like melodic-layer candidate requiring harmonic/plucked/timbre support plus melodic continuity; weak unless external evidence exists",
-        "source_terms": ["guitar", "plucked"],
-        "allowed_language": ["guitar-like melodic layer", "guitar-layer candidate", "plucked / harmonic foreground flow"],
+        "cn_name": "吉他样 / 拨弦旋律层对象候选",
+        "role": "guitar-like plucked melodic-layer candidate requiring harmonic articulation, contour support, and timbre continuity",
+        "source_terms": ["guitar", "plucked", "strum", "picked"],
+        "allowed_language": ["guitar-like melodic layer", "plucked harmonic flow", "guitar-layer candidate"],
         "forbidden_language": ["confirmed guitar stem", "original guitar track", "the guitarist plays"],
+    },
+    "piano_like_percussive_harmonic_layer": {
+        "group": "instrument_like_timbre_family",
+        "primary_object_id": None,
+        "cn_name": "钢琴样 / 敲击谐波层对象候选",
+        "role": "piano-like percussive-harmonic candidate with clear attacks plus stable harmonic body",
+        "source_terms": ["piano", "keys", "keyboard"],
+        "allowed_language": ["piano-like harmonic layer", "key-struck harmonic flow", "piano-layer candidate"],
+        "forbidden_language": ["confirmed piano stem", "original piano track", "the pianist plays"],
+    },
+    "bass_like_low_body_layer": {
+        "group": "instrument_like_timbre_family",
+        "primary_object_id": "object_02_low_end_body",
+        "cn_name": "贝斯样 / 低频身体层对象候选",
+        "role": "bass-like low-body candidate with low-band continuity and pressure support",
+        "source_terms": ["bass", "sub", "low end", "low-end"],
+        "allowed_language": ["bass-like low-body layer", "low-end melodic/body flow", "bass-layer candidate"],
+        "forbidden_language": ["confirmed bass stem", "original bass track", "the bassist plays"],
+    },
+    "drum_like_transient_pulse_layer": {
+        "group": "instrument_like_timbre_family",
+        "primary_object_id": "object_01_near_rhythmic_pulse",
+        "cn_name": "鼓组样 / 瞬态脉冲层对象候选",
+        "role": "drum-like transient-pulse candidate with onset density and percussive articulation",
+        "source_terms": ["drum", "kick", "snare", "hat", "cymbal", "percussion"],
+        "allowed_language": ["drum-like pulse layer", "percussive drum-family candidate", "transient rhythm flow"],
+        "forbidden_language": ["confirmed drum stem", "original drum kit track", "the drummer plays"],
+    },
+    "synth_pad_like_sustained_harmonic_bed": {
+        "group": "instrument_like_timbre_family",
+        "primary_object_id": "object_03_harmonic_layer",
+        "cn_name": "合成器 / pad 样持续和声床对象候选",
+        "role": "synth-pad-like sustained harmonic bed candidate with broad or diffuse support",
+        "source_terms": ["synth", "pad", "keyboard", "ambient"],
+        "allowed_language": ["synth-pad-like harmonic bed", "sustained electronic pad flow", "pad-layer candidate"],
+        "forbidden_language": ["confirmed synth stem", "original pad track", "specific synthesizer model"],
+    },
+    "string_like_sustained_harmonic_layer": {
+        "group": "instrument_like_timbre_family",
+        "primary_object_id": "object_03_harmonic_layer",
+        "cn_name": "弦乐样 / 持续谐波层对象候选",
+        "role": "string-like sustained harmonic candidate with smooth continuity and mid/high harmonic body",
+        "source_terms": ["string", "violin", "cello", "bowed", "orchestral"],
+        "allowed_language": ["string-like sustained layer", "bowed-harmonic flow", "string-family candidate"],
+        "forbidden_language": ["confirmed string stem", "confirmed violin/cello track", "the strings play"],
+    },
+    "brass_wind_like_sustained_lead_layer": {
+        "group": "instrument_like_timbre_family",
+        "primary_object_id": None,
+        "cn_name": "管乐 / 铜管样持续主线对象候选",
+        "role": "wind- or brass-like sustained lead candidate with stable harmonic contour and breath/pressure-like body",
+        "source_terms": ["brass", "horn", "sax", "trumpet", "wind", "flute"],
+        "allowed_language": ["wind/brass-like sustained lead", "horn-like melodic flow", "wind-family candidate"],
+        "forbidden_language": ["confirmed saxophone stem", "confirmed trumpet track", "the horn section plays"],
+    },
+    "electronic_lead_like_melodic_layer": {
+        "group": "instrument_like_timbre_family",
+        "primary_object_id": None,
+        "cn_name": "电子 lead 样旋律对象候选",
+        "role": "electronic-lead-like melodic candidate with stable contour, bright centroid, and synthetic harmonic support",
+        "source_terms": ["lead", "synth lead", "electronic", "arp", "arpeggio"],
+        "allowed_language": ["electronic lead-like melodic layer", "synth-lead candidate", "arpeggiated electronic flow"],
+        "forbidden_language": ["confirmed synth lead stem", "specific synth patch", "original lead track"],
+    },
+
+    # Effect-like object families.
+    "reverb_tail_like_diffuse_field": {
+        "group": "effect_like_texture_family",
+        "primary_object_id": "object_05_noise_or_texture_mass",
+        "cn_name": "混响尾流样扩散场对象候选",
+        "role": "reverb-tail-like diffuse field candidate for sustained decay, air, and object-tail attachment",
+        "source_terms": ["reverb", "tail", "decay", "room", "ambient"],
+        "allowed_language": ["reverb-tail-like diffuse field", "diffuse decay tail", "tail field candidate"],
+        "forbidden_language": ["true room geometry", "confirmed reverb bus", "exact plugin/effect chain"],
+    },
+    "noise_riser_like_effect_flow": {
+        "group": "effect_like_texture_family",
+        "primary_object_id": "object_05_noise_or_texture_mass",
+        "cn_name": "噪声上升 / sweep 音效流对象候选",
+        "role": "noise-riser or sweep-like effect candidate with high-frequency texture, motion, and transitional energy",
+        "source_terms": ["riser", "sweep", "noise", "whoosh", "fx", "transition"],
+        "allowed_language": ["noise-riser-like effect flow", "sweep-like transition texture", "whoosh/air-flow candidate"],
+        "forbidden_language": ["confirmed FX stem", "specific sample pack", "exact effect source"],
+    },
+    "impact_fx_like_transient_burst": {
+        "group": "effect_like_texture_family",
+        "primary_object_id": "object_01_near_rhythmic_pulse",
+        "cn_name": "冲击音效 / 爆发瞬态对象候选",
+        "role": "impact-FX-like transient burst candidate with concentrated onset and pressure support",
+        "source_terms": ["impact", "hit", "boom", "slam", "fx", "burst"],
+        "allowed_language": ["impact-FX-like transient burst", "hit-like pressure burst", "cinematic impact candidate"],
+        "forbidden_language": ["confirmed impact sample", "specific FX source", "exact sample name"],
+    },
+    "glitch_grain_like_texture_layer": {
+        "group": "effect_like_texture_family",
+        "primary_object_id": "object_05_noise_or_texture_mass",
+        "cn_name": "glitch / 颗粒纹理对象候选",
+        "role": "glitch- or grain-like texture candidate with fragmented onset/texture evidence",
+        "source_terms": ["glitch", "grain", "granular", "click", "stutter", "texture"],
+        "allowed_language": ["glitch-grain-like texture", "fragmented texture flow", "granular effect candidate"],
+        "forbidden_language": ["confirmed glitch stem", "specific plugin", "exact sample source"],
     },
 }
 
@@ -84,7 +200,7 @@ def parse_args() -> argparse.Namespace:
         "--external-evidence",
         action="append",
         default=[],
-        help="Optional JSON evidence packet from a stem, timbre, instrument, or transcription adapter.",
+        help="Optional JSON evidence packet from a stem, timbre, instrument, effect, or transcription adapter.",
     )
     parser.add_argument("--no-write-profile", action="store_true", help="Do not write the layer back into the profile JSON.")
     return parser.parse_args()
@@ -146,25 +262,31 @@ def build_layer(profile: dict[str, Any], external_packets: list[dict[str, Any]])
     )
 
     return {
-        "version": "temporal_timbre_object_candidate_layer_v0_1",
+        "version": "temporal_timbre_object_candidate_layer_v0_2",
         "status": "computed_from_full_mix_profile_not_source_truth",
         "object_candidate_count": len(candidates),
+        "candidate_family_count": len(CANDIDATE_FAMILIES),
         "candidate_generation_rule": (
             "Object-family candidates are formed from time-frequency-timbre continuity, "
-            "segment-level source-family hypotheses, optional external evidence, and optional OME mapping support. "
-            "They are not confirmed source-separated stems or true instrument identities."
+            "segment-level source/effect-family hypotheses, optional external evidence, and optional OME mapping support. "
+            "They are not confirmed source-separated stems, true instrument identities, or exact effect-chain claims."
         ),
         "evidence_sources": {
             "profile_segments": len(segments),
             "external_adapter_packet_count": len(external_packets),
             "ome_mapping_status": ome_layer.get("status") or "not_attached",
         },
+        "candidate_family_groups": {
+            "functional_object_family": [key for key, spec in CANDIDATE_FAMILIES.items() if spec.get("group") == "functional_object_family"],
+            "instrument_like_timbre_family": [key for key, spec in CANDIDATE_FAMILIES.items() if spec.get("group") == "instrument_like_timbre_family"],
+            "effect_like_texture_family": [key for key, spec in CANDIDATE_FAMILIES.items() if spec.get("group") == "effect_like_texture_family"],
+        },
         "object_candidates": candidates,
         "next_layer_hint": {
             "behavior_layer": "Only after object candidates exist should MSSL summarize entry, flow, masking, tail attachment, support, and release behavior.",
             "ome_mapping_role": "OME maps supported object candidates into receiver-side spatial evidence; it does not generate object identity by itself.",
         },
-        "truth_boundary": "MSSL object candidates are evidence-supported listening objects, not original stems, confirmed instruments, singer identity, lyric truth, genre truth, or emotion truth.",
+        "truth_boundary": "MSSL object candidates are evidence-supported listening objects, not original stems, confirmed instruments, confirmed effects chains, singer identity, lyric truth, genre truth, or emotion truth.",
     }
 
 
@@ -202,16 +324,25 @@ def build_candidate(
     contour = contour_support_summary(active)
     source_family = source_family_summary(family_id, spec, active, external_index)
     ome_mapping = ome_mapping_summary(active, ome_layer)
-    claim_strength = claim_strength_for(family_id, support_summary, temporal, timbre, source_family)
+    claim_strength = claim_strength_for(family_id, support_summary, temporal, timbre, source_family, spec)
+    formation_chain = build_formation_chain(spec, support_summary, temporal, timbre, spectral, contour, source_family, ome_mapping)
+    continuous_sentence = build_continuous_object_sentence(family_id, spec, claim_strength, temporal, timbre, spectral, contour, ome_mapping)
 
     return {
         "object_candidate_id": f"{family_id}_01",
         "status": "auditory_object_candidate_not_source_identity",
         "object_family": family_id,
+        "object_family_group": spec.get("group"),
         "cn_name": spec.get("cn_name"),
         "role": spec.get("role"),
         "claim_strength": claim_strength,
         "support_summary": support_summary,
+        "object_continuity_card": {
+            "formation_chain": formation_chain,
+            "continuous_object_sentence": continuous_sentence,
+            "handoff_sentence": continuous_sentence,
+            "why_not_source_truth": "This is an evidence-supported listening-object candidate, not a confirmed source-separated stem, instrument identity, performer action, or exact effect chain.",
+        },
         "evidence": {
             "temporal_continuity": temporal,
             "timbre_continuity": timbre,
@@ -224,7 +355,7 @@ def build_candidate(
         "representative_segments": representative_segments(active),
         "allowed_language": spec.get("allowed_language", []),
         "forbidden_language": spec.get("forbidden_language", []),
-        "truth_boundary": "Object family is evidence-supported, not source truth, not a separated stem, and not confirmed instrument identity.",
+        "truth_boundary": "Object family is evidence-supported, not source truth, not a separated stem, not confirmed instrument identity, and not a confirmed effects chain.",
     }
 
 
@@ -242,18 +373,24 @@ def family_support(
     low = to_float(ratios.get("low_below_250hz"))
     mid = to_float(ratios.get("mid_250_4000hz"))
     high = to_float(ratios.get("high_above_4000hz"))
+    centroid = to_float(audio.get("spectral_centroid_hz"))
     harmonic = to_float(audio.get("harmonic_proxy"))
     percussive = to_float(audio.get("percussive_proxy"))
     onset = to_float(audio.get("onset_density_proxy"))
     width = to_float(audio.get("stereo_width_proxy"))
     phase = to_float(audio.get("phase_correlation"))
     pressure = to_float(e_space.get("perceived_pressure"))
+    motion = to_float(e_space.get("perceived_motion"))
+    spread = to_float(e_space.get("perceived_spread"))
     object_score = stream_score(segment, spec.get("primary_object_id"))
     melody_present = 0.0 if midi.get("melody_contour_proxy") in (None, "", "blurred_contour") else 1.0
     sustained_phrase = 1.0 if str(midi.get("phrase_shape") or "").startswith("long") else 0.0
     dense_phrase = 1.0 if "dense" in str(midi.get("phrase_shape") or "") else 0.0
+    bright = clamp(centroid / 3000.0)
     source_hint = source_hint_score(segment, spec.get("source_terms", []))
     external_hint = external_hint_score(external_index, str(family_id), spec.get("source_terms", []))
+    decorrelation = 1.0 - clamp((phase + 1.0) * 0.5)
+    noise_bias = clamp(1.0 - harmonic)
 
     if family_id == "voice_like_foreground_line":
         value = object_score * 0.52 + mid * 0.14 + harmonic * 0.18 + melody_present * 0.08 + source_hint * 0.08
@@ -264,17 +401,31 @@ def family_support(
     elif family_id == "harmonic_bed_layer":
         value = object_score * 0.50 + harmonic * 0.20 + mid * 0.10 + width * 0.10 + sustained_phrase * 0.05 + source_hint * 0.05
     elif family_id == "diffuse_texture_layer":
-        decorrelation = 1.0 - clamp((phase + 1.0) * 0.5)
-        noise_bias = 1.0 - harmonic
         value = object_score * 0.45 + high * 0.14 + width * 0.14 + decorrelation * 0.14 + noise_bias * 0.08 + source_hint * 0.05
-    elif family_id == "guitar_like_melodic_layer":
-        plucked_harmonic = harmonic * 0.34 + percussive * 0.18 + mid * 0.12 + melody_present * 0.16
-        not_low_body = 1.0 - low
-        base = plucked_harmonic + not_low_body * 0.08 + max(
-            stream_score(segment, "object_03_harmonic_layer"),
-            stream_score(segment, "object_04_vocal_contour_candidate"),
-        ) * 0.12
-        value = base * 0.82 + source_hint * 0.08 + external_hint * 0.10
+    elif family_id == "guitar_like_plucked_melodic_layer":
+        value = (harmonic * 0.28 + percussive * 0.16 + mid * 0.12 + melody_present * 0.16 + max_stream_score(segment) * 0.10 + source_hint * 0.08 + external_hint * 0.10)
+    elif family_id == "piano_like_percussive_harmonic_layer":
+        value = (harmonic * 0.24 + percussive * 0.20 + onset * 0.12 + mid * 0.12 + melody_present * 0.10 + source_hint * 0.10 + external_hint * 0.12)
+    elif family_id == "bass_like_low_body_layer":
+        value = (object_score * 0.34 + low * 0.28 + pressure * 0.14 + harmonic * 0.08 + melody_present * 0.04 + source_hint * 0.06 + external_hint * 0.06)
+    elif family_id == "drum_like_transient_pulse_layer":
+        value = (object_score * 0.36 + percussive * 0.24 + onset * 0.20 + dense_phrase * 0.06 + source_hint * 0.08 + external_hint * 0.06)
+    elif family_id == "synth_pad_like_sustained_harmonic_bed":
+        value = (object_score * 0.30 + harmonic * 0.22 + sustained_phrase * 0.16 + width * 0.12 + spread * 0.08 + source_hint * 0.06 + external_hint * 0.06)
+    elif family_id == "string_like_sustained_harmonic_layer":
+        value = (object_score * 0.24 + harmonic * 0.26 + sustained_phrase * 0.18 + mid * 0.10 + high * 0.08 + melody_present * 0.04 + source_hint * 0.05 + external_hint * 0.05)
+    elif family_id == "brass_wind_like_sustained_lead_layer":
+        value = (harmonic * 0.26 + sustained_phrase * 0.16 + mid * 0.14 + melody_present * 0.14 + pressure * 0.08 + source_hint * 0.10 + external_hint * 0.12)
+    elif family_id == "electronic_lead_like_melodic_layer":
+        value = (harmonic * 0.22 + bright * 0.16 + melody_present * 0.18 + onset * 0.08 + motion * 0.08 + source_hint * 0.12 + external_hint * 0.16)
+    elif family_id == "reverb_tail_like_diffuse_field":
+        value = (object_score * 0.28 + width * 0.20 + spread * 0.16 + decorrelation * 0.16 + sustained_phrase * 0.08 + source_hint * 0.06 + external_hint * 0.06)
+    elif family_id == "noise_riser_like_effect_flow":
+        value = (high * 0.18 + width * 0.16 + motion * 0.16 + noise_bias * 0.18 + onset * 0.08 + source_hint * 0.12 + external_hint * 0.12)
+    elif family_id == "impact_fx_like_transient_burst":
+        value = (percussive * 0.24 + onset * 0.22 + pressure * 0.18 + low * 0.08 + source_hint * 0.14 + external_hint * 0.14)
+    elif family_id == "glitch_grain_like_texture_layer":
+        value = (percussive * 0.16 + onset * 0.16 + high * 0.14 + noise_bias * 0.18 + decorrelation * 0.14 + source_hint * 0.12 + external_hint * 0.10)
     else:
         value = object_score
 
@@ -291,8 +442,13 @@ def should_keep_candidate(candidate: dict[str, Any]) -> bool:
 
 
 def active_threshold_for(family_id: str) -> float:
-    if family_id == "guitar_like_melodic_layer":
-        return 0.42
+    if "instrument_like" in family_id or family_id.endswith("_layer"):
+        return 0.42 if family_id in {
+            "guitar_like_plucked_melodic_layer",
+            "piano_like_percussive_harmonic_layer",
+            "brass_wind_like_sustained_lead_layer",
+            "electronic_lead_like_melodic_layer",
+        } else ACTIVE_THRESHOLD
     return ACTIVE_THRESHOLD
 
 
@@ -301,6 +457,16 @@ def stream_score(segment: dict[str, Any], object_id: object) -> float:
         return 0.0
     scores = as_dict(as_dict(segment.get("object_candidates")).get("scores"))
     return to_float(scores.get(str(object_id)))
+
+
+def max_stream_score(segment: dict[str, Any]) -> float:
+    return max(
+        stream_score(segment, "object_01_near_rhythmic_pulse"),
+        stream_score(segment, "object_02_low_end_body"),
+        stream_score(segment, "object_03_harmonic_layer"),
+        stream_score(segment, "object_04_vocal_contour_candidate"),
+        stream_score(segment, "object_05_noise_or_texture_mass"),
+    )
 
 
 def source_hypotheses(segment: dict[str, Any]) -> list[dict[str, Any]]:
@@ -324,27 +490,19 @@ def index_external_packets(packets: list[dict[str, Any]]) -> dict[str, Any]:
     text_chunks: list[str] = []
     for packet in packets:
         text_chunks.append(json.dumps(packet, ensure_ascii=False).lower())
-    return {
-        "packet_count": len(packets),
-        "text": "\n".join(text_chunks),
-    }
+    return {"packet_count": len(packets), "text": "\n".join(text_chunks)}
 
 
 def external_hint_score(external_index: dict[str, Any], family_id: str, terms: list[str]) -> float:
     text = str(external_index.get("text") or "")
     if not text:
         return 0.0
-    keys = [family_id.replace("_", " ")] + terms
+    keys = [family_id.replace("_", " "), family_id.replace("_", "-")] + terms
     hits = sum(1 for key in keys if key and key.lower() in text)
     return clamp(hits / max(1, len(keys)))
 
 
-def source_family_summary(
-    family_id: str,
-    spec: dict[str, Any],
-    active: list[dict[str, Any]],
-    external_index: dict[str, Any],
-) -> dict[str, Any]:
+def source_family_summary(family_id: str, spec: dict[str, Any], active: list[dict[str, Any]], external_index: dict[str, Any]) -> dict[str, Any]:
     terms = spec.get("source_terms", [])
     matched_sources: Counter[str] = Counter()
     for item in active:
@@ -358,7 +516,7 @@ def source_family_summary(
         "full_mix_source_hint_counts": dict(matched_sources),
         "external_adapter_support": scalar_band(external_score),
         "external_adapter_packet_count": int(external_index.get("packet_count") or 0),
-        "boundary": "Source-family support is a bounded hint. It must not be promoted to instrument or stem truth.",
+        "boundary": "Source/effect-family support is a bounded hint. It must not be promoted to instrument, stem, sample, or effects-chain truth.",
     }
 
 
@@ -368,13 +526,11 @@ def support_summary_for(segment_values: list[dict[str, Any]], active: list[dict[
     if not supports:
         return {"mean_support": 0.0, "max_support": 0.0, "active_coverage": 0.0, "support_band": "reduced"}
     mean_support = sum(supports) / len(supports)
-    max_support = max(supports)
-    active_coverage = len(active) / len(supports)
     return {
         "mean_support": round_float(mean_support),
         "active_mean_support": round_float(sum(active_supports) / len(active_supports)) if active_supports else 0.0,
-        "max_support": round_float(max_support),
-        "active_coverage": round_float(active_coverage),
+        "max_support": round_float(max(supports)),
+        "active_coverage": round_float(len(active) / len(supports)),
         "support_band": scalar_band(mean_support),
     }
 
@@ -409,10 +565,9 @@ def timbre_continuity_summary(active: list[dict[str, Any]]) -> dict[str, Any]:
     variations = []
     for key in keys:
         values = [to_float(snapshot.get(key)) for snapshot in snapshots]
-        if not values:
-            continue
-        scale = 5000.0 if key == "spectral_centroid_hz" else 1.0
-        variations.append((max(values) - min(values)) / scale)
+        if values:
+            scale = 5000.0 if key == "spectral_centroid_hz" else 1.0
+            variations.append((max(values) - min(values)) / scale)
     variation = sum(variations) / max(1, len(variations))
     if variation <= 0.08:
         state = "stable_timbre_fingerprint"
@@ -445,6 +600,8 @@ def spectral_profile_summary(active: list[dict[str, Any]]) -> dict[str, Any]:
         hp_state = "sustained_harmonic_bias"
     elif percussive >= 0.52:
         hp_state = "percussive_transient_bias"
+    elif high >= 0.35 and harmonic < 0.55:
+        hp_state = "noisy_or_air_texture_bias"
     else:
         hp_state = "mixed_or_texture_bias"
     return {
@@ -491,6 +648,7 @@ def claim_strength_for(
     temporal: dict[str, Any],
     timbre: dict[str, Any],
     source_family: dict[str, Any],
+    spec: dict[str, Any],
 ) -> str:
     mean_support = to_float(support.get("active_mean_support") or support.get("mean_support"))
     coverage = to_float(support.get("active_coverage"))
@@ -504,14 +662,82 @@ def claim_strength_for(
         score += 0.05
     if external or source_hints:
         score += 0.05
-    if family_id == "guitar_like_melodic_layer" and not external:
-        score -= 0.10
+    if spec.get("group") in ("instrument_like_timbre_family", "effect_like_texture_family") and not external and not source_hints:
+        score -= 0.08
 
     if score >= 0.68:
         return "strong"
     if score >= 0.46:
         return "medium"
     return "weak"
+
+
+def build_formation_chain(
+    spec: dict[str, Any],
+    support: dict[str, Any],
+    temporal: dict[str, Any],
+    timbre: dict[str, Any],
+    spectral: dict[str, Any],
+    contour: dict[str, Any],
+    source_family: dict[str, Any],
+    ome: dict[str, Any],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "step": "object_family_hypothesis",
+            "value": spec.get("cn_name"),
+            "meaning": f"{spec.get('role')} Claim support is {support.get('support_band')} with max support {support.get('max_support')}.",
+        },
+        {
+            "step": "timbre_and_spectral_support",
+            "value": f"{timbre.get('state')} / {spectral.get('harmonic_percussive_state')}",
+            "meaning": f"Dominant band is {spectral.get('dominant_band')}; timbre variation is {timbre.get('variation_score')}.",
+        },
+        {
+            "step": "temporal_continuity_support",
+            "value": temporal.get("state"),
+            "meaning": f"Active ranges: {', '.join(temporal.get('active_index_ranges') or []) or 'none'}; longest run: {temporal.get('longest_consecutive_active_run')}.",
+        },
+        {
+            "step": "contour_or_phrase_support",
+            "value": contour.get("dominant_melody_contour_proxy") or contour.get("dominant_phrase_shape"),
+            "meaning": "MIDI-like contour / phrase evidence supports whether this is a melodic flow, sustained bed, pulse, or texture. It is not note-level transcription.",
+        },
+        {
+            "step": "source_or_effect_family_boundary",
+            "value": source_family.get("full_mix_source_hint_counts") or source_family.get("external_adapter_support"),
+            "meaning": "Source/effect-family evidence is a bounded hint and must not be promoted to source truth.",
+        },
+        {
+            "step": "ome_spatial_projection",
+            "value": ome.get("summary") or ome.get("status"),
+            "meaning": "OME maps this already-supported object candidate into receiver-side spatial evidence; it does not generate object identity.",
+        },
+    ]
+
+
+def build_continuous_object_sentence(
+    family_id: str,
+    spec: dict[str, Any],
+    claim_strength: str,
+    temporal: dict[str, Any],
+    timbre: dict[str, Any],
+    spectral: dict[str, Any],
+    contour: dict[str, Any],
+    ome: dict[str, Any],
+) -> str:
+    allowed = spec.get("allowed_language") or [family_id]
+    name = allowed[0]
+    spectral_phrase = f"{spectral.get('dominant_band')} band, {spectral.get('harmonic_percussive_state')}"
+    contour_value = contour.get("dominant_melody_contour_proxy") or contour.get("dominant_phrase_shape") or "no stable contour proxy"
+    return (
+        f"A {name} is supported as a {claim_strength} listening-object candidate: "
+        f"its timbre/spectral evidence is {timbre.get('state')} with {spectral_phrase}; "
+        f"its temporal evidence is {temporal.get('state')} with longest active run {temporal.get('longest_consecutive_active_run')}; "
+        f"its contour/phrase support is {contour_value}; "
+        f"mapped into the receiver-side OME field, it appears as {ome.get('summary') or ome.get('status')}. "
+        "This sentence may be used as bounded listening language, not as a confirmed stem, instrument identity, performer action, or effect-chain claim."
+    )
 
 
 def weighted_e_space(active: list[dict[str, Any]]) -> dict[str, float]:
@@ -548,11 +774,7 @@ def feature_snapshot(segment: dict[str, Any]) -> dict[str, Any]:
 
 def active_time_ranges(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
-        {
-            "time_range": item.get("time_range"),
-            "support": item.get("support"),
-            "support_band": item.get("support_band"),
-        }
+        {"time_range": item.get("time_range"), "support": item.get("support"), "support_band": item.get("support_band")}
         for item in active[:12]
     ]
 
@@ -585,17 +807,23 @@ def render_markdown(profile: dict[str, Any], layer: dict[str, Any]) -> str:
         "",
         f"Status: {layer.get('status')}",
         "",
-        "Boundary: This layer builds auditory object-family candidates from time-frequency-timbre evidence. It does not confirm original stems, instruments, singers, lyrics, genre, or emotion.",
+        "Boundary: This layer builds auditory object-family candidates from time-frequency-timbre evidence. It does not confirm original stems, instruments, effects chains, singers, lyrics, genre, or emotion.",
         "",
         "## Core rule",
         "",
         "Object candidates come before behavior summaries. OME maps supported objects into receiver-side space; it does not generate object identity by itself.",
         "",
-        "## Object candidates",
+        "## Candidate family groups",
         "",
     ]
+    groups = as_dict(layer.get("candidate_family_groups"))
+    for group, ids in groups.items():
+        lines.append(f"- {group}: {', '.join(list_strings(ids))}")
+    lines.extend(["", "## Object candidates", ""])
+
     for candidate in list_dicts(layer.get("object_candidates")):
         support = as_dict(candidate.get("support_summary"))
+        card = as_dict(candidate.get("object_continuity_card"))
         evidence = as_dict(candidate.get("evidence"))
         temporal = as_dict(evidence.get("temporal_continuity"))
         timbre = as_dict(evidence.get("timbre_continuity"))
@@ -606,15 +834,21 @@ def render_markdown(profile: dict[str, Any], layer: dict[str, Any]) -> str:
         lines.extend([
             f"### {candidate.get('object_candidate_id')} / {candidate.get('cn_name')}",
             "",
+            f"- Group: `{candidate.get('object_family_group')}`",
             f"- Object family: `{candidate.get('object_family')}`",
             f"- Claim strength: {candidate.get('claim_strength')}",
-            f"- Role: {candidate.get('role')}",
             f"- Support: {support.get('support_band')} | active mean {support.get('active_mean_support')} | max {support.get('max_support')} | coverage {support.get('active_coverage')}",
+            f"- Continuity sentence: {card.get('continuous_object_sentence')}",
+            "- Formation chain:",
+        ])
+        for step in list_dicts(card.get("formation_chain")):
+            lines.append(f"  - {step.get('step')}: {step.get('value')} — {step.get('meaning')}")
+        lines.extend([
             f"- Temporal continuity: {temporal.get('state')} | longest run {temporal.get('longest_consecutive_active_run')} | ranges {', '.join(temporal.get('active_index_ranges') or []) or '—'}",
             f"- Timbre continuity: {timbre.get('state')} | variation {timbre.get('variation_score')}",
             f"- Spectral profile: {spectral.get('dominant_band')} | {spectral.get('harmonic_percussive_state')}",
             f"- Contour support: {contour.get('dominant_melody_contour_proxy')} | phrase {contour.get('dominant_phrase_shape')}",
-            f"- Source-family hints: {source.get('full_mix_source_hint_counts') or {}} | external {source.get('external_adapter_support')}",
+            f"- Source/effect-family hints: {source.get('full_mix_source_hint_counts') or {}} | external {source.get('external_adapter_support')}",
             f"- OME mapping: {ome.get('summary') or ome.get('status')}",
             f"- Allowed language: {', '.join(candidate.get('allowed_language') or [])}",
             f"- Forbidden language: {', '.join(candidate.get('forbidden_language') or [])}",
@@ -757,6 +991,12 @@ def list_dicts(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def list_strings(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if item not in (None, "")]
 
 
 def to_float(value: Any) -> float:
