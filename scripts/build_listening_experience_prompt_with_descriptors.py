@@ -67,8 +67,10 @@ def main() -> None:
     ome_stream_descriptor_packets = build_ome_packets(descriptor_proxy_layer)
     reconstructed_stream_layer = as_dict(profile.get("reconstructed_stream_layer"))
     reconstructed_score_layer = as_dict(profile.get("reconstructed_score_layer"))
+    symbolic_timeline_midi_layer = as_dict(profile.get("symbolic_timeline_midi_layer"))
     ome_spatial_filter_bank_layer = as_dict(profile.get("ome_spatial_filter_bank_layer"))
     temporal_timbre_object_candidate_layer = as_dict(profile.get("temporal_timbre_object_candidate_layer"))
+    musical_object_performance_layer = as_dict(profile.get("musical_object_performance_layer"))
 
     proxy_json_path.write_text(json.dumps(descriptor_proxy_layer, ensure_ascii=False, indent=2), encoding="utf-8")
     proxy_md_path.write_text(render_layer_md(descriptor_proxy_layer), encoding="utf-8")
@@ -80,13 +82,15 @@ def main() -> None:
     evidence_pack["ome_stream_descriptor_packets"] = ome_stream_descriptor_packets
     evidence_pack["ome_spatial_filter_bank_layer"] = ome_spatial_filter_bank_layer
     evidence_pack["temporal_timbre_object_candidate_layer"] = temporal_timbre_object_candidate_layer
+    evidence_pack["symbolic_timeline_midi_layer"] = symbolic_timeline_midi_layer
+    evidence_pack["musical_object_performance_layer"] = musical_object_performance_layer
     evidence_pack["reconstructed_stream_layer"] = reconstructed_stream_layer
     evidence_pack["reconstructed_score_layer"] = reconstructed_score_layer
     evidence_pack["handoff_output_policy"] = {
         "default_handoff": args.handoff_name,
         "default_handoff_role": "compact online-AI input",
         "full_trace_handoff": FULL_TRACE_HANDOFF_NAME,
-        "full_trace_role": "audit trace with full JSON, descriptor tables, reconstructed stream / score sections, OME runtime layer, temporal-timbre object candidates, and OME packet details",
+        "full_trace_role": "audit trace with full JSON, descriptor tables, symbolic MIDI layer, musical object performance layer, reconstructed stream / score sections, OME runtime layer, temporal-timbre object candidates, and OME packet details",
     }
 
     critical_brief = attach_descriptor_contract_to_critical_brief(critical_brief)
@@ -95,6 +99,11 @@ def main() -> None:
         "status": ome_stream_descriptor_packets.get("status"),
         "boundary": ome_stream_descriptor_packets.get("boundary"),
         "stream_count": len(ome_stream_descriptor_packets.get("stream_packets") or []),
+    }
+    critical_brief["symbolic_timeline_midi_status"] = {
+        "status": symbolic_timeline_midi_layer.get("status"),
+        "event_streams": sorted(as_dict(symbolic_timeline_midi_layer.get("event_streams")).keys()),
+        "boundary": symbolic_timeline_midi_layer.get("truth_boundary"),
     }
     critical_brief["ome_spatial_filter_bank_status"] = {
         "status": ome_spatial_filter_bank_layer.get("status"),
@@ -108,6 +117,11 @@ def main() -> None:
         "boundary": temporal_timbre_object_candidate_layer.get("truth_boundary"),
         "rule": temporal_timbre_object_candidate_layer.get("candidate_generation_rule"),
     }
+    critical_brief["musical_object_performance_status"] = {
+        "status": musical_object_performance_layer.get("status"),
+        "performance_card_count": musical_object_performance_layer.get("performance_card_count"),
+        "boundary": musical_object_performance_layer.get("truth_boundary"),
+    }
     critical_brief["reconstructed_stream_score_status"] = {
         "stream_layer_status": reconstructed_stream_layer.get("status"),
         "stream_count": len(reconstructed_stream_layer.get("streams") or []),
@@ -120,8 +134,10 @@ def main() -> None:
     prompt_protocol = base.read_text_optional(args.translation_prompt)
     descriptor_section = render_descriptor_validation_section()
     reconstructed_section = reconstructed_handoff.render_section(profile)
+    symbolic_midi_section = render_symbolic_timeline_midi_section(symbolic_timeline_midi_layer)
     ome_runtime_section = render_ome_runtime_section(ome_spatial_filter_bank_layer)
     object_candidate_section = render_temporal_timbre_object_candidate_section(temporal_timbre_object_candidate_layer)
+    performance_section = render_musical_object_performance_section(musical_object_performance_layer)
     digest_section = review_digest.render_digest(profile)
     proxy_section = render_layer_md(descriptor_proxy_layer)
     ome_packet_section = render_packets_md(ome_stream_descriptor_packets)
@@ -139,9 +155,13 @@ def main() -> None:
         + "\n\n"
         + reconstructed_section
         + "\n\n"
+        + symbolic_midi_section
+        + "\n\n"
         + ome_runtime_section
         + "\n\n"
         + object_candidate_section
+        + "\n\n"
+        + performance_section
         + "\n\n"
         + digest_section
         + "\n\n"
@@ -161,13 +181,17 @@ def main() -> None:
         full_trace_filename=FULL_TRACE_HANDOFF_NAME,
         reconstructed_stream_layer=reconstructed_stream_layer,
         reconstructed_score_layer=reconstructed_score_layer,
+        symbolic_timeline_midi_layer=symbolic_timeline_midi_layer,
         ome_spatial_filter_bank_layer=ome_spatial_filter_bank_layer,
+        musical_object_performance_layer=musical_object_performance_layer,
     )
     handoff_path.write_text(compact_handoff, encoding="utf-8")
 
     print(f"Attached P0 subjective descriptor validation tables to {evidence_path}")
     print(f"Attached P0 subjective descriptor validation tables to {brief_path}")
     print(f"Attached P0 subjective descriptor validation tables to {prompt_path}")
+    print(f"Attached symbolic timeline MIDI layer to {evidence_path}")
+    print(f"Attached musical object performance layer to {evidence_path}")
     print(f"Attached OME Spatial Filter Bank status to {evidence_path}")
     print(f"Attached temporal-timbre object candidate layer to {evidence_path}")
     print(f"Wrote compact handoff to {handoff_path}")
@@ -176,6 +200,36 @@ def main() -> None:
     print(f"Wrote {proxy_md_path}")
     print(f"Wrote {ome_packet_json_path}")
     print(f"Wrote {ome_packet_md_path}")
+
+
+def render_symbolic_timeline_midi_section(layer: dict[str, Any]) -> str:
+    lines = [
+        "## Full-trace B2. Symbolic Timeline MIDI Layer / 符号时间轴 MIDI 层",
+        "",
+    ]
+    if not layer:
+        lines.extend(["Status: not attached.", "", "Boundary: no symbolic timeline MIDI layer was found in the profile."])
+        return "\n".join(lines).rstrip() + "\n"
+    summary = as_dict(layer.get("whole_track_symbolic_summary"))
+    tempo = as_dict(layer.get("tempo_grid"))
+    lines.extend([
+        f"Status: {layer.get('status')}",
+        "",
+        f"Boundary: {layer.get('truth_boundary')}",
+        "",
+        f"Estimated BPM: {tempo.get('estimated_bpm')} / confidence {tempo.get('tempo_confidence')}",
+        f"Timeline reading: {summary.get('timeline_reading')}",
+        "",
+        "| Stream | Event count | Dominant event | Dominant density |",
+        "|---|---:|---|---|",
+    ])
+    streams = as_dict(layer.get("event_streams"))
+    for stream_id, events in streams.items():
+        events_list = list_dicts(events)
+        dominant_event = dominant([str(event.get("event_type") or "") for event in events_list])
+        dominant_density = dominant([str(event.get("density") or "") for event in events_list])
+        lines.append(f"| {stream_id} | {len(events_list)} | {dominant_event or '—'} | {dominant_density or '—'} |")
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def render_ome_runtime_section(layer: dict[str, Any]) -> str:
@@ -252,9 +306,55 @@ def render_temporal_timbre_object_candidate_section(layer: dict[str, Any]) -> st
         )
     lines.extend([
         "",
-        "Use rule: object candidates come before behavior summaries. Do not turn spatial bins, MIR tags, or external stems into source truth.",
+        "Use rule: object candidates come before musical performance summaries. Do not turn spatial bins, MIR tags, or external stems into source truth.",
     ])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_musical_object_performance_section(layer: dict[str, Any]) -> str:
+    lines = [
+        "## Full-trace E. Musical Object Performance Layer / 器乐与人声表现层",
+        "",
+    ]
+    if not layer:
+        lines.extend(["Status: not attached.", "", "Boundary: no musical object performance layer was found in the profile."])
+        return "\n".join(lines).rstrip() + "\n"
+    lines.extend([
+        f"Status: {layer.get('status')}",
+        "",
+        f"Boundary: {layer.get('truth_boundary')}",
+        "",
+        "| Object | Role | Event support | Performance modes | Human sentence |",
+        "|---|---|---|---|---|",
+    ])
+    for card in list_dicts(layer.get("performance_cards"))[:12]:
+        event_support = as_dict(card.get("symbolic_event_support"))
+        modes = ", ".join(str(mode.get("mode")) for mode in list_dicts(card.get("performance_modes"))[:4]) or "—"
+        sentence = compact_text(card.get("human_sentence"), 220)
+        lines.append(
+            f"| {card.get('display_name')} | {card.get('performance_role')} | "
+            f"{event_support.get('event_count')} / {event_support.get('dominant_event_type')} | {modes} | {sentence} |"
+        )
+    lines.append("")
+    lines.append("Use rule: this layer is for vocal / instrumental / effect performance expression. It is not a machine-behavior debug layer and not source truth.")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def compact_text(value: object, limit: int) -> str:
+    text = str(value or "—").replace("|", "/")
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
+
+
+def dominant(values: list[str]) -> str | None:
+    values = [value for value in values if value and value != "None"]
+    if not values:
+        return None
+    counts: dict[str, int] = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    return sorted(counts.items(), key=lambda item: item[1], reverse=True)[0][0]
 
 
 def as_dict(value: object) -> dict:
