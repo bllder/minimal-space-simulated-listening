@@ -16,13 +16,14 @@ local PCM WAV
 -> structural audio evidence
 -> reconstructed stream / score layer
 -> OME Spatial Filter Bank runtime layer
+-> temporal-timbre object candidate layer
 -> listening-experience evidence pack
 -> descriptor-gated OME packet staging
 -> compact online AI handoff + full audit trace
 -> bounded close-listening criticism by an online AI account
 ```
 
-The compact handoff must foreground OME-style auditory object stream packets before broad descriptive language. The online AI should see candidate layers such as center foreground, low-body support, side harmonic space, wide diffuse texture, and blocked runtime-required packets before it writes any review.
+The compact handoff must foreground evidence-bounded auditory object support before broad descriptive language. Object-family candidates should be formed from time-frequency-timbre continuity and optional external timbre / stem / transcription evidence, then mapped into receiver-side O/M/E space. OME field packets are spatial mapping support, not object identity by themselves.
 
 MSSL does not need to rebuild every music-recognition capability itself. External model outputs, optional adapters, comments, reviews, MIR notes, and user aesthetic material may be introduced as bounded context. MSSL organizes claim boundaries, evidence traceability, and handoff structure.
 
@@ -57,11 +58,12 @@ online_ai_listening_handoff.md
 online_ai_listening_handoff_full_trace.md
 reconstructed_stream_score_layer.md
 ome_spatial_filter_bank_layer.json / .md
+temporal_timbre_object_candidate_layer.json / .md
 subjective_descriptor_proxy_layer.json / .md
 ome_stream_descriptor_packets.json / .md
 ```
 
-`online_ai_listening_handoff.md` is the compact online-AI input. Its object layer must follow `docs/ome_spatial_filter_bank_design.md`: signal evidence, spatial-band streams, validation labels, human candidate names, review affordance, and truth boundaries.
+`online_ai_listening_handoff.md` is the compact online-AI input. Its object layer must follow `docs/h_auditory_object_mapping_layer.md`: object candidates come from time-frequency-timbre evidence and bounded source-family hypotheses before behavior language or OME spatial mapping is used.
 
 ## Outputs policy
 
