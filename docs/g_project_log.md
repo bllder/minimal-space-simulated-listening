@@ -176,7 +176,7 @@ instrument-like / voice-like / FX-like performance language remains like-candida
 
 ### 2026-06-25 — MSSL report target and external recognition command flow
 
-The project target was sharpened: MSSL is not OME. OME is the spatial layer inside MSSL.
+The project target was sharpened: OME is the spatial layer inside MSSL, not the whole system.
 
 Durable target:
 
@@ -215,4 +215,56 @@ full-song profile
 -> object candidates
 -> musical object performance cards
 -> family gate in compact handoff / full trace
+```
+
+### 2026-06-25 — Identity, lyric context, and report-composer handoff
+
+The report target was implemented as explicit runtime layers rather than only prompt language.
+
+New runtime layers:
+
+```text
+song_identity_layer
+lyric_context_layer
+```
+
+New adapter support:
+
+```text
+scripts/adapters/normalize_external_recognition_packet.py
+```
+
+Main-flow reading:
+
+```text
+full-song profile
+-> song identity status
+-> symbolic MIDI / melody support
+-> external family evidence gate
+-> OME spatial state
+-> musical object performance cards
+-> lyric context anchors
+-> compact report-composer handoff
+```
+
+Compact handoff is now organized as:
+
+```text
+song identity / lookup instruction
+source-family permission table
+vocal performance + lyric alignment anchors
+instrument / vocal / FX performance cards
+MIDI / melody / rhythm skeleton
+general audio evidence
+OME spatial performance state
+macro arc / key moments
+writing instruction
+boundaries
+```
+
+Boundary:
+
+```text
+MSSL audio evidence alone does not prove song title, artist, lyrics, lyric meaning, singer identity, or exact instrumentation.
+Those claims require metadata, adapter evidence, lyric/alignment context, external search, or online verification.
 ```
