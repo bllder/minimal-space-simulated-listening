@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Build MSSL external strong recognition evidence layer.
 
-This layer is the gate between external recognition tools and MSSL musical
-object performance language. It consumes JSON packets from external tools such
-as stem separators, vocal detectors, instrument-family classifiers, or music
-transcription systems, and normalizes them into bounded recognition evidence.
+This layer gates external recognition tools before MSSL musical object performance
+language. It consumes JSON packets from stem separators, vocal detectors,
+instrument-family classifiers, transcription systems, or effect recognizers.
 
 Boundary:
 - MSSL does not pretend full-mix heuristics are strong instrument recognition.
 - Strong family claims require external adapter evidence.
-- External evidence is still evidence, not original source truth, not performer
-  identity, not lyrics, and not creator intent.
+- External evidence is still evidence, not original source truth, performer
+  identity, lyrics, exact sample truth, or creator intent.
 """
 
 from __future__ import annotations
@@ -29,6 +28,7 @@ FAMILY_ALIASES: dict[str, list[str]] = {
     "voice_like_foreground_line": ["voice", "vocal", "vocals", "singing", "singer", "lead vocal", "speech", "rap"],
     "bass_like_low_body_layer": ["bass", "bass guitar", "sub bass", "sub", "low end", "low-end"],
     "drum_like_transient_pulse_layer": ["drum", "drums", "percussion", "kick", "snare", "hihat", "hi-hat", "cymbal"],
+    "mixed_accompaniment_bed": ["other", "accompaniment", "mixed accompaniment", "backing", "backing bed", "instrumental bed"],
     "guitar_like_plucked_melodic_layer": ["guitar", "electric guitar", "acoustic guitar", "plucked", "strum", "strummed"],
     "piano_like_percussive_harmonic_layer": ["piano", "keyboard", "keys", "keyboards", "electric piano", "rhodes"],
     "synth_pad_like_sustained_harmonic_bed": ["synth", "synthesizer", "pad", "synth pad", "ambient pad"],
@@ -43,6 +43,7 @@ FAMILY_ALIASES: dict[str, list[str]] = {
 
 GROUPS = {
     "vocal_family": {"voice_like_foreground_line"},
+    "stem_function_family": {"mixed_accompaniment_bed"},
     "instrument_family": {
         "bass_like_low_body_layer",
         "drum_like_transient_pulse_layer",
@@ -61,6 +62,8 @@ GROUPS = {
     },
 }
 
+NON_SPECIFIC_FAMILIES = {"mixed_accompaniment_bed"}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build external strong recognition evidence layer.")
@@ -68,12 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=None, help="Output directory. Defaults beside the profile.")
     parser.add_argument("--output-json", default=DEFAULT_JSON_NAME)
     parser.add_argument("--output-md", default=DEFAULT_MD_NAME)
-    parser.add_argument(
-        "--recognition-adapter",
-        action="append",
-        default=[],
-        help="JSON packet from external vocal/instrument/stem/transcription/effect recognition tool.",
-    )
+    parser.add_argument("--recognition-adapter", action="append", default=[], help="JSON packet from external vocal/instrument/stem/transcription/effect recognition tool.")
     parser.add_argument("--min-confidence", type=float, default=DEFAULT_MIN_CONFIDENCE)
     parser.add_argument("--no-write-profile", action="store_true", help="Do not write this layer back into the profile JSON.")
     return parser.parse_args()
@@ -134,16 +132,16 @@ def build_layer(profile: dict[str, Any], packets: list[dict[str, Any]], min_conf
             "label": item.get("label"),
             "time_range": item.get("time_range"),
             "basis": item.get("basis") or item.get("source_field") or "external recognition label",
-            "boundary": item.get("boundary") or "External recognition evidence, not source truth by itself.",
+            "boundary": item.get("boundary") or default_boundary(family),
             "raw": item.get("raw"),
         })
 
     retained = [item for item in normalized if item["confidence"] >= min_confidence]
     by_family = aggregate_by_family(retained)
-    allowed_specific = sorted(by_family.keys())
+    allowed_specific = sorted(family for family in by_family.keys() if family not in NON_SPECIFIC_FAMILIES)
 
     return {
-        "version": "external_strong_recognition_layer_v0_1",
+        "version": "external_strong_recognition_layer_v0_2",
         "status": "attached_external_recognition_evidence" if packets else "no_external_recognition_adapter_attached",
         "adapter_packet_count": len(packets),
         "raw_detection_count": len(raw_items),
@@ -152,13 +150,15 @@ def build_layer(profile: dict[str, Any], packets: list[dict[str, Any]], min_conf
         "recognized_families": list(by_family.values()),
         "performance_gate": {
             "allowed_specific_families": allowed_specific,
-            "rule": "Specific instrument/effect performance cards require retained external recognition evidence. Without it, performance must stay at functional-object level.",
+            "non_specific_context_families": sorted(family for family in by_family.keys() if family in NON_SPECIFIC_FAMILIES),
+            "rule": "Specific instrument/effect performance cards require retained external recognition evidence. Mixed accompaniment stems may support backing-bed context but must not become a specific instrument claim.",
         },
         "vocal_evidence": filter_group(by_family, "vocal_family"),
         "instrument_family_evidence": filter_group(by_family, "instrument_family"),
         "effect_family_evidence": filter_group(by_family, "effect_family"),
+        "stem_function_evidence": filter_group(by_family, "stem_function_family"),
         "unresolved_policy": {
-            "rule": "If a family is absent here, do not name it as an instrument/effect in compact handoff. Collapse to functional harmonic bed, low body, rhythm pulse, foreground line, or diffuse texture.",
+            "rule": "If a specific family is absent here, do not name it as an instrument/effect in compact handoff. Collapse to functional harmonic bed, low body, rhythm pulse, foreground line, or diffuse texture.",
         },
         "expected_adapter_shapes": expected_adapter_shapes(),
         "truth_boundary": "External strong recognition can support family-level naming, but it is still not original stem truth, performer identity, lyric truth, exact sample truth, or creator intent.",
@@ -174,17 +174,7 @@ def extract_items(packet: dict[str, Any], packet_index: int) -> list[dict[str, A
     items: list[dict[str, Any]] = []
     for key, value in source_lists:
         for raw in list_dicts(value):
-            label = first_nonempty(
-                raw.get("family_hint"),
-                raw.get("track_family"),
-                raw.get("instrument_family"),
-                raw.get("instrument"),
-                raw.get("stem"),
-                raw.get("source"),
-                raw.get("class_name"),
-                raw.get("label"),
-                raw.get("name"),
-            )
+            label = first_nonempty(raw.get("family_hint"), raw.get("track_family"), raw.get("instrument_family"), raw.get("instrument"), raw.get("stem"), raw.get("source"), raw.get("class_name"), raw.get("label"), raw.get("name"))
             items.append({
                 "adapter_name": adapter_name,
                 "adapter_type": adapter_type,
@@ -196,7 +186,6 @@ def extract_items(packet: dict[str, Any], packet_index: int) -> list[dict[str, A
                 "source_field": key,
                 "raw": raw,
             })
-    # Also support single top-level recognition packet.
     top_label = first_nonempty(packet.get("family_hint"), packet.get("track_family"), packet.get("instrument_family"), packet.get("instrument"), packet.get("stem"), packet.get("source"), packet.get("class_name"), packet.get("label"))
     if top_label:
         items.append({
@@ -257,9 +246,15 @@ def aggregate_by_family(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]
             "active_time_ranges": [row.get("time_range") for row in rows if row.get("time_range")][:16],
             "labels": sorted({str(row.get("label")) for row in rows if row.get("label")}),
             "basis": sorted({str(row.get("basis")) for row in rows if row.get("basis")}),
-            "boundary": "Family-level external recognition evidence. Do not promote to source truth, performer identity, exact stem, exact sample, or creator intent.",
+            "boundary": default_boundary(family),
         }
     return results
+
+
+def default_boundary(family: str) -> str:
+    if family in NON_SPECIFIC_FAMILIES:
+        return "Mixed accompaniment evidence. Use as broad backing-bed context, not as a specific instrument/source claim."
+    return "Family-level external recognition evidence. Do not promote to source truth, performer identity, exact stem, exact sample, or creator intent."
 
 
 def filter_group(by_family: dict[str, dict[str, Any]], group: str) -> list[dict[str, Any]]:
@@ -293,6 +288,7 @@ def expected_adapter_shapes() -> dict[str, Any]:
             "detections": [
                 {"family_hint": "voice_like_foreground_line", "confidence": 0.92, "time_range": [0.0, 32.0]},
                 {"family_hint": "bass_like_low_body_layer", "confidence": 0.81, "time_range": [0.0, 32.0]},
+                {"family_hint": "mixed_accompaniment_bed", "confidence": 0.62, "time_range": [0.0, 32.0]},
             ],
         },
         "instrument_classifier": {
@@ -330,10 +326,7 @@ def render_markdown(profile: dict[str, Any], layer: dict[str, Any]) -> str:
     ]
     families = list_dicts(layer.get("recognized_families"))
     if not families:
-        lines.extend([
-            "No external strong recognition evidence is attached. Specific instrument/effect naming must be suppressed; use functional object language only.",
-            "",
-        ])
+        lines.extend(["No external strong recognition evidence is attached. Specific instrument/effect naming must be suppressed; use functional object language only.", ""])
     else:
         lines.extend(["| Family | Group | Tier | Confidence | Adapters | Boundary |", "|---|---|---|---:|---|---|"])
         for item in families:
@@ -346,6 +339,7 @@ def render_markdown(profile: dict[str, Any], layer: dict[str, Any]) -> str:
         "",
         f"Rule: {gate.get('rule')}",
         f"Allowed specific families: {', '.join(list_strings(gate.get('allowed_specific_families'))) or 'none'}",
+        f"Non-specific context families: {', '.join(list_strings(gate.get('non_specific_context_families'))) or 'none'}",
     ])
     return "\n".join(lines).rstrip() + "\n"
 
