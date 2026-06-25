@@ -68,6 +68,7 @@ def main() -> None:
     reconstructed_stream_layer = as_dict(profile.get("reconstructed_stream_layer"))
     reconstructed_score_layer = as_dict(profile.get("reconstructed_score_layer"))
     ome_spatial_filter_bank_layer = as_dict(profile.get("ome_spatial_filter_bank_layer"))
+    temporal_timbre_object_candidate_layer = as_dict(profile.get("temporal_timbre_object_candidate_layer"))
 
     proxy_json_path.write_text(json.dumps(descriptor_proxy_layer, ensure_ascii=False, indent=2), encoding="utf-8")
     proxy_md_path.write_text(render_layer_md(descriptor_proxy_layer), encoding="utf-8")
@@ -78,13 +79,14 @@ def main() -> None:
     evidence_pack["subjective_descriptor_proxy_layer"] = descriptor_proxy_layer
     evidence_pack["ome_stream_descriptor_packets"] = ome_stream_descriptor_packets
     evidence_pack["ome_spatial_filter_bank_layer"] = ome_spatial_filter_bank_layer
+    evidence_pack["temporal_timbre_object_candidate_layer"] = temporal_timbre_object_candidate_layer
     evidence_pack["reconstructed_stream_layer"] = reconstructed_stream_layer
     evidence_pack["reconstructed_score_layer"] = reconstructed_score_layer
     evidence_pack["handoff_output_policy"] = {
         "default_handoff": args.handoff_name,
         "default_handoff_role": "compact online-AI input",
         "full_trace_handoff": FULL_TRACE_HANDOFF_NAME,
-        "full_trace_role": "audit trace with full JSON, descriptor tables, reconstructed stream / score sections, OME runtime layer, and OME packet details",
+        "full_trace_role": "audit trace with full JSON, descriptor tables, reconstructed stream / score sections, OME runtime layer, temporal-timbre object candidates, and OME packet details",
     }
 
     critical_brief = attach_descriptor_contract_to_critical_brief(critical_brief)
@@ -100,6 +102,12 @@ def main() -> None:
         "boundary": ome_spatial_filter_bank_layer.get("boundary"),
         "use_rule": ome_spatial_filter_bank_layer.get("use_rule"),
     }
+    critical_brief["temporal_timbre_object_candidate_status"] = {
+        "status": temporal_timbre_object_candidate_layer.get("status"),
+        "object_candidate_count": temporal_timbre_object_candidate_layer.get("object_candidate_count"),
+        "boundary": temporal_timbre_object_candidate_layer.get("truth_boundary"),
+        "rule": temporal_timbre_object_candidate_layer.get("candidate_generation_rule"),
+    }
     critical_brief["reconstructed_stream_score_status"] = {
         "stream_layer_status": reconstructed_stream_layer.get("status"),
         "stream_count": len(reconstructed_stream_layer.get("streams") or []),
@@ -113,6 +121,7 @@ def main() -> None:
     descriptor_section = render_descriptor_validation_section()
     reconstructed_section = reconstructed_handoff.render_section(profile)
     ome_runtime_section = render_ome_runtime_section(ome_spatial_filter_bank_layer)
+    object_candidate_section = render_temporal_timbre_object_candidate_section(temporal_timbre_object_candidate_layer)
     digest_section = review_digest.render_digest(profile)
     proxy_section = render_layer_md(descriptor_proxy_layer)
     ome_packet_section = render_packets_md(ome_stream_descriptor_packets)
@@ -131,6 +140,8 @@ def main() -> None:
         + reconstructed_section
         + "\n\n"
         + ome_runtime_section
+        + "\n\n"
+        + object_candidate_section
         + "\n\n"
         + digest_section
         + "\n\n"
@@ -158,6 +169,7 @@ def main() -> None:
     print(f"Attached P0 subjective descriptor validation tables to {brief_path}")
     print(f"Attached P0 subjective descriptor validation tables to {prompt_path}")
     print(f"Attached OME Spatial Filter Bank status to {evidence_path}")
+    print(f"Attached temporal-timbre object candidate layer to {evidence_path}")
     print(f"Wrote compact handoff to {handoff_path}")
     print(f"Wrote full trace handoff to {full_trace_path}")
     print(f"Wrote {proxy_json_path}")
@@ -200,6 +212,47 @@ def render_ome_runtime_section(layer: dict[str, Any]) -> str:
     lines.extend([
         "",
         "Truth boundary: these packets are runtime receiver-side stream support, not separated stems, true instruments, physical room geometry, lyrics, singer identity, genre truth, or emotion truth.",
+    ])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_temporal_timbre_object_candidate_section(layer: dict[str, Any]) -> str:
+    lines = [
+        "## Full-trace D. Temporal-Timbre Object Candidate Layer / 时间-音色对象候选层",
+        "",
+    ]
+    if not layer:
+        lines.extend([
+            "Status: not attached.",
+            "",
+            "Boundary: no temporal-timbre object candidate layer was found in the profile.",
+        ])
+        return "\n".join(lines).rstrip() + "\n"
+
+    lines.extend([
+        f"Status: {layer.get('status')}",
+        "",
+        f"Rule: {layer.get('candidate_generation_rule')}",
+        "",
+        f"Truth boundary: {layer.get('truth_boundary')}",
+        "",
+        "| Object candidate | Strength | Support | Temporal continuity | Timbre continuity | OME mapping |",
+        "|---|---|---|---|---|---|",
+    ])
+    for candidate in list_dicts(layer.get("object_candidates")):
+        support = as_dict(candidate.get("support_summary"))
+        evidence = as_dict(candidate.get("evidence"))
+        temporal = as_dict(evidence.get("temporal_continuity"))
+        timbre = as_dict(evidence.get("timbre_continuity"))
+        ome = as_dict(evidence.get("ome_mapping_support"))
+        lines.append(
+            f"| {candidate.get('object_candidate_id')} | {candidate.get('claim_strength')} | "
+            f"{support.get('support_band')} / max {support.get('max_support')} | "
+            f"{temporal.get('state')} | {timbre.get('state')} | {ome.get('summary') or ome.get('status')} |"
+        )
+    lines.extend([
+        "",
+        "Use rule: object candidates come before behavior summaries. Do not turn spatial bins, MIR tags, or external stems into source truth.",
     ])
     return "\n".join(lines).rstrip() + "\n"
 
