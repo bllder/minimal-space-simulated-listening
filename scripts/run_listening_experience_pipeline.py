@@ -43,18 +43,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context-note", action="append", default=[])
     parser.add_argument("--aesthetic-context", action="append", default=[])
     parser.add_argument("--external-context", action="append", default=[])
-    parser.add_argument(
-        "--midi-adapter",
-        action="append",
-        default=[],
-        help="Optional JSON packet from Basic Pitch / MT3 / Omnizart / user MIDI adapter.",
-    )
-    parser.add_argument(
-        "--external-recognition",
-        action="append",
-        default=[],
-        help="Optional JSON packet from external vocal/instrument/stem/effect recognition tool.",
-    )
+    parser.add_argument("--midi-adapter", action="append", default=[], help="Optional JSON packet from Basic Pitch / MT3 / Omnizart / user MIDI adapter.")
+    parser.add_argument("--external-recognition", action="append", default=[], help="Optional JSON packet from external vocal/instrument/stem/effect recognition tool.")
     parser.add_argument("--ffmpeg-bin", default="ffmpeg", help="ffmpeg executable used for non-WAV input decoding.")
     parser.add_argument("--keep-structural-md", action="store_true")
     parser.add_argument("--keep-decoded-wav", action="store_true", help="Keep the temporary decoded WAV for inspection.")
@@ -105,6 +95,7 @@ def main() -> None:
             prompt_path = repo_root / prompt_path
 
         run_prompt_builder(script_dir, args, profile_path, output_dir, prompt_path, structural_summary)
+        run_family_gate_attacher(script_dir, profile_path, output_dir)
 
         handoff_path = output_dir / DEFAULT_HANDOFF_NAME
         full_trace_path = output_dir / DEFAULT_FULL_TRACE_HANDOFF_NAME
@@ -194,6 +185,11 @@ def run_prompt_builder(script_dir: Path, args: argparse.Namespace, profile_path:
         cmd.extend(["--playlist-context", args.playlist_context])
     for note in args.context_note:
         cmd.extend(["--context-note", note])
+    subprocess.run(cmd, check=True)
+
+
+def run_family_gate_attacher(script_dir: Path, profile_path: Path, output_dir: Path) -> None:
+    cmd = [sys.executable, str(script_dir / "attach_family_gate.py"), "--profile", str(profile_path), "--output-dir", str(output_dir)]
     subprocess.run(cmd, check=True)
 
 
