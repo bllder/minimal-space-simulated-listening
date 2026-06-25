@@ -27,7 +27,9 @@ def render_compact_online_handoff(
     full_trace_filename: str,
     reconstructed_stream_layer: dict[str, Any] | None = None,
     reconstructed_score_layer: dict[str, Any] | None = None,
+    symbolic_timeline_midi_layer: dict[str, Any] | None = None,
     ome_spatial_filter_bank_layer: dict[str, Any] | None = None,
+    musical_object_performance_layer: dict[str, Any] | None = None,
 ) -> str:
     """Return a compact handoff optimized for online-AI reading."""
     global_ctx = as_dict(evidence_pack.get("global_context"))
@@ -39,7 +41,9 @@ def render_compact_online_handoff(
     p0 = as_dict(evidence_pack.get("p0_review_policy"))
     stream_layer = as_dict(reconstructed_stream_layer)
     score_layer = as_dict(reconstructed_score_layer)
+    symbolic_midi_layer = as_dict(symbolic_timeline_midi_layer or evidence_pack.get("symbolic_timeline_midi_layer"))
     ome_runtime_layer = as_dict(ome_spatial_filter_bank_layer or evidence_pack.get("ome_spatial_filter_bank_layer"))
+    performance_layer = as_dict(musical_object_performance_layer or evidence_pack.get("musical_object_performance_layer"))
 
     lines: list[str] = [
         "# Online AI Listening Handoff / Compact",
@@ -54,7 +58,7 @@ def render_compact_online_handoff(
         "Core chain:",
         "",
         "```text",
-        "machine proxy -> OME runtime / professional anchor -> subjective descriptor target -> bounded listening language",
+        "machine proxy -> symbolic MIDI timeline / OME runtime / professional anchor -> musical object performance -> bounded listening language",
         "```",
         "",
         "Three-part handoff structure:",
@@ -65,7 +69,7 @@ def render_compact_online_handoff(
         "3. review writing style guidance / user-ear diagnostic method",
         "```",
         "",
-        "MSSL does not provide source truth, lyric truth, emotion truth, room truth, original stem truth, or original MIDI truth. The OME runtime layer, when present, is receiver-side stream support, not source separation.",
+        "MSSL does not provide source truth, lyric truth, emotion truth, room truth, original stem truth, or original MIDI truth. Sound objects may be written as like-candidates; MIDI here is a music-time skeleton unless optional adapter evidence is attached.",
         "",
         "## 1. Review-direction prompt / online search task",
         "",
@@ -86,7 +90,7 @@ def render_compact_online_handoff(
         "",
         "## 3. Professional audio evidence / safe descriptor summary",
         "",
-        "These are profile-derived descriptor targets. They describe the track/segments, not separated streams. Use the OME runtime section below when stream-level support is available.",
+        "These are profile-derived descriptor targets. They describe the track/segments, not separated streams. Use the MIDI / OME / performance sections below when layer-level support is available.",
         "",
         "### Dominant descriptor targets",
         "",
@@ -102,12 +106,14 @@ def render_compact_online_handoff(
     else:
         lines.append("- No object-candidate intersection is safe enough at profile level.")
 
+    lines.extend(render_symbolic_midi_summary(symbolic_midi_layer))
     lines.extend(render_ome_runtime_or_fallback(ome_runtime_layer, packets))
     lines.extend(render_reconstructed_summary(stream_layer, score_layer, has_ome_runtime=is_ome_runtime_ready(ome_runtime_layer)))
+    lines.extend(render_performance_summary(performance_layer))
 
     lines.extend([
         "",
-        "## 6. Track-level professional anchors",
+        "## 7. Track-level professional anchors",
         "",
     ])
     for item in list_dicts(track_summary.get("dominant_professional_anchors"))[:16]:
@@ -115,7 +121,7 @@ def render_compact_online_handoff(
 
     lines.extend([
         "",
-        "## 7. Macro arc",
+        "## 8. Macro arc",
         "",
     ])
     for movement in macro_arc[:6]:
@@ -133,7 +139,7 @@ def render_compact_online_handoff(
     lines.extend(render_writing_style_guidance())
 
     lines.extend([
-        "## 9. P0 do-not-claim boundaries",
+        "## 10. P0 do-not-claim boundaries",
         "",
     ])
     for item in list_strings(p0.get("review_decisions")):
@@ -147,7 +153,7 @@ def render_compact_online_handoff(
 
     lines.extend([
         "",
-        "## 10. Output request",
+        "## 11. Output request",
         "",
         "Using this compact professional audio report, write a Chinese close-listening review if asked by the user.",
         "",
@@ -156,14 +162,43 @@ def render_compact_online_handoff(
         "```text",
         "1. Verify song identity if possible.",
         "2. Search lyrics, release / album / artist background, public reviews, reception, and comments only after identity is reasonably confirmed.",
-        "3. Use MSSL as local listening evidence: sound field, OME stream support, pressure, low-end body, foreground contour, texture, motion, score design, and timeline arc.",
+        "3. Use MSSL as local listening evidence: sound field, symbolic MIDI timeline, musical object performance cards, OME stream support, pressure, low-end body, foreground contour, texture, motion, score design, and timeline arc.",
         "4. Combine verified external context with MSSL evidence into readable criticism.",
         "5. Keep uncertainty visible when identity or context is not confirmed.",
         "```",
         "",
-        "Do not directly quote raw numeric values unless the user asks for an audit. Do not treat OME stream names, reconstructed streams, score skeletons, object intersections, or source-family hypotheses as confirmed instruments, original stems, original MIDI, lyrics, or creator intent.",
+        "Do not directly quote raw numeric values unless the user asks for an audit. Do not treat OME stream names, reconstructed streams, score skeletons, object intersections, performance cards, or source-family hypotheses as confirmed instruments, original stems, original MIDI, lyrics, or creator intent.",
     ])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_symbolic_midi_summary(layer: dict[str, Any]) -> list[str]:
+    lines = ["", "## 4. Symbolic timeline MIDI layer / music-time skeleton", ""]
+    if not layer:
+        lines.append("- No symbolic timeline MIDI layer is attached. Use reconstructed score skeleton only.")
+        return lines
+    tempo = as_dict(layer.get("tempo_grid"))
+    summary = as_dict(layer.get("whole_track_symbolic_summary"))
+    adapter = as_dict(layer.get("optional_real_midi_adapter"))
+    lines.extend([
+        "This layer gives the track a music-time skeleton. Default events are full-mix symbolic timeline events, not original MIDI or note-level transcription.",
+        "",
+        f"- Estimated BPM: {tempo.get('estimated_bpm')} / confidence {tempo.get('tempo_confidence')}",
+        f"- Beat count: {tempo.get('beat_count')} | bar count: {tempo.get('bar_count')}",
+        f"- Dominant phrase shape: {summary.get('dominant_phrase_shape')}",
+        f"- Dominant melodic contour: {summary.get('dominant_melodic_contour')}",
+        f"- Dominant bass motion: {summary.get('dominant_bass_motion')}",
+        f"- Optional real MIDI adapter: {adapter.get('status')} / packets {adapter.get('packet_count')}",
+        "",
+        "| Stream | Event count | Dominant event | Review use |",
+        "|---|---:|---|---|",
+    ])
+    streams = as_dict(layer.get("event_streams"))
+    for stream_id, events in streams.items():
+        events_list = list_dicts(events)
+        dominant_event = dominant([str(event.get("event_type") or "") for event in events_list])
+        lines.append(f"| {stream_id} | {len(events_list)} | {dominant_event or '—'} | Use as time/phrase skeleton, not source truth. |")
+    return lines
 
 
 def render_ome_runtime_or_fallback(ome_runtime_layer: dict[str, Any], profile_packets: list[dict[str, Any]]) -> list[str]:
@@ -175,7 +210,7 @@ def render_ome_runtime_or_fallback(ome_runtime_layer: dict[str, Any], profile_pa
 def render_ome_runtime_summary(layer: dict[str, Any]) -> list[str]:
     lines = [
         "",
-        "## 4. OME Spatial Filter Bank runtime / compact stream support",
+        "## 5. OME Spatial Filter Bank runtime / compact stream support",
         "",
         "This section is computed from local audio. It is receiver-side stream support, not source separation and not original stems.",
         "",
@@ -208,7 +243,7 @@ def render_profile_ome_fallback(profile_packets: list[dict[str, Any]], runtime_l
     runtime_status = runtime_layer.get("status") or "not attached"
     lines = [
         "",
-        "## 4. OME stream descriptor packets / gated fallback",
+        "## 5. OME stream descriptor packets / gated fallback",
         "",
         f"OME runtime status: {runtime_status}",
         "",
@@ -243,7 +278,7 @@ def is_ome_runtime_ready(layer: dict[str, Any]) -> bool:
 
 def render_key_moments_compact(key_moments: list[dict[str, Any]]) -> list[str]:
     lines = [
-        "## 8. Key moments / compact evidence",
+        "## 9. Key moments / compact evidence",
         "",
     ]
     shared_examples = unique_translation_examples(key_moments, limit=8)
@@ -274,7 +309,7 @@ def render_key_moments_compact(key_moments: list[dict[str, Any]]) -> list[str]:
 
 def render_writing_style_guidance() -> list[str]:
     return [
-        "## 8.5 Review writing style guidance / user-ear method",
+        "## 9.5 Review writing style guidance / user-ear method",
         "",
         "Do not copy seed cases or public comments as facts. Use them as diagnostic habits for making MSSL evidence readable.",
         "",
@@ -318,6 +353,31 @@ def render_writing_style_guidance() -> list[str]:
     ]
 
 
+def render_performance_summary(layer: dict[str, Any]) -> list[str]:
+    lines = ["", "## 6. Musical object performance / vocal, instrument, and FX expression", ""]
+    if not layer:
+        lines.append("- No musical object performance layer is attached. Use object candidates only, with caution.")
+        return lines
+    lines.extend([
+        "This layer describes how like-candidate sound objects perform musically. It is not a machine-behavior debug layer and not instrument/source truth.",
+        "",
+        f"Status: {layer.get('status')} | cards: {layer.get('performance_card_count')}",
+        "",
+        "| Object | Performance modes | Event support | Human-use sentence |",
+        "|---|---|---|---|",
+    ])
+    for card in list_dicts(layer.get("performance_cards"))[:10]:
+        modes = ", ".join(str(mode.get("mode")) for mode in list_dicts(card.get("performance_modes"))[:4]) or "—"
+        event_support = as_dict(card.get("symbolic_event_support"))
+        sentence = compact_text(card.get("human_sentence"), 180)
+        lines.append(f"| {card.get('display_name')} | {modes} | {event_support.get('event_count')} / {event_support.get('dominant_event_type')} | {sentence} |")
+    lines.extend([
+        "",
+        "Use rule: write these as arrangement / vocal / instrument-family / FX-like performance expressions, not confirmed instrument names or original stems.",
+    ])
+    return lines
+
+
 def unique_translation_examples(key_moments: list[dict[str, Any]], limit: int) -> list[str]:
     results: list[str] = []
     seen: set[str] = set()
@@ -350,7 +410,7 @@ def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict
     )
     lines = [
         "",
-        "## 5. MSSL reconstructed stream / score summary",
+        "## 5.5 MSSL reconstructed stream / score summary",
         "",
         "This is MSSL's functional reconstruction layer. It is reconstructed from full-mix evidence for listening analysis. It is not original DAW stems and not original MIDI transcription.",
         "",
@@ -405,6 +465,13 @@ def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict
     return lines
 
 
+def compact_text(value: object, limit: int) -> str:
+    text = str(value or "—").replace("|", "/")
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
+
+
 def compact_spatial_cue(support: dict[str, Any], spatial: dict[str, Any]) -> str:
     if to_float(support.get("active_coverage")) <= 0:
         return "weak/inactive stream; do not use as an active stream-specific spatial claim"
@@ -431,6 +498,16 @@ def compact_score_cue(score: dict[str, Any]) -> str:
         if value:
             parts.append(f"{label}: {value}")
     return "; ".join(parts) or "not enough score-binding evidence"
+
+
+def dominant(values: list[str]) -> str | None:
+    values = [value for value in values if value and value != "None"]
+    if not values:
+        return None
+    counts: dict[str, int] = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    return sorted(counts.items(), key=lambda item: item[1], reverse=True)[0][0]
 
 
 def as_dict(value: Any) -> dict[str, Any]:
