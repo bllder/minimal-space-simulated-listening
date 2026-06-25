@@ -63,7 +63,21 @@ subjective_descriptor_proxy_layer.json / .md
 ome_stream_descriptor_packets.json / .md
 ```
 
-`online_ai_listening_handoff.md` is the compact online-AI input. Its object layer must follow `docs/h_auditory_object_mapping_layer.md`: object candidates come from time-frequency-timbre evidence and bounded source-family hypotheses before behavior language or OME spatial mapping is used.
+`online_ai_listening_handoff.md` is the compact online-AI input. The object layer must follow the consolidated boundary in `docs/b_mssl_scope_boundary.md`: object candidates come from time-frequency-timbre evidence and bounded source-family hypotheses before behavior language or OME spatial mapping is used.
+
+## Documentation map
+
+```text
+docs/a_professional_term_index.md
+docs/b_mssl_scope_boundary.md
+docs/c_online_handoff_translation.md
+docs/d_adapter_gate.md
+docs/e_runtime_entrypoints.md
+docs/f_validation_samples.md
+docs/g_project_log.md
+```
+
+Do not add standalone docs unless the topic cannot be folded into A/B/C/D/E/F/G.
 
 ## Outputs policy
 
