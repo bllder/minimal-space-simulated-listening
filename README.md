@@ -7,15 +7,14 @@
 
 ## Project goal
 
-MSSL is not OME. O/M/E is only the receiver-side spatial simulation layer inside MSSL.
-
 Target report role:
 
 ```text
 help an online AI describe what kind of song it is;
 help it describe vocal, instrument, and effect-family performance;
+help it connect verified lyric context to vocal timing / delivery;
 help it combine general audio evidence, MIDI / melody evidence, and OME spatial state;
-keep every source-family claim evidence-bounded.
+keep every source-family and lyric claim evidence-bounded.
 ```
 
 Current target path:
@@ -23,6 +22,7 @@ Current target path:
 ```text
 local audio
 -> structural audio evidence
+-> song identity layer
 -> reconstructed stream / score layer
 -> symbolic timeline MIDI layer
 -> optional external recognition command / adapter evidence
@@ -30,16 +30,21 @@ local audio
 -> OME Spatial Filter Bank runtime layer
 -> temporal-timbre object candidate layer
 -> musical object performance layer
+-> lyric context layer
 -> listening-experience evidence pack
 -> compact online AI handoff + full audit trace
 -> bounded close-listening criticism by an online AI account
 ```
 
-The compact handoff must foreground evidence-bounded auditory object support before broad descriptive language. Object-family candidates should be formed from time-frequency-timbre continuity and optional external timbre / stem / transcription evidence, then mapped into receiver-side O/M/E space. OME field packets are spatial mapping support, not object identity by themselves.
+The compact handoff is a report-composer schema. It should foreground identity status, source-family permission, vocal/lyric anchors, instrument-family performance, MIDI/melody support, general audio evidence, and OME spatial state before broad descriptive language.
+
+Object-family candidates should be formed from time-frequency-timbre continuity and optional external timbre / stem / transcription evidence, then mapped into receiver-side O/M/E space. OME field packets are spatial mapping support, not object identity by themselves.
 
 MIDI in MSSL is a runtime music-time skeleton: beat/bar context, section timeline, symbolic stream events, and optional adapter-backed transcription evidence. Default MIDI output is not original MIDI truth.
 
 The musical object performance layer is not a machine behavior layer. It describes vocal, instrument, and effect-family performance only when the family gate allows it. Without external family evidence, it must stay at functional object language.
+
+Song identity and lyric context are bounded layers. MSSL audio features alone do not prove title, artist, lyrics, lyric meaning, or singer identity. Those claims require supplied metadata, external identity evidence, lyric/alignment files, fingerprint/search context, or online AI verification.
 
 MSSL does not need to rebuild every music-recognition capability itself, but the main run must be able to call local external recognition commands and fold their JSON output back into the report chain. External model outputs, optional adapters, reviews, MIR notes, and user aesthetic material may be introduced as bounded context. MSSL organizes claim boundaries, evidence traceability, and handoff structure.
 
@@ -65,6 +70,28 @@ Use this first:
 .\.venv\Scripts\python.exe .\scripts\run_mssl.py `
   --input "path\to\local_audio.wav" `
   --output-dir outputs
+```
+
+With supplied song identity:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --song-title "Song title" `
+  --song-artist "Artist name"
+```
+
+With lyric context, without exporting full lyrics into the handoff:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --song-title "Song title" `
+  --song-artist "Artist name" `
+  --lyrics-file "path\to\lyrics.txt" `
+  --lyric-alignment "path\to\lyric_alignment.json"
 ```
 
 Optional real MIDI / transcription evidence can be attached as a bounded adapter packet:
@@ -94,17 +121,27 @@ Already generated recognition packets can still be attached directly:
   --external-recognition "path\to\recognition_packet.json"
 ```
 
+Generic external JSON can be normalized first:
+
+```powershell
+python .\scripts\adapters\normalize_external_recognition_packet.py `
+  --input-json "path\to\raw_tool_output.json" `
+  --output-json "path\to\recognition_packet.json"
+```
+
 By default this runs `experience` mode and writes:
 
 ```text
 online_ai_listening_handoff.md
 online_ai_listening_handoff_full_trace.md
+song_identity_layer.json / .md
 reconstructed_stream_score_layer.md
 symbolic_timeline_midi_layer.json / .md
 external_strong_recognition_layer.json / .md
 ome_spatial_filter_bank_layer.json / .md
 temporal_timbre_object_candidate_layer.json / .md
 musical_object_performance_layer.json / .md
+lyric_context_layer.json / .md
 subjective_descriptor_proxy_layer.json / .md
 ome_stream_descriptor_packets.json / .md
 ```
