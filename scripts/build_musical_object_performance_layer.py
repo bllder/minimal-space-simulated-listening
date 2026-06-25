@@ -219,6 +219,29 @@ FUNCTIONAL_FALLBACK = {
     "glitch_grain_like_texture_layer": "diffuse_texture_layer",
 }
 
+REVIEW_LANGUAGE = {
+    "voice_like_foreground_line": ["可写成前景人声/主线的贴近、持续、咬字或念白式推进", "可讨论它如何被低频、节奏或和声托住", "不可越界到歌手身份或歌词原文"],
+    "bass_like_low_body_layer": ["可写贝斯样低频如何托底、移动、重复锚定或压近身体感", "可讨论它和鼓/人声/和声的重心关系"],
+    "drum_like_transient_pulse_layer": ["可写鼓组样脉冲如何标出拍点、重击、切分或 groove", "可讨论它是否推动身体律动或只做稀疏时间标记"],
+    "guitar_like_plucked_melodic_layer": ["可写吉他样拨弦颗粒、riff、扫弦铺底或短句尾音", "可讨论它作为旋律/和声/节奏之间的桥"],
+    "piano_like_percussive_harmonic_layer": ["可写钢琴/键盘样清晰起音、和声块、分解运动或句尾回应"],
+    "synth_pad_like_sustained_harmonic_bed": ["可写合成器/pad样持续铺场、渐强或背景压力"],
+    "string_like_sustained_harmonic_layer": ["可写弦乐样持续、拉长、平滑托底或副旋律回应"],
+    "brass_wind_like_sustained_lead_layer": ["可写管乐/铜管样呼吸感、压力感、持续主奏或短促强调"],
+    "electronic_lead_like_melodic_layer": ["可写电子 lead 的旋律线、明亮 hook 或前景符号"],
+    "low_body_layer": ["可写低频身体层如何托住前景，但不要命名为具体贝斯"],
+    "rhythmic_pulse_layer": ["可写节奏脉冲如何提供时间支点，但不要命名为具体鼓组"],
+    "harmonic_bed_layer": ["可写持续和声/铺底如何承托前景，但不要命名为具体乐器"],
+    "diffuse_texture_layer": ["可写扩散纹理/尾流如何软化边界或留下空气感，但不要命名为具体效果器"],
+}
+
+DO_NOT_WRITE = {
+    "voice_like_foreground_line": ["不要写成已确认歌手身份", "不要写成已识别歌词原文", "不要写成已分离出真实人声轨"],
+    "bass_like_low_body_layer": ["不要写成真实贝斯分轨", "不要写成贝斯手演奏动作事实", "不要超出外部识别给出的贝斯族证据"],
+    "drum_like_transient_pulse_layer": ["不要写成真实鼓组分轨", "不要写成鼓手演奏动作事实", "不要把所有瞬态都说成鼓"],
+    "guitar_like_plucked_melodic_layer": ["不要写成真实吉他分轨", "不要写成吉他手演奏动作事实", "不要把和声床里的所有拨弦感都归为吉他"],
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build MSSL musical object performance layer.")
@@ -295,7 +318,7 @@ def build_layer(profile: dict[str, Any]) -> dict[str, Any]:
 
     cards = sorted(cards, key=lambda item: performance_rank(item), reverse=True)
     return {
-        "version": "musical_object_performance_layer_v0_2_external_recognition_gated",
+        "version": "musical_object_performance_layer_v0_3_review_language",
         "status": "computed_from_object_candidates_symbolic_timeline_and_external_recognition_gate",
         "layer_role": "vocal, instrumental, and effect-family performance expression layer",
         "recognition_gate": {
@@ -354,12 +377,13 @@ def build_card(family_id: str, spec: dict[str, Any], candidate: dict[str, Any], 
     relations = infer_arrangement_relations(family_id, stream_layer)
     spatial = infer_spatial_expression(candidate)
     sentence = build_human_sentence(spec, modes, relations, spatial, events)
+    gate = recognition_gate_for_family(family_id, recognition_layer, bool(spec.get("requires_external_recognition")))
     return {
         "object_family": family_id,
         "display_name": spec.get("display_name"),
         "performance_role": spec.get("performance_role"),
         "claim_strength": candidate.get("claim_strength"),
-        "recognition_gate": recognition_gate_for_family(family_id, recognition_layer, bool(spec.get("requires_external_recognition"))),
+        "recognition_gate": gate,
         "support_summary": support,
         "performance_modes": modes,
         "symbolic_event_support": summarize_event_support(events),
@@ -367,8 +391,9 @@ def build_card(family_id: str, spec: dict[str, Any], candidate: dict[str, Any], 
         "arrangement_relation": relations,
         "spatial_expression": spatial,
         "human_sentence": sentence,
-        "allowed_language": candidate.get("allowed_language") or list(as_dict(spec.get("modes")).keys()),
-        "forbidden_language": candidate.get("forbidden_language") or ["confirmed instrument", "confirmed original stem", "performer action truth"],
+        "review_language": review_language_for_family(family_id),
+        "do_not_write_as": do_not_write_for_family(family_id),
+        "internal_boundary_terms": ["not source truth", "not original stem", "not performer action truth"],
         "truth_boundary": "Performance card describes musical expression. Specific source-family naming is allowed only when recognition_gate permits it.",
     }
 
@@ -436,25 +461,31 @@ def infer_arrangement_relations(family_id: str, stream_layer: dict[str, Any]) ->
     summary = stream_activity_summary(stream_layer)
     relations = []
     if summary.get("low_end_body_stream") in ("moderate", "pronounced", "dominant"):
-        relations.append("被低频身体托住")
+        relations.append("低频层提供下盘支撑，前景不会悬空")
     if summary.get("harmonic_support_stream") in ("moderate", "pronounced", "dominant") and family_id not in ("harmonic_bed_layer",):
-        relations.append("在和声床前方浮出或与和声层耦合")
+        relations.append("和声铺底在后方承托，使该层更像前景/侧前景动作")
     if summary.get("rhythmic_pulse_stream") in ("moderate", "pronounced", "dominant"):
-        relations.append("贴着节奏脉冲推进")
-    return {"relations": relations or ["作为功能层表现候选保留，未形成具体编曲关系"], "stream_activity_summary": summary, "boundary": "Arrangement relations are inferred from reconstructed functional streams, not isolated stems."}
+        relations.append("节奏脉冲给它明确的时间落点")
+    return {"relations": relations or ["未检出稳定编曲关系，只保留为局部表现候选"], "stream_activity_summary": summary, "boundary": "Arrangement relations are inferred from reconstructed functional streams, not isolated stems."}
 
 
 def infer_spatial_expression(candidate: dict[str, Any]) -> dict[str, Any]:
     ome = as_dict(as_dict(candidate.get("evidence")).get("ome_mapping_support"))
-    summary = ome.get("summary") or "receiver-side spatial expression unresolved"
-    return {"summary": summary, "foreground_background_relation": foreground_background_relation(summary), "boundary": "Receiver-side OME support, not physical room or true source coordinate."}
+    summary = str(ome.get("summary") or "")
+    status = str(ome.get("status") or "")
+    relation = foreground_background_relation(summary, status)
+    return {"summary": summary or status or "no stable OME spatial evidence", "foreground_background_relation": relation, "spatial_claim_allowed": not relation.startswith("未获得稳定"), "boundary": "Receiver-side OME support, not physical room or true source coordinate."}
 
 
-def foreground_background_relation(summary: str) -> str:
-    text = str(summary)
-    if "center-bound" in text: return "中心绑定，前景较集中"
-    if "wide" in text or "diffuse" in text: return "边界打开或扩散，适合作为背景/尾流"
-    return "空间关系不强，保留为弱提示"
+def foreground_background_relation(summary: str, status: str = "") -> str:
+    text = f"{summary} {status}"
+    if "center-bound" in text or "center" in text:
+        return "中心绑定，适合写成前景集中或贴近"
+    if "wide" in text or "diffuse" in text:
+        return "边界打开或扩散，适合作为背景、尾流或空间外沿"
+    if "not_recomputed" in text or "unresolved" in text or not text.strip():
+        return "未获得稳定 OME 空间证据；不要单独写空间效果，只保留时间和编曲表现"
+    return "OME 空间证据不足；不要把这一层写成明确空间运动"
 
 
 def summarize_event_support(events: list[dict[str, Any]]) -> dict[str, Any]:
@@ -468,10 +499,24 @@ def summarize_phrase_behavior(events: list[dict[str, Any]]) -> dict[str, Any]:
 def build_human_sentence(spec: dict[str, Any], modes: list[dict[str, str]], relations: dict[str, Any], spatial: dict[str, Any], events: list[dict[str, Any]]) -> str:
     name = str(spec.get("display_name"))
     mode_text = "、".join(str(mode.get("description")) for mode in modes[:2]) or "表现方式仍不稳定"
-    rel_text = "；".join(list_strings(relations.get("relations"))[:2])
+    rel_items = list_strings(relations.get("relations"))[:2]
+    rel_text = "；".join(rel_items) if rel_items else "未检出稳定编曲关系"
     ranges = [str(item) for item in summarize_event_support(events).get("active_ranges", [])[:3] if item]
     time_hint = "、".join(ranges) or "若干弱证据段落"
-    return f"{name} 的表现可以写成：{mode_text}。它在 {time_hint} 形成时间支点；编曲关系上，{rel_text}。空间上，{spatial.get('foreground_background_relation')}。"
+    spatial_text = str(spatial.get("foreground_background_relation") or "空间证据不足")
+    return f"{name} 的表现可以写成：{mode_text}。时间上，它在 {time_hint} 形成支点；编曲上，{rel_text}。空间上，{spatial_text}。"
+
+
+def review_language_for_family(family_id: str) -> list[str]:
+    return REVIEW_LANGUAGE.get(family_id) or ["可写成有证据边界的音乐表现，不要扩大成来源真相"]
+
+
+def do_not_write_for_family(family_id: str) -> list[str]:
+    if family_id in DO_NOT_WRITE:
+        return DO_NOT_WRITE[family_id]
+    if family_id in SPECIFIC_RECOGNITION_REQUIRED:
+        return ["不要写成真实分轨", "不要写成演奏者动作事实", "不要超出外部识别给出的声源族证据"]
+    return ["不要命名为具体乐器", "不要写成真实来源识别", "不要把功能层当成分轨"]
 
 
 def stream_activity_summary(stream_layer: dict[str, Any]) -> dict[str, str]:
@@ -483,7 +528,7 @@ def stream_activity_summary(stream_layer: dict[str, Any]) -> dict[str, str]:
 
 def performance_rank(card: dict[str, Any]) -> tuple[int, float, int]:
     strength = str(card.get("claim_strength") or "")
-    strength_rank = {"functional_fallback": 1, "weak": 1, "medium": 2, "strong": 3, "dominant": 4, "pronounced": 3, "moderate": 2}.get(strength, 0)
+    strength_rank = {"functional_fallback": 1, "weak": 1, "medium": 2, "strong": 3, "dominant": 4, "pronounced": 3, "moderate": 2, "external_supported": 3, "external_possible": 2}.get(strength, 0)
     support = as_dict(card.get("support_summary"))
     events = as_dict(card.get("symbolic_event_support"))
     return (strength_rank, to_float(support.get("active_mean_support") or support.get("mean_support") or support.get("max_support")), int(events.get("event_count") or 0))
@@ -494,7 +539,13 @@ def render_markdown(profile: dict[str, Any], layer: dict[str, Any]) -> str:
     gate = as_dict(layer.get("recognition_gate"))
     lines.extend([f"- External recognition status: {gate.get('external_strong_recognition_status')}", f"- Allowed specific families: {', '.join(list_strings(gate.get('allowed_specific_families'))) or 'none'}", f"- Suppressed specific families: {gate.get('suppressed_specific_family_count')}", "", "## Performance cards", ""])
     for card in list_dicts(layer.get("performance_cards")):
-        lines.extend([f"### {card.get('display_name')} / {card.get('object_family')}", "", f"- Role: {card.get('performance_role')}", f"- Recognition gate: {as_dict(card.get('recognition_gate')).get('status')}", f"- Human sentence: {card.get('human_sentence')}", "- Performance modes:"])
+        lines.extend([f"### {card.get('display_name')} / {card.get('object_family')}", "", f"- Role: {card.get('performance_role')}", f"- Recognition gate: {as_dict(card.get('recognition_gate')).get('status')}", f"- Human sentence: {card.get('human_sentence')}", "- Review language:"])
+        for item in list_strings(card.get("review_language")):
+            lines.append(f"  - {item}")
+        lines.append("- Do not write as:")
+        for item in list_strings(card.get("do_not_write_as")):
+            lines.append(f"  - {item}")
+        lines.append("- Performance modes:")
         for mode in list_dicts(card.get("performance_modes")):
             lines.append(f"  - {mode.get('mode')}: {mode.get('description')}")
         lines.append("")
