@@ -3,7 +3,7 @@
 
 Default behavior runs the complete listening-experience continuation:
 
-Audio file -> structural profile -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> musical object performance layer -> descriptor-aware professional evidence -> compact online AI handoff + full audit trace
+Audio file -> structural profile -> song identity layer -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> musical object performance layer -> lyric context layer -> descriptor-aware professional evidence -> compact online AI handoff + full audit trace
 
 PCM WAV is read directly by the core analyzer. Other common local audio formats
 are decoded to temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -36,6 +36,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context-note", action="append", default=[])
     parser.add_argument("--aesthetic-context", action="append", default=[])
     parser.add_argument("--external-context", action="append", default=[])
+    parser.add_argument("--song-title", default=None)
+    parser.add_argument("--song-artist", default=None)
+    parser.add_argument("--song-album", default=None)
+    parser.add_argument("--song-year", default=None)
+    parser.add_argument("--song-identity-json", default=None)
+    parser.add_argument("--song-lookup-note", action="append", default=[])
+    parser.add_argument("--lyrics-file", default=None)
+    parser.add_argument("--lyric-alignment", default=None)
     parser.add_argument("--midi-adapter", action="append", default=[], help="Optional JSON packet from Basic Pitch / MT3 / Omnizart / user MIDI adapter.")
     parser.add_argument("--external-recognition", action="append", default=[], help="Optional JSON packet from external vocal/instrument/stem/effect recognition tool.")
     parser.add_argument("--external-recognition-command", action="append", default=[], help="Command template that writes an external recognition adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
@@ -72,6 +80,14 @@ def run_experience(repo_root: Path, args: argparse.Namespace) -> None:
     append_many(command, "--context-note", args.context_note)
     append_many(command, "--aesthetic-context", args.aesthetic_context)
     append_many(command, "--external-context", args.external_context)
+    append_optional(command, "--song-title", args.song_title)
+    append_optional(command, "--song-artist", args.song_artist)
+    append_optional(command, "--song-album", args.song_album)
+    append_optional(command, "--song-year", args.song_year)
+    append_optional(command, "--song-identity-json", args.song_identity_json)
+    append_many(command, "--song-lookup-note", args.song_lookup_note)
+    append_optional(command, "--lyrics-file", args.lyrics_file)
+    append_optional(command, "--lyric-alignment", args.lyric_alignment)
     append_many(command, "--midi-adapter", args.midi_adapter)
     append_many(command, "--external-recognition", args.external_recognition)
     append_many(command, "--external-recognition-command", args.external_recognition_command)
