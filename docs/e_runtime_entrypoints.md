@@ -35,8 +35,10 @@ Current user-facing path:
 audio file
 -> full-song structural profile
 -> reconstructed stream / score layer
+-> symbolic timeline MIDI layer
 -> OME Spatial Filter Bank runtime layer
 -> temporal-timbre object candidate layer
+-> musical object performance layer
 -> professional audio terminology report
 -> online AI handoff Markdown
 ```
@@ -75,19 +77,25 @@ Single human entrypoint. Normal users should start here.
 scripts/run_listening_experience_pipeline.py
 ```
 
-Continuation pipeline. It connects full-song structural analysis, reconstructed stream / score generation, OME runtime mapping, temporal-timbre object candidates, professional terminology handoff generation, and optional context injection.
+Continuation pipeline. It connects full-song structural analysis, reconstructed stream / score generation, symbolic timeline MIDI generation, OME runtime mapping, temporal-timbre object candidates, musical object performance cards, professional terminology handoff generation, and optional context injection.
 
 ```text
 scripts/run_full_song_analysis.py
 ```
 
-Structural front half. Produces the full-song profile used by the downstream object, terminology, and handoff builders.
+Structural front half. Produces the full-song profile used by the downstream MIDI, object, performance, terminology, and handoff builders.
 
 ```text
 scripts/build_reconstructed_stream_score_layers.py
 ```
 
-Aggregates segment-level full-mix evidence into functional reconstructed streams and a MIDI-like score skeleton. This is not original stem recovery and not true MIDI transcription.
+Aggregates segment-level full-mix evidence into functional reconstructed streams and a compact score skeleton. This is not original stem recovery and not true MIDI transcription.
+
+```text
+scripts/build_symbolic_timeline_midi_layer.py
+```
+
+Builds the music-time skeleton: beat/bar context, section timeline, and symbolic event streams for voice-like, bass-like, rhythm-like, harmonic-like, and texture/FX-like activity. Default output is full-mix symbolic timeline evidence, not original MIDI truth. Optional adapter packets can attach Basic Pitch / MT3 / Omnizart / user transcription evidence as bounded real-MIDI support.
 
 ```text
 scripts/build_ome_spatial_filter_bank_layer.py
@@ -99,7 +107,13 @@ Builds a receiver-side OME spatial field / spatial-band support layer. This maps
 scripts/build_temporal_timbre_object_candidate_layer.py
 ```
 
-Builds auditory object-family candidates from time-frequency-timbre continuity, source-family hints, optional external adapter evidence, and optional OME mapping support. Object candidates come before behavior summaries.
+Builds auditory object-family candidates from time-frequency-timbre continuity, source-family hints, optional external adapter evidence, symbolic timeline support, and optional OME mapping support. Object candidates come before musical performance language.
+
+```text
+scripts/build_musical_object_performance_layer.py
+```
+
+Builds vocal / instrumental / effect-family performance cards. This layer is intentionally not a machine behavior layer. It describes how like-candidate objects perform musically: voice-like phrase expression, plucked or key-struck layers, bassline body, drum-like pulse, sustained pad/string/brass/electronic lead fields, and FX-like tails or transitions.
 
 ```text
 scripts/build_listening_experience_prompt.py
@@ -108,10 +122,50 @@ scripts/build_listening_experience_prompt.py
 Builds the professional evidence pack, critical brief, technical prompt input, and online handoff.
 
 ```text
+scripts/build_listening_experience_prompt_with_descriptors.py
+```
+
+Descriptor-aware wrapper. It attaches subjective descriptor validation, OME packet material, symbolic timeline MIDI layer, musical object performance layer, compact handoff, and full trace handoff.
+
+```text
 scripts/build_aesthetic_context_handoff.py
 ```
 
 Injects optional local context into the handoff Markdown. Context is not treated as local truth.
+
+## MIDI layer contract
+
+MIDI in MSSL means a music-time skeleton. It must not be reduced to a decorative prompt phrase, and it must not be falsely promoted into original score truth.
+
+Default layer:
+
+```text
+full-mix beat / bar grid
++ structural segment timeline
++ symbolic event streams
++ phrase / density / contour / bass / harmony proxies
+```
+
+Optional real-MIDI adapter:
+
+```text
+--midi-adapter path/to/adapter_packet.json
+```
+
+Expected adapter role:
+
+```text
+Basic Pitch / MT3 / Omnizart / user MIDI packet
+-> bounded transcription evidence
+-> refined timing, contour, density, track-family support
+```
+
+Boundary:
+
+```text
+adapter-backed MIDI evidence != original MIDI truth
+adapter track family != confirmed source identity
+```
 
 ## OME runtime contract
 
@@ -156,8 +210,10 @@ recorded signal evidence
 -> structural segments
 -> audio mechanism evidence
 -> reconstructed stream / score skeleton
+-> symbolic timeline MIDI layer
 -> OME receiver-side field mapping
 -> temporal-timbre object candidates
+-> musical object performance cards
 -> professional terminology report
 -> online handoff
 ```
@@ -174,10 +230,11 @@ Use:
 
 ```text
 time-frequency-timbre evidence
++ symbolic timeline support
 + bounded source-family hints
 + optional external adapter evidence
 -> object-family candidate
--> later behavior summary
+-> musical object performance card
 -> OME receiver-side mapping
 ```
 
@@ -189,6 +246,7 @@ The main evidence unit is no longer a one-second block.
 structural segment = main evidence unit
 frame evidence = internal support layer
 beat / bar grid = rhythm reference layer
+symbolic MIDI events = music-time support layer
 ```
 
 One-second frames may still exist for inspection, but they should not become the main listening unit.
@@ -203,8 +261,10 @@ outputs/<song-folder>/
   listening_experience_evidence_pack.json
   critical_listening_brief.json
   reconstructed_stream_score_layer.md
+  symbolic_timeline_midi_layer.json / .md
   ome_spatial_filter_bank_layer.json / .md
   temporal_timbre_object_candidate_layer.json / .md
+  musical_object_performance_layer.json / .md
   original_song_listening_prompt_input.md
   online_ai_listening_handoff.md
   online_ai_listening_handoff_full_trace.md
@@ -233,6 +293,12 @@ Windows:
 
 ```powershell
 python .\scripts\run_mssl.py experience --input "path\to\local_audio.mp3"
+```
+
+With optional MIDI adapter:
+
+```powershell
+python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --midi-adapter "path\to\midi_adapter_packet.json"
 ```
 
 With explicit ffmpeg path:
