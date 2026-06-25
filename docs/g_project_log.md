@@ -85,7 +85,7 @@ The docs root should remain small, readable, and useful for the next implementat
 
 ### 2026-06-24 — Auditory object mapping correction
 
-The next MSSL implementation axis was clarified in `docs/h_auditory_object_mapping_layer.md`.
+The next MSSL implementation axis was clarified in the consolidated scope boundary.
 
 Durable correction:
 
@@ -101,8 +101,6 @@ time-frequency-timbre continuity
 + optional external timbre / stem / transcription evidence
 + bounded source-family hypotheses
 ```
-
-Then a later behavior layer may describe how those object candidates enter, flow, sustain, smear, mask, release, or attach to tails. Finally, OME maps those objects and behaviors into receiver-side spatial evidence.
 
 Important rule:
 
@@ -138,3 +136,40 @@ spatial spread / diffuseness proxy
 ```
 
 Docs consolidation also started by merging the object mapping boundary into `docs/b_mssl_scope_boundary.md`. Remaining standalone notes should be folded into A/B/C/E/F/G instead of breeding new docs files. The repository, naturally, tried to become paperwork compost again.
+
+### 2026-06-25 — MIDI and musical performance layer pivot
+
+The project corrected the planned “behavior layer” into a musical-object performance layer.
+
+Durable correction:
+
+```text
+Do not build a machine behavior layer.
+Build a musical object performance layer: vocal, instrumental, and effect-family expression over the whole song.
+```
+
+A real runtime symbolic timeline MIDI layer was added before OME/object/performance handoff:
+
+```text
+full-song profile
+-> reconstructed stream / score layer
+-> symbolic timeline MIDI layer
+-> OME Spatial Filter Bank runtime layer
+-> temporal-timbre object candidates
+-> musical object performance cards
+-> compact online-AI handoff
+```
+
+The MIDI layer has a default full-mix symbolic timeline mode and an optional real MIDI adapter path:
+
+```text
+--midi-adapter path/to/midi_adapter_packet.json
+```
+
+Boundary:
+
+```text
+symbolic timeline MIDI != original MIDI truth
+adapter-backed MIDI evidence != source truth
+instrument-like / voice-like / FX-like performance language remains like-candidate language
+```
