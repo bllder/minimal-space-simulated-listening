@@ -7,31 +7,41 @@
 
 ## Project goal
 
-MSSL is not only O/M/E packet generation. O/M/E is the spatial simulation layer; the human-facing layer must also accept bounded aesthetic and external context.
+MSSL is not OME. O/M/E is only the receiver-side spatial simulation layer inside MSSL.
+
+Target report role:
+
+```text
+help an online AI describe what kind of song it is;
+help it describe vocal, instrument, and effect-family performance;
+help it combine general audio evidence, MIDI / melody evidence, and OME spatial state;
+keep every source-family claim evidence-bounded.
+```
 
 Current target path:
 
 ```text
-local PCM WAV
+local audio
 -> structural audio evidence
 -> reconstructed stream / score layer
 -> symbolic timeline MIDI layer
+-> optional external recognition command / adapter evidence
+-> external strong recognition layer
 -> OME Spatial Filter Bank runtime layer
 -> temporal-timbre object candidate layer
 -> musical object performance layer
 -> listening-experience evidence pack
--> descriptor-gated OME packet staging
 -> compact online AI handoff + full audit trace
 -> bounded close-listening criticism by an online AI account
 ```
 
 The compact handoff must foreground evidence-bounded auditory object support before broad descriptive language. Object-family candidates should be formed from time-frequency-timbre continuity and optional external timbre / stem / transcription evidence, then mapped into receiver-side O/M/E space. OME field packets are spatial mapping support, not object identity by themselves.
 
-MIDI in MSSL is now a runtime music-time skeleton: beat/bar context, section timeline, symbolic stream events, and optional adapter-backed transcription evidence. Default MIDI output is not original MIDI truth.
+MIDI in MSSL is a runtime music-time skeleton: beat/bar context, section timeline, symbolic stream events, and optional adapter-backed transcription evidence. Default MIDI output is not original MIDI truth.
 
-The musical object performance layer is not a machine behavior layer. It describes vocal-like, instrument-like, and effect-like performance expression while keeping all source claims bounded.
+The musical object performance layer is not a machine behavior layer. It describes vocal, instrument, and effect-family performance only when the family gate allows it. Without external family evidence, it must stay at functional object language.
 
-MSSL does not need to rebuild every music-recognition capability itself. External model outputs, optional adapters, comments, reviews, MIR notes, and user aesthetic material may be introduced as bounded context. MSSL organizes claim boundaries, evidence traceability, and handoff structure.
+MSSL does not need to rebuild every music-recognition capability itself, but the main run must be able to call local external recognition commands and fold their JSON output back into the report chain. External model outputs, optional adapters, reviews, MIR notes, and user aesthetic material may be introduced as bounded context. MSSL organizes claim boundaries, evidence traceability, and handoff structure.
 
 The default project does **not** run a local LLM. The local pipeline prepares an uploadable compact handoff file for an online AI account.
 
@@ -66,6 +76,24 @@ Optional real MIDI / transcription evidence can be attached as a bounded adapter
   --midi-adapter "path\to\midi_adapter_packet.json"
 ```
 
+Optional external recognition can run inside the main flow. The command must write one adapter JSON to `{output_json}`:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --external-recognition-command "python path\to\recognizer.py --input {input} --output-json {output_json}"
+```
+
+Already generated recognition packets can still be attached directly:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --external-recognition "path\to\recognition_packet.json"
+```
+
 By default this runs `experience` mode and writes:
 
 ```text
@@ -73,6 +101,7 @@ online_ai_listening_handoff.md
 online_ai_listening_handoff_full_trace.md
 reconstructed_stream_score_layer.md
 symbolic_timeline_midi_layer.json / .md
+external_strong_recognition_layer.json / .md
 ome_spatial_filter_bank_layer.json / .md
 temporal_timbre_object_candidate_layer.json / .md
 musical_object_performance_layer.json / .md
