@@ -36,6 +36,8 @@ audio file
 -> full-song structural profile
 -> reconstructed stream / score layer
 -> symbolic timeline MIDI layer
+-> optional external recognition command / adapter packet
+-> external strong recognition layer
 -> OME Spatial Filter Bank runtime layer
 -> temporal-timbre object candidate layer
 -> musical object performance layer
@@ -77,7 +79,7 @@ Single human entrypoint. Normal users should start here.
 scripts/run_listening_experience_pipeline.py
 ```
 
-Continuation pipeline. It connects full-song structural analysis, reconstructed stream / score generation, symbolic timeline MIDI generation, OME runtime mapping, temporal-timbre object candidates, musical object performance cards, professional terminology handoff generation, and optional context injection.
+Continuation pipeline. It connects full-song structural analysis, reconstructed stream / score generation, symbolic timeline MIDI generation, optional external recognition commands, external family evidence normalization, OME runtime mapping, temporal-timbre object candidates, musical object performance cards, professional terminology handoff generation, family gate insertion, and optional context injection.
 
 ```text
 scripts/run_full_song_analysis.py
@@ -98,6 +100,18 @@ scripts/build_symbolic_timeline_midi_layer.py
 Builds the music-time skeleton: beat/bar context, section timeline, and symbolic event streams for voice-like, bass-like, rhythm-like, harmonic-like, and texture/FX-like activity. Default output is full-mix symbolic timeline evidence, not original MIDI truth. Optional adapter packets can attach Basic Pitch / MT3 / Omnizart / user transcription evidence as bounded real-MIDI support.
 
 ```text
+scripts/build_external_strong_recognition_layer.py
+```
+
+Normalizes external family evidence from command-generated or pre-existing adapter JSON packets. This layer decides which vocal, instrument, and effect-family names may be used downstream. It does not prove source truth, performer identity, exact original stems, or creator intent.
+
+```text
+scripts/attach_family_gate.py
+```
+
+Post-pass that inserts the family gate into the evidence pack, critical brief, compact handoff, and full trace handoff. This is now called by the main experience pipeline.
+
+```text
 scripts/build_ome_spatial_filter_bank_layer.py
 ```
 
@@ -113,7 +127,7 @@ Builds auditory object-family candidates from time-frequency-timbre continuity, 
 scripts/build_musical_object_performance_layer.py
 ```
 
-Builds vocal / instrumental / effect-family performance cards. This layer is intentionally not a machine behavior layer. It describes how like-candidate objects perform musically: voice-like phrase expression, plucked or key-struck layers, bassline body, drum-like pulse, sustained pad/string/brass/electronic lead fields, and FX-like tails or transitions.
+Builds vocal / instrumental / effect-family performance cards. This layer is intentionally not a machine behavior layer. Specific family cards require the external family gate; otherwise the layer collapses to functional object language.
 
 ```text
 scripts/build_listening_experience_prompt.py
@@ -167,6 +181,43 @@ adapter-backed MIDI evidence != original MIDI truth
 adapter track family != confirmed source identity
 ```
 
+## External family evidence contract
+
+MSSL must support the target report goal:
+
+```text
+song type / listening context
++ vocal, instrument, and effect-family performance
++ MIDI / melody behavior
++ OME spatial state
+-> online-AI close-listening handoff
+```
+
+There are two accepted paths.
+
+Pre-existing packet:
+
+```text
+--external-recognition path/to/recognition_packet.json
+```
+
+Main-flow command:
+
+```text
+--external-recognition-command "python recognizer.py --input {input} --output-json {output_json}"
+```
+
+Placeholders:
+
+```text
+{input}       decoded or original audio path when available
+{profile}     full-song profile path
+{output_dir}  current song output directory
+{output_json} required JSON path that the command must write
+```
+
+The command-generated JSON is immediately fed into `build_external_strong_recognition_layer.py`, then used by `build_musical_object_performance_layer.py` and `attach_family_gate.py`.
+
 ## OME runtime contract
 
 The OME runtime layer is the receiver-side spatial field / mapping support layer. It is not a source extractor and not the object identity generator.
@@ -211,6 +262,7 @@ recorded signal evidence
 -> audio mechanism evidence
 -> reconstructed stream / score skeleton
 -> symbolic timeline MIDI layer
+-> external family evidence gate
 -> OME receiver-side field mapping
 -> temporal-timbre object candidates
 -> musical object performance cards
@@ -247,6 +299,7 @@ structural segment = main evidence unit
 frame evidence = internal support layer
 beat / bar grid = rhythm reference layer
 symbolic MIDI events = music-time support layer
+external recognition events = optional family evidence layer
 ```
 
 One-second frames may still exist for inspection, but they should not become the main listening unit.
@@ -262,6 +315,7 @@ outputs/<song-folder>/
   critical_listening_brief.json
   reconstructed_stream_score_layer.md
   symbolic_timeline_midi_layer.json / .md
+  external_strong_recognition_layer.json / .md
   ome_spatial_filter_bank_layer.json / .md
   temporal_timbre_object_candidate_layer.json / .md
   musical_object_performance_layer.json / .md
@@ -299,6 +353,12 @@ With optional MIDI adapter:
 
 ```powershell
 python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --midi-adapter "path\to\midi_adapter_packet.json"
+```
+
+With external recognition command:
+
+```powershell
+python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --external-recognition-command "python path\to\recognizer.py --input {input} --output-json {output_json}"
 ```
 
 With explicit ffmpeg path:
