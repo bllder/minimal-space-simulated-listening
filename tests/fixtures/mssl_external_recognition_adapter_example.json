@@ -1,0 +1,43 @@
+{
+  "adapter_name": "synthetic_fixture_external_recognition",
+  "adapter_type": "stem_or_instrument_family_detection",
+  "schema": "mssl_external_recognition_adapter_v0_1",
+  "detections": [
+    {
+      "family_hint": "vocals",
+      "confidence": 0.92,
+      "time_range": [0.0, 42.0],
+      "basis": "synthetic fixture vocal-family detection",
+      "boundary": "fixture evidence only; not source truth"
+    },
+    {
+      "family_hint": "bass",
+      "confidence": 0.86,
+      "time_range": [0.0, 42.0],
+      "basis": "synthetic fixture bass-family detection",
+      "boundary": "fixture evidence only; not source truth"
+    },
+    {
+      "family_hint": "drums",
+      "confidence": 0.88,
+      "time_range": [4.0, 42.0],
+      "basis": "synthetic fixture drum-family detection",
+      "boundary": "fixture evidence only; not source truth"
+    },
+    {
+      "family_hint": "guitar",
+      "confidence": 0.81,
+      "time_range": [8.0, 34.0],
+      "basis": "synthetic fixture guitar-family detection",
+      "boundary": "fixture evidence only; not source truth"
+    },
+    {
+      "family_hint": "other",
+      "confidence": 0.63,
+      "time_range": [0.0, 42.0],
+      "basis": "synthetic fixture mixed accompaniment stem",
+      "boundary": "mixed accompaniment fixture; broad backing-bed context only, not a specific instrument claim"
+    }
+  ],
+  "truth_boundary": "Synthetic fixture for schema validation only. It is not generated from real audio, not a source stem, not a performer claim, and not lyric truth."
+}
