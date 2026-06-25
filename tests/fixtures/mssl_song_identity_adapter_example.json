@@ -1,0 +1,35 @@
+{
+  "adapter_name": "synthetic_fixture_song_identity",
+  "schema": "mssl_song_identity_adapter_v0_1",
+  "status": "identity_metadata_attached",
+  "title": "Synthetic Fixture Song",
+  "artist": "MSSL Fixture Artist",
+  "album": "Fixture Album",
+  "year": "2026",
+  "song_title": "Synthetic Fixture Song",
+  "artist_name": "MSSL Fixture Artist",
+  "release": "Fixture Album",
+  "release_year": "2026",
+  "identity_confidence": 0.82,
+  "evidence_sources": [
+    "synthetic_fixture_metadata"
+  ],
+  "metadata_tags_preview": {
+    "title": "Synthetic Fixture Song",
+    "artist": "MSSL Fixture Artist",
+    "album": "Fixture Album",
+    "year": "2026"
+  },
+  "fingerprint_status": {
+    "status": "not_attached",
+    "boundary": "fixture identity is metadata-only; no fingerprint match is implied"
+  },
+  "lookup_summary": {
+    "title": "Synthetic Fixture Song",
+    "artist": "MSSL Fixture Artist",
+    "album": "Fixture Album",
+    "year": "2026",
+    "match_confidence": null
+  },
+  "truth_boundary": "Synthetic fixture for schema validation only. It is not a real song identity, not a fingerprint database match, and not public metadata truth."
+}
