@@ -25,6 +25,7 @@ local audio
 -> song identity layer
 -> reconstructed stream / score layer
 -> symbolic timeline MIDI layer
+-> optional MIDI adapter command / adapter evidence
 -> optional external recognition command / adapter evidence
 -> external strong recognition layer
 -> OME Spatial Filter Bank runtime layer
@@ -46,7 +47,7 @@ The musical object performance layer is not a machine behavior layer. It describ
 
 Song identity and lyric context are bounded layers. MSSL audio features alone do not prove title, artist, lyrics, lyric meaning, or singer identity. Those claims require supplied metadata, external identity evidence, lyric/alignment files, fingerprint/search context, or online AI verification.
 
-MSSL does not need to rebuild every music-recognition capability itself, but the main run must be able to call local external recognition commands and fold their JSON output back into the report chain. External model outputs, optional adapters, reviews, MIR notes, and user aesthetic material may be introduced as bounded context. MSSL organizes claim boundaries, evidence traceability, and handoff structure.
+MSSL does not need to rebuild every music-recognition capability itself, but the main run can call local adapter commands and fold their JSON output back into the report chain. External model outputs, optional adapters, reviews, MIR notes, and user aesthetic material may be introduced as bounded context. MSSL organizes claim boundaries, evidence traceability, and handoff structure.
 
 The default project does **not** run a local LLM. The local pipeline prepares an uploadable compact handoff file for an online AI account.
 
@@ -82,6 +83,15 @@ With supplied song identity:
   --song-artist "Artist name"
 ```
 
+With metadata / fingerprint identity command:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --song-identity-command "python .\scripts\adapters\run_song_identity_adapter.py --input {input} --output-json {output_json} --metadata-command 'ffprobe -v quiet -print_format json -show_format -show_streams {input} > {metadata_json}'"
+```
+
 With lyric context, without exporting full lyrics into the handoff:
 
 ```powershell
@@ -103,6 +113,15 @@ Optional real MIDI / transcription evidence can be attached as a bounded adapter
   --midi-adapter "path\to\midi_adapter_packet.json"
 ```
 
+Basic Pitch / MT3 style transcription can be normalized inside the main flow when a command writes notes JSON or CSV:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --midi-adapter-command "python .\scripts\adapters\run_basic_pitch_adapter.py --input {input} --output-json {output_json} --notes-csv path\to\notes.csv"
+```
+
 Optional external recognition can run inside the main flow. The command must write one adapter JSON to `{output_json}`:
 
 ```powershell
@@ -110,6 +129,15 @@ Optional external recognition can run inside the main flow. The command must wri
   --input "path\to\local_audio.wav" `
   --output-dir outputs `
   --external-recognition-command "python path\to\recognizer.py --input {input} --output-json {output_json}"
+```
+
+Demucs / UVR stem output can be normalized inside the same external-recognition command slot:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --external-recognition-command "python .\scripts\adapters\run_demucs_adapter.py --input {input} --output-json {output_json} --stems-dir path\to\stems"
 ```
 
 Already generated recognition packets can still be attached directly:
