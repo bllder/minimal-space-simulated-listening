@@ -4,20 +4,7 @@ Status: consolidated current runtime / script entrypoint guide.
 
 Use this file to keep README and script help text aligned with the actual main path.
 
-Consolidated from:
-
-- `runtime_pipeline.md`
-- `scripts_inventory.md`
-- `full_song_analysis_pipeline.md`
-- `detailed_runtime_flow.md`
-- `portable_path_audit.md`
-- `ome_spatial_filter_bank_design.md`
-- `ome_spatial_filter_bank_handoff_contract.md`
-- `ome_spatial_filter_bank_reading_notes.md`
-
 ## Current human entrypoint
-
-Use this first:
 
 ```text
 scripts/run_mssl.py
@@ -34,11 +21,10 @@ Current user-facing path:
 ```text
 audio file
 -> full-song structural profile
--> song identity layer
+-> song identity command / song identity layer
 -> reconstructed stream / score layer
--> symbolic timeline MIDI layer
--> optional external recognition command / adapter packet
--> external strong recognition layer
+-> MIDI adapter command / symbolic timeline MIDI layer
+-> external recognition command / external strong recognition layer
 -> OME Spatial Filter Bank runtime layer
 -> temporal-timbre object candidate layer
 -> musical object performance layer
@@ -57,9 +43,7 @@ Copy or upload that file to an online AI account instead of uploading audio.
 
 ## Supported input behavior
 
-The core analyzer reads PCM WAV directly.
-
-The main runner and experience pipeline may decode other common local audio formats through ffmpeg when available:
+The core analyzer reads PCM WAV directly. The main runner and experience pipeline may decode other common local audio formats through ffmpeg when available:
 
 ```text
 non-WAV audio
@@ -81,19 +65,25 @@ Single human entrypoint. Normal users should start here.
 scripts/run_listening_experience_pipeline.py
 ```
 
-Continuation pipeline. It connects full-song structural analysis, song identity, reconstructed stream / score generation, symbolic timeline MIDI generation, optional external recognition commands, external family evidence normalization, OME runtime mapping, temporal-timbre object candidates, musical object performance cards, lyric context, professional terminology handoff generation, family gate insertion, and optional context injection.
+Continuation pipeline. It connects full-song structural analysis, song identity commands, reconstructed stream / score generation, MIDI adapter commands, symbolic timeline MIDI generation, external recognition commands, external family evidence normalization, OME runtime mapping, temporal-timbre object candidates, musical object performance cards, lyric context, professional terminology handoff generation, family gate insertion, and optional context injection.
 
 ```text
 scripts/run_full_song_analysis.py
 ```
 
-Structural front half. Produces the full-song profile used by the downstream identity, MIDI, object, performance, terminology, lyric-context, and handoff builders.
+Structural front half. Produces the full-song profile used by downstream identity, MIDI, object, performance, terminology, lyric-context, and handoff builders.
 
 ```text
 scripts/build_song_identity_layer.py
 ```
 
 Builds bounded song identity status from supplied metadata, identity JSON, and filename/analysis hints. It does not infer title or artist from raw audio features by itself.
+
+```text
+scripts/adapters/run_song_identity_adapter.py
+```
+
+Normalizes user fields, ffprobe-style metadata JSON, fpcalc / Chromaprint output, or externally produced AcoustID / MusicBrainz lookup JSON into a song identity JSON for `--song-identity-json` or `--song-identity-command`.
 
 ```text
 scripts/build_reconstructed_stream_score_layers.py
@@ -105,13 +95,25 @@ Aggregates segment-level full-mix evidence into functional reconstructed streams
 scripts/build_symbolic_timeline_midi_layer.py
 ```
 
-Builds the music-time skeleton: beat/bar context, section timeline, and symbolic event streams for voice-like, bass-like, rhythm-like, harmonic-like, and texture/FX-like activity. Default output is full-mix symbolic timeline evidence, not original MIDI truth. Optional adapter packets can attach Basic Pitch / MT3 / Omnizart / user transcription evidence as bounded real-MIDI support.
+Builds the music-time skeleton: beat/bar context, section timeline, and symbolic event streams for voice-like, bass-like, rhythm-like, harmonic-like, and texture/FX-like activity. Default output is full-mix symbolic timeline evidence, not original MIDI truth.
+
+```text
+scripts/adapters/run_basic_pitch_adapter.py
+```
+
+Normalizes Basic Pitch / MT3 / custom transcription notes JSON or CSV into the MSSL MIDI adapter packet shape. It may also run an external tool command before normalization. It supplies timing, pitch contour, note density, and track-family hints; it does not prove original MIDI or source identity.
 
 ```text
 scripts/build_external_strong_recognition_layer.py
 ```
 
-Normalizes external family evidence from command-generated or pre-existing adapter JSON packets. This layer decides which vocal, instrument, and effect-family names may be used downstream. It does not prove source truth, performer identity, exact original stems, lyric truth, or creator intent.
+Normalizes external family evidence from command-generated or pre-existing adapter JSON packets. This layer decides which vocal, instrument, and effect-family names may be used downstream. It also accepts mixed accompaniment / `other` stem evidence as broad backing-bed context, not as a specific instrument claim.
+
+```text
+scripts/adapters/run_demucs_adapter.py
+```
+
+Normalizes Demucs / UVR stem outputs into external recognition evidence for vocals, bass, drums, and mixed accompaniment. Stem evidence is bounded and may contain bleed, artifacts, or category errors.
 
 ```text
 scripts/adapters/normalize_external_recognition_packet.py
@@ -123,7 +125,7 @@ Normalizes generic external tool JSON into the MSSL external recognition adapter
 scripts/attach_family_gate.py
 ```
 
-Post-pass that inserts the family gate into the evidence pack, critical brief, compact handoff, and full trace handoff. This is called by the main experience pipeline.
+Post-pass that inserts the family gate into the evidence pack, critical brief, compact handoff, and full trace handoff. It avoids duplicating the family gate when the compact handoff already contains the source-family permission table.
 
 ```text
 scripts/build_ome_spatial_filter_bank_layer.py
@@ -150,12 +152,6 @@ scripts/build_lyric_context_layer.py
 Builds bounded lyric context from optional local lyric/alignment files plus MSSL vocal, MIDI, and OME anchors. It does not export full lyrics into report-facing handoff.
 
 ```text
-scripts/build_listening_experience_prompt.py
-```
-
-Builds the professional evidence pack, critical brief, technical prompt input, and online handoff.
-
-```text
 scripts/build_listening_experience_prompt_with_descriptors.py
 ```
 
@@ -167,15 +163,9 @@ scripts/render_compact_online_handoff.py
 
 Renders the compact online handoff as a report-composer schema: song identity, source-family permission, vocal/lyric anchors, instrument/source-family performance, MIDI/melody/rhythm skeleton, general audio evidence, OME spatial performance state, macro arc, and writing boundaries.
 
-```text
-scripts/build_aesthetic_context_handoff.py
-```
-
-Injects optional local context into the handoff Markdown. Context is not treated as local truth.
-
 ## Song identity contract
 
-Song identity can be supplied through:
+Song identity can be supplied directly:
 
 ```text
 --song-title
@@ -183,6 +173,12 @@ Song identity can be supplied through:
 --song-album
 --song-year
 --song-identity-json
+```
+
+Or generated in the main flow:
+
+```text
+--song-identity-command "python scripts/adapters/run_song_identity_adapter.py --input {input} --output-json {output_json} ..."
 ```
 
 Boundary:
@@ -230,6 +226,12 @@ Optional real-MIDI adapter:
 --midi-adapter path/to/adapter_packet.json
 ```
 
+Main-flow command:
+
+```text
+--midi-adapter-command "python scripts/adapters/run_basic_pitch_adapter.py --input {input} --output-json {output_json} ..."
+```
+
 Expected adapter role:
 
 ```text
@@ -257,24 +259,13 @@ song type / listening context
 -> online-AI close-listening handoff
 ```
 
-There are three accepted paths.
-
-Pre-existing packet:
+Accepted paths:
 
 ```text
 --external-recognition path/to/recognition_packet.json
-```
-
-Main-flow command:
-
-```text
 --external-recognition-command "python recognizer.py --input {input} --output-json {output_json}"
-```
-
-Generic normalization:
-
-```text
 python scripts/adapters/normalize_external_recognition_packet.py --input-json raw_tool_output.json --output-json recognition_packet.json
+python scripts/adapters/run_demucs_adapter.py --input audio.wav --output-json recognition_packet.json --stems-dir path/to/stems
 ```
 
 Placeholders:
@@ -329,10 +320,10 @@ Read it as:
 ```text
 recorded signal evidence
 -> structural segments
--> song identity status
+-> song identity status / command evidence
 -> audio mechanism evidence
 -> reconstructed stream / score skeleton
--> symbolic timeline MIDI layer
+-> MIDI adapter evidence / symbolic timeline MIDI layer
 -> external family evidence gate
 -> OME receiver-side field mapping
 -> temporal-timbre object candidates
@@ -401,21 +392,6 @@ outputs/<song-folder>/
 
 Generated output files are local artifacts and should not be committed unless explicitly curated.
 
-## Path portability rule
-
-Do not require a specific drive letter or local machine folder.
-
-Allowed in committed instructions:
-
-```text
-<project-root>
-path/to/local_audio.wav
-path\to\local_audio.wav
-outputs/<input-stem>/...
-```
-
-Avoid machine-specific absolute paths in docs unless they are clearly marked as examples from a local run.
-
 ## Main command examples
 
 Windows:
@@ -430,16 +406,22 @@ With identity and lyric context:
 python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --song-title "Song title" --song-artist "Artist" --lyrics-file "path\to\lyrics.txt" --lyric-alignment "path\to\lyric_alignment.json"
 ```
 
-With optional MIDI adapter:
+With identity command:
 
 ```powershell
-python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --midi-adapter "path\to\midi_adapter_packet.json"
+python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --song-identity-command "python .\scripts\adapters\run_song_identity_adapter.py --input {input} --output-json {output_json} --metadata-command 'ffprobe -v quiet -print_format json -show_format -show_streams {input} > {metadata_json}'"
 ```
 
-With external recognition command:
+With MIDI adapter command:
 
 ```powershell
-python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --external-recognition-command "python path\to\recognizer.py --input {input} --output-json {output_json}"
+python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --midi-adapter-command "python .\scripts\adapters\run_basic_pitch_adapter.py --input {input} --output-json {output_json} --notes-csv path\to\notes.csv"
+```
+
+With Demucs / UVR stem adapter command:
+
+```powershell
+python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --external-recognition-command "python .\scripts\adapters\run_demucs_adapter.py --input {input} --output-json {output_json} --stems-dir path\to\stems"
 ```
 
 With explicit ffmpeg path:
