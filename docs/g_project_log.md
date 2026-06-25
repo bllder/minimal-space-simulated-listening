@@ -4,11 +4,6 @@ Status: consolidated lightweight project history and migration note.
 
 Use this file only for current-project development notes that matter after cleanup. It is not a design spec and not an implementation target.
 
-Consolidated from:
-
-- `project_log.md`
-- `migration_log.md`
-
 ## Log rule
 
 Add entries only when a change materially affects the project direction, public repository boundary, runtime path, or documentation structure.
@@ -81,7 +76,7 @@ machine terminology
 -> online-AI accessible translation examples
 ```
 
-The docs root should remain small, readable, and useful for the next implementation step. If a future topic grows too large, split it deliberately instead of letting loose files breed in the root.
+The docs root should remain small, readable, and useful for the next implementation step.
 
 ### 2026-06-24 — Auditory object mapping correction
 
@@ -135,8 +130,6 @@ apparent source width proxy / stereo image width
 spatial spread / diffuseness proxy
 ```
 
-Docs consolidation also started by merging the object mapping boundary into `docs/b_mssl_scope_boundary.md`. Remaining standalone notes should be folded into A/B/C/E/F/G instead of breeding new docs files. The repository, naturally, tried to become paperwork compost again.
-
 ### 2026-06-25 — MIDI and musical performance layer pivot
 
 The project corrected the planned “behavior layer” into a musical-object performance layer.
@@ -158,12 +151,6 @@ full-song profile
 -> temporal-timbre object candidates
 -> musical object performance cards
 -> compact online-AI handoff
-```
-
-The MIDI layer has a default full-mix symbolic timeline mode and an optional real MIDI adapter path:
-
-```text
---midi-adapter path/to/midi_adapter_packet.json
 ```
 
 Boundary:
@@ -198,25 +185,6 @@ collect the adapter JSON it writes,
 and fold it into the family gate and handoff.
 ```
 
-New main-flow entry:
-
-```text
---external-recognition-command "python recognizer.py --input {input} --output-json {output_json}"
-```
-
-The flow is now:
-
-```text
-full-song profile
--> symbolic timeline MIDI layer
--> external recognition command / adapter packet
--> external strong recognition layer
--> OME Spatial Filter Bank runtime layer
--> object candidates
--> musical object performance cards
--> family gate in compact handoff / full trace
-```
-
 ### 2026-06-25 — Identity, lyric context, and report-composer handoff
 
 The report target was implemented as explicit runtime layers rather than only prompt language.
@@ -226,12 +194,6 @@ New runtime layers:
 ```text
 song_identity_layer
 lyric_context_layer
-```
-
-New adapter support:
-
-```text
-scripts/adapters/normalize_external_recognition_packet.py
 ```
 
 Main-flow reading:
@@ -267,4 +229,51 @@ Boundary:
 ```text
 MSSL audio evidence alone does not prove song title, artist, lyrics, lyric meaning, singer identity, or exact instrumentation.
 Those claims require metadata, adapter evidence, lyric/alignment context, external search, or online verification.
+```
+
+### 2026-06-25 — Adapter wrapper implementation
+
+The three next adapter directions were implemented as wrapper / normalizer scripts rather than default dependencies.
+
+New wrappers:
+
+```text
+scripts/adapters/run_basic_pitch_adapter.py
+scripts/adapters/run_demucs_adapter.py
+scripts/adapters/run_song_identity_adapter.py
+```
+
+New main-flow command slots:
+
+```text
+--midi-adapter-command
+--song-identity-command
+--external-recognition-command
+```
+
+Runtime intent:
+
+```text
+Basic Pitch / MT3 notes JSON or CSV
+-> MSSL MIDI adapter packet
+-> symbolic timeline MIDI layer
+
+Demucs / UVR stems
+-> MSSL external recognition packet
+-> external strong recognition layer
+-> musical object performance gate
+
+metadata / fpcalc / external lookup JSON
+-> MSSL song identity JSON
+-> song identity layer
+```
+
+Boundary:
+
+```text
+adapter output is evidence, not truth.
+transcription-backed MIDI != original MIDI
+stem separation != original DAW stems
+fingerprint output != song identity unless matched or verified
+mixed accompaniment / other stem != specific instrument claim
 ```
