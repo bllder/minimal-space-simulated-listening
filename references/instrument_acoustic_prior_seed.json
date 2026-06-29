@@ -1,0 +1,984 @@
+{
+  "version": "instrument_acoustic_prior_seed_v0_1",
+  "status": "hand_coded_acoustic_prior_seed",
+  "truth_boundary": "Hand-coded acoustic prior and filter-template seed only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+  "midi_frequency_reference": {
+    "formula": "frequency_hz = 440.0 * 2 ** ((midi_note - 69) / 12)",
+    "a4_midi": 69,
+    "a4_hz": 440.0
+  },
+  "allowed_ome_lanes": [
+    "low_body_lane",
+    "transient_plane_lane",
+    "foreground_contour_lane",
+    "harmonic_ridge_lane",
+    "diffuse_tail_lane",
+    "noise_texture_lane",
+    "spatial_spread_lane",
+    "pressure_peak_lane"
+  ],
+  "usage_boundary": "Use these priors later with OME rolling arrangement windows, gammatone/spectral envelope evidence, MIDI/pitch support, and local dynamic evidence to form ranked hypotheses. Do not use this seed index by itself as recognition.",
+  "priors": [
+    {
+      "instrument_id": "singing_voice",
+      "display_name": "Singing voice",
+      "family": "voice",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "airflow through vocal folds",
+        "primary_vibrator": "vocal folds",
+        "resonator_or_radiator": "vocal tract and mouth",
+        "control_mechanism": "breath pressure, vowel shaping, register, articulation, vibrato"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [36, 84],
+        "core_register_midi": [48, 76],
+        "pitch_range_hz": [65.41, 1046.5],
+        "core_register_hz": [130.81, 659.26],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside a broad singing register.", "weight": 0.18},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "stable f0 with vowel-shaped harmonic emphasis and possible vibrato.", "weight": 0.22},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid", "spectral_rolloff_tendency": "variable", "weight": 0.16},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "legato", "weight": 0.18},
+        "noise_or_inharmonic_prior": {"noise_component": "breath", "inharmonicity": "low", "weight": 0.14},
+        "ome_lane_compatibility": {"likely_lanes": ["foreground_contour_lane", "harmonic_ridge_lane"], "supporting_lanes": ["pressure_peak_lane", "diffuse_tail_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "A later hypothesis should require foreground contour, harmonic continuity, and pitch/phrase support.", "weight": 0.12}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only broadband transient evidence", "no stable contour or harmonic support", "low body alone"],
+      "source_notes": ["Broad human voice prior; exact singer, words, and identity are outside this seed."]
+    },
+    {
+      "instrument_id": "spoken_voice_or_vocal_presence",
+      "display_name": "Spoken voice or vocal presence",
+      "family": "voice",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "airflow and vocal-fold or fricative articulation",
+        "primary_vibrator": "vocal folds and turbulent articulators",
+        "resonator_or_radiator": "vocal tract and mouth",
+        "control_mechanism": "speech articulation, consonants, vowel shaping, breath pressure"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [35, 79],
+        "core_register_midi": [45, 72],
+        "pitch_range_hz": [61.74, 783.99],
+        "core_register_hz": [110.0, 523.25],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate voiced portions should fall inside a broad speech/vocal register.", "weight": 0.15},
+        "harmonic_comb_expectation": {"type": "mixed", "expected_partials": "alternating voiced harmonic segments and unvoiced consonant/noise components.", "weight": 0.16},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid", "spectral_rolloff_tendency": "variable", "weight": 0.17},
+        "attack_decay_envelope_prior": {"attack_class": "variable", "decay_class": "short", "sustain_class": "limited", "rearticulation_pattern": "repeated_attack", "weight": 0.19},
+        "noise_or_inharmonic_prior": {"noise_component": "breath", "inharmonicity": "moderate", "weight": 0.18},
+        "ome_lane_compatibility": {"likely_lanes": ["foreground_contour_lane"], "supporting_lanes": ["noise_texture_lane", "pressure_peak_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Speech-like presence should align with foreground mid activity plus articulated noise, not low energy alone.", "weight": 0.15}
+      },
+      "midi_alignment": {"expected_note_behavior": "variable", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only sustained pad-like harmony", "only low-frequency body", "no foreground articulation"],
+      "source_notes": ["Speech-like vocal presence prior; does not infer words or speaker."]
+    },
+    {
+      "instrument_id": "electric_bass",
+      "display_name": "Electric bass",
+      "family": "low_register",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "plucked or picked string",
+        "primary_vibrator": "string",
+        "resonator_or_radiator": "pickup / amplification chain / instrument body",
+        "control_mechanism": "fretting, plucking position, pickup/tone controls, muting"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [28, 67],
+        "core_register_midi": [36, 55],
+        "pitch_range_hz": [41.2, 392.0],
+        "core_register_hz": [65.41, 196.0],
+        "standard_tuning_or_notes": ["E1", "A1", "D2", "G2"],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside a plausible low string range.", "weight": 0.3},
+        "harmonic_comb_expectation": {"type": "mostly_harmonic", "expected_partials": "integer-related partials with strong low fundamentals and upper string/pick harmonics.", "weight": 0.18},
+        "spectral_envelope_prior": {"low_band": "dominant", "mid_band": "moderate", "high_band": "limited", "spectral_centroid_tendency": "low_mid", "spectral_rolloff_tendency": "mid", "weight": 0.24},
+        "attack_decay_envelope_prior": {"attack_class": "fast", "decay_class": "medium", "sustain_class": "moderate", "rearticulation_pattern": "repeated_attack", "weight": 0.12},
+        "noise_or_inharmonic_prior": {"noise_component": "pick_noise", "inharmonicity": "low", "weight": 0.06},
+        "ome_lane_compatibility": {"likely_lanes": ["low_body_lane"], "supporting_lanes": ["pressure_peak_lane", "transient_plane_lane"], "contradicting_lanes": ["diffuse_tail_lane"], "notes": "Low body and stable pitch support are necessary; diffuse tail alone is weak evidence.", "weight": 0.1}
+      },
+      "midi_alignment": {"expected_note_behavior": "repeated_notes", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["no low register support", "only high noisy texture", "diffuse tail as sole evidence"],
+      "source_notes": ["Broad electric bass prior; pickup/amplification variation is expected."]
+    },
+    {
+      "instrument_id": "acoustic_bass",
+      "display_name": "Acoustic bass",
+      "family": "low_register",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "plucked or bowed string",
+        "primary_vibrator": "string",
+        "resonator_or_radiator": "large hollow wooden body",
+        "control_mechanism": "fingerboard position, pluck/bow pressure, body resonance"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [28, 64],
+        "core_register_midi": [36, 52],
+        "pitch_range_hz": [41.2, 329.63],
+        "core_register_hz": [65.41, 164.81],
+        "standard_tuning_or_notes": ["E1", "A1", "D2", "G2"],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside acoustic bass low register.", "weight": 0.28},
+        "harmonic_comb_expectation": {"type": "mostly_harmonic", "expected_partials": "low fundamentals with woody resonant partial emphasis.", "weight": 0.2},
+        "spectral_envelope_prior": {"low_band": "dominant", "mid_band": "moderate", "high_band": "limited", "spectral_centroid_tendency": "low_mid", "spectral_rolloff_tendency": "mid", "weight": 0.22},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "medium", "sustain_class": "moderate", "rearticulation_pattern": "variable", "weight": 0.14},
+        "noise_or_inharmonic_prior": {"noise_component": "variable", "inharmonicity": "low", "weight": 0.06},
+        "ome_lane_compatibility": {"likely_lanes": ["low_body_lane"], "supporting_lanes": ["harmonic_ridge_lane", "pressure_peak_lane"], "contradicting_lanes": ["noise_texture_lane"], "notes": "Low body plus harmonic support is expected; pure noise evidence is contradictory.", "weight": 0.1}
+      },
+      "midi_alignment": {"expected_note_behavior": "repeated_notes", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only high-band noise", "no low register", "broadband transient without harmonic body"],
+      "source_notes": ["Broad acoustic bass prior; plucked and bowed contexts may differ."]
+    },
+    {
+      "instrument_id": "synth_bass",
+      "display_name": "Synth bass",
+      "family": "low_register",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "electronic oscillator or synthesized waveform",
+        "primary_vibrator": "electronic signal source",
+        "resonator_or_radiator": "filter, amplifier, effects chain",
+        "control_mechanism": "oscillator shape, filter cutoff, envelope, modulation"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [24, 72],
+        "core_register_midi": [32, 60],
+        "pitch_range_hz": [32.7, 523.25],
+        "core_register_hz": [51.91, 261.63],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should sit in a broad electronic low-register range.", "weight": 0.27},
+        "harmonic_comb_expectation": {"type": "mixed", "expected_partials": "simple oscillator harmonics, filtered harmonics, sub content, or intentionally synthetic spectra.", "weight": 0.14},
+        "spectral_envelope_prior": {"low_band": "dominant", "mid_band": "moderate", "high_band": "variable", "spectral_centroid_tendency": "low_mid", "spectral_rolloff_tendency": "variable", "weight": 0.24},
+        "attack_decay_envelope_prior": {"attack_class": "variable", "decay_class": "variable", "sustain_class": "variable", "rearticulation_pattern": "repeated_attack", "weight": 0.16},
+        "noise_or_inharmonic_prior": {"noise_component": "electronic_noise", "inharmonicity": "variable", "weight": 0.07},
+        "ome_lane_compatibility": {"likely_lanes": ["low_body_lane"], "supporting_lanes": ["pressure_peak_lane", "harmonic_ridge_lane", "spatial_spread_lane"], "contradicting_lanes": ["diffuse_tail_lane"], "notes": "Low-body lane is expected, but electronic modulation may widen or brighten the support.", "weight": 0.12}
+      },
+      "midi_alignment": {"expected_note_behavior": "repeated_notes", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only acoustic breath noise", "only high cymbal-like texture", "no low register or sub-low support"],
+      "source_notes": ["Broad synth bass prior; waveform and filter choices are intentionally variable."]
+    },
+    {
+      "instrument_id": "acoustic_guitar",
+      "display_name": "Acoustic guitar",
+      "family": "plucked_strings",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "plucked or strummed string",
+        "primary_vibrator": "string",
+        "resonator_or_radiator": "wooden body and soundboard",
+        "control_mechanism": "fretting, strumming pattern, plucking position, body resonance"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [40, 88],
+        "core_register_midi": [45, 76],
+        "pitch_range_hz": [82.41, 1318.51],
+        "core_register_hz": [110.0, 659.26],
+        "standard_tuning_or_notes": ["E2", "A2", "D3", "G3", "B3", "E4"],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitches should fall inside guitar string/fret range.", "weight": 0.24},
+        "harmonic_comb_expectation": {"type": "mostly_harmonic", "expected_partials": "integer-related string partials with body resonance and high pluck noise.", "weight": 0.2},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid", "spectral_rolloff_tendency": "mid", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "fast", "decay_class": "medium", "sustain_class": "limited", "rearticulation_pattern": "repeated_attack", "weight": 0.18},
+        "noise_or_inharmonic_prior": {"noise_component": "pick_noise", "inharmonicity": "low", "weight": 0.08},
+        "ome_lane_compatibility": {"likely_lanes": ["harmonic_ridge_lane", "foreground_contour_lane"], "supporting_lanes": ["transient_plane_lane", "noise_texture_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Pluck/strum evidence should combine harmonic mid support with repeated attacks.", "weight": 0.12}
+      },
+      "midi_alignment": {"expected_note_behavior": "repeated_notes", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["continuous sustain without reattack", "only sub-low body", "only breath-like noise"],
+      "source_notes": ["Broad acoustic guitar prior; does not distinguish playing technique by itself."]
+    },
+    {
+      "instrument_id": "electric_guitar",
+      "display_name": "Electric guitar",
+      "family": "plucked_strings",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "plucked or picked string",
+        "primary_vibrator": "string",
+        "resonator_or_radiator": "pickup / amplifier / effects chain",
+        "control_mechanism": "fretting, picking, pickup/tone controls, gain, effects"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [40, 91],
+        "core_register_midi": [45, 79],
+        "pitch_range_hz": [82.41, 1567.98],
+        "core_register_hz": [110.0, 783.99],
+        "standard_tuning_or_notes": ["E2", "A2", "D3", "G3", "B3", "E4"],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitches should fall inside a broad electric guitar range.", "weight": 0.22},
+        "harmonic_comb_expectation": {"type": "mixed", "expected_partials": "string harmonics, possible distortion-enhanced upper partials, or sustained lead content.", "weight": 0.18},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "variable", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "fast", "decay_class": "variable", "sustain_class": "moderate", "rearticulation_pattern": "variable", "weight": 0.17},
+        "noise_or_inharmonic_prior": {"noise_component": "pick_noise", "inharmonicity": "moderate", "weight": 0.1},
+        "ome_lane_compatibility": {"likely_lanes": ["foreground_contour_lane", "harmonic_ridge_lane"], "supporting_lanes": ["transient_plane_lane", "pressure_peak_lane", "noise_texture_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "A later hypothesis should compare mid-band contour, attack, sustain, and effects-like widening.", "weight": 0.15}
+      },
+      "midi_alignment": {"expected_note_behavior": "variable", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only low sub support", "only slow pad-like onset", "no pitch/register support"],
+      "source_notes": ["Broad electric guitar prior; distortion and effects widen possible evidence."]
+    },
+    {
+      "instrument_id": "piano",
+      "display_name": "Piano",
+      "family": "keyboard",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "hammer strike",
+        "primary_vibrator": "string",
+        "resonator_or_radiator": "soundboard and body",
+        "control_mechanism": "keyboard action, velocity, pedals, register"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [21, 108],
+        "core_register_midi": [36, 84],
+        "pitch_range_hz": [27.5, 4186.01],
+        "core_register_hz": [65.41, 1046.5],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitches may span a broad keyboard range.", "weight": 0.2},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "struck string partials with mild inharmonic stretch, especially in low/high registers.", "weight": 0.19},
+        "spectral_envelope_prior": {"low_band": "moderate", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "variable", "spectral_rolloff_tendency": "variable", "weight": 0.17},
+        "attack_decay_envelope_prior": {"attack_class": "fast", "decay_class": "long", "sustain_class": "moderate", "rearticulation_pattern": "chordal_blocks", "weight": 0.22},
+        "noise_or_inharmonic_prior": {"noise_component": "strike_noise", "inharmonicity": "moderate", "weight": 0.1},
+        "ome_lane_compatibility": {"likely_lanes": ["harmonic_ridge_lane", "transient_plane_lane"], "supporting_lanes": ["foreground_contour_lane", "pressure_peak_lane", "low_body_lane"], "contradicting_lanes": ["noise_texture_lane"], "notes": "Struck harmonic support should align with attack plus decay and possible chordal MIDI support.", "weight": 0.12}
+      },
+      "midi_alignment": {"expected_note_behavior": "chordal_blocks", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only continuous pad without attack", "only broadband noise texture", "no harmonic register support"],
+      "source_notes": ["Broad piano prior; pedal and register change envelope evidence."]
+    },
+    {
+      "instrument_id": "electric_piano",
+      "display_name": "Electric piano",
+      "family": "keyboard",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "key action striking tine, reed, or electronic tone source",
+        "primary_vibrator": "tine/reed/electronic resonator",
+        "resonator_or_radiator": "pickup, amplifier, effects chain",
+        "control_mechanism": "keyboard velocity, sustain, tremolo/chorus, tone controls"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [28, 96],
+        "core_register_midi": [40, 84],
+        "pitch_range_hz": [41.2, 2093.0],
+        "core_register_hz": [82.41, 1046.5],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitches should fall inside a broad electric keyboard range.", "weight": 0.2},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "pitched partials with possible bell-like or tine-like upper emphasis.", "weight": 0.18},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid", "spectral_rolloff_tendency": "variable", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "fast", "decay_class": "medium", "sustain_class": "moderate", "rearticulation_pattern": "chordal_blocks", "weight": 0.2},
+        "noise_or_inharmonic_prior": {"noise_component": "strike_noise", "inharmonicity": "moderate", "weight": 0.1},
+        "ome_lane_compatibility": {"likely_lanes": ["harmonic_ridge_lane"], "supporting_lanes": ["transient_plane_lane", "foreground_contour_lane", "spatial_spread_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Harmonic mid support plus keyboard-like attacks can support this prior later.", "weight": 0.14}
+      },
+      "midi_alignment": {"expected_note_behavior": "chordal_blocks", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only unpitched transient evidence", "only low-body line", "no attack or harmonic support"],
+      "source_notes": ["Broad electric piano prior; effects may increase spatial spread."]
+    },
+    {
+      "instrument_id": "keyboard_pluck_or_keys",
+      "display_name": "Keyboard pluck or keys",
+      "family": "keyboard",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "keyboard-triggered sample, synth envelope, or keyed source",
+        "primary_vibrator": "electronic or sampled pitched source",
+        "resonator_or_radiator": "filter, amplifier, effects chain",
+        "control_mechanism": "key velocity, envelope, filter, arpeggiation"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [36, 96],
+        "core_register_midi": [48, 84],
+        "pitch_range_hz": [65.41, 2093.0],
+        "core_register_hz": [130.81, 1046.5],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitches should fall inside a broad keyboard/pluck range.", "weight": 0.19},
+        "harmonic_comb_expectation": {"type": "mixed", "expected_partials": "pitched partials, sampled attacks, or synthetic harmonic patterns.", "weight": 0.16},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "variable", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "fast", "decay_class": "short", "sustain_class": "limited", "rearticulation_pattern": "repeated_attack", "weight": 0.22},
+        "noise_or_inharmonic_prior": {"noise_component": "electronic_noise", "inharmonicity": "variable", "weight": 0.1},
+        "ome_lane_compatibility": {"likely_lanes": ["transient_plane_lane", "harmonic_ridge_lane"], "supporting_lanes": ["foreground_contour_lane", "noise_texture_lane"], "contradicting_lanes": ["diffuse_tail_lane"], "notes": "Fast keyed/pluck attacks need pitch or harmonic context before later hypotheses.", "weight": 0.15}
+      },
+      "midi_alignment": {"expected_note_behavior": "repeated_notes", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only slow continuous pad", "only low body", "no repeated attack support"],
+      "source_notes": ["Broad keyed or plucked keyboard prior; does not distinguish sample source."]
+    },
+    {
+      "instrument_id": "violin",
+      "display_name": "Violin",
+      "family": "bowed_strings",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "bow or pluck on string",
+        "primary_vibrator": "string",
+        "resonator_or_radiator": "wooden body",
+        "control_mechanism": "bow speed/pressure, fingering, vibrato, articulation"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [55, 103],
+        "core_register_midi": [67, 91],
+        "pitch_range_hz": [196.0, 3135.96],
+        "core_register_hz": [392.0, 1567.98],
+        "standard_tuning_or_notes": ["G3", "D4", "A4", "E5"],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside high bowed-string range.", "weight": 0.23},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "sustained harmonic partials with vibrato and bow-shaped upper harmonics.", "weight": 0.25},
+        "spectral_envelope_prior": {"low_band": "weak", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "high", "weight": 0.16},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "legato", "weight": 0.2},
+        "noise_or_inharmonic_prior": {"noise_component": "bow_noise", "inharmonicity": "low", "weight": 0.06},
+        "ome_lane_compatibility": {"likely_lanes": ["foreground_contour_lane", "harmonic_ridge_lane"], "supporting_lanes": ["pressure_peak_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Sustained contour plus harmonic ridge and register support are key later cues.", "weight": 0.1}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only low register", "only impulsive unpitched hits", "no sustained harmonic contour"],
+      "source_notes": ["Broad violin prior; ensemble doubling is outside this seed."]
+    },
+    {
+      "instrument_id": "viola",
+      "display_name": "Viola",
+      "family": "bowed_strings",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "bow or pluck on string",
+        "primary_vibrator": "string",
+        "resonator_or_radiator": "wooden body",
+        "control_mechanism": "bow speed/pressure, fingering, vibrato, articulation"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [48, 88],
+        "core_register_midi": [55, 79],
+        "pitch_range_hz": [130.81, 1318.51],
+        "core_register_hz": [196.0, 783.99],
+        "standard_tuning_or_notes": ["C3", "G3", "D4", "A4"],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside mid bowed-string range.", "weight": 0.24},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "sustained string partials with mid-register body.", "weight": 0.25},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid", "spectral_rolloff_tendency": "mid", "weight": 0.16},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "legato", "weight": 0.2},
+        "noise_or_inharmonic_prior": {"noise_component": "bow_noise", "inharmonicity": "low", "weight": 0.06},
+        "ome_lane_compatibility": {"likely_lanes": ["harmonic_ridge_lane", "foreground_contour_lane"], "supporting_lanes": ["diffuse_tail_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Mid harmonic sustain and contour support matter more than low body.", "weight": 0.09}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only sub-low support", "only broadband impacts", "no sustained harmonic evidence"],
+      "source_notes": ["Broad viola prior; not a section-size claim."]
+    },
+    {
+      "instrument_id": "cello",
+      "display_name": "Cello",
+      "family": "bowed_strings",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "bow or pluck on string",
+        "primary_vibrator": "string",
+        "resonator_or_radiator": "wooden body",
+        "control_mechanism": "bow speed/pressure, fingering, vibrato, articulation"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [36, 76],
+        "core_register_midi": [43, 67],
+        "pitch_range_hz": [65.41, 659.26],
+        "core_register_hz": [98.0, 392.0],
+        "standard_tuning_or_notes": ["C2", "G2", "D3", "A3"],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside low-mid bowed string range.", "weight": 0.25},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "sustained low-mid harmonic partials with resonant body.", "weight": 0.24},
+        "spectral_envelope_prior": {"low_band": "moderate", "mid_band": "strong", "high_band": "limited", "spectral_centroid_tendency": "low_mid", "spectral_rolloff_tendency": "mid", "weight": 0.17},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "legato", "weight": 0.2},
+        "noise_or_inharmonic_prior": {"noise_component": "bow_noise", "inharmonicity": "low", "weight": 0.06},
+        "ome_lane_compatibility": {"likely_lanes": ["harmonic_ridge_lane", "foreground_contour_lane"], "supporting_lanes": ["low_body_lane", "pressure_peak_lane"], "contradicting_lanes": ["noise_texture_lane"], "notes": "Low-mid harmonic sustain plus contour support is expected.", "weight": 0.08}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only high noise texture", "only short unpitched hits", "no harmonic low-mid support"],
+      "source_notes": ["Broad cello prior; does not distinguish solo vs ensemble."]
+    },
+    {
+      "instrument_id": "double_bass_bowed",
+      "display_name": "Bowed double bass",
+      "family": "bowed_strings",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "bow on string",
+        "primary_vibrator": "string",
+        "resonator_or_radiator": "large wooden body",
+        "control_mechanism": "bow pressure/speed, fingering, vibrato"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [28, 67],
+        "core_register_midi": [36, 55],
+        "pitch_range_hz": [41.2, 392.0],
+        "core_register_hz": [65.41, 196.0],
+        "standard_tuning_or_notes": ["E1", "A1", "D2", "G2"],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside low bowed-string range.", "weight": 0.28},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "sustained low harmonics with bow noise and body resonance.", "weight": 0.23},
+        "spectral_envelope_prior": {"low_band": "dominant", "mid_band": "moderate", "high_band": "limited", "spectral_centroid_tendency": "low_mid", "spectral_rolloff_tendency": "mid", "weight": 0.19},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "legato", "weight": 0.17},
+        "noise_or_inharmonic_prior": {"noise_component": "bow_noise", "inharmonicity": "low", "weight": 0.06},
+        "ome_lane_compatibility": {"likely_lanes": ["low_body_lane", "harmonic_ridge_lane"], "supporting_lanes": ["pressure_peak_lane"], "contradicting_lanes": ["noise_texture_lane"], "notes": "Sustained low-body plus harmonic ridge is expected; pure noise is contradictory.", "weight": 0.07}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["no low register", "only bright transient texture", "no sustain"],
+      "source_notes": ["Broad bowed double bass prior."]
+    },
+    {
+      "instrument_id": "flute",
+      "display_name": "Flute",
+      "family": "woodwinds",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "air jet at embouchure",
+        "primary_vibrator": "air column",
+        "resonator_or_radiator": "tube and tone holes",
+        "control_mechanism": "breath pressure, embouchure, fingering"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [60, 96],
+        "core_register_midi": [67, 91],
+        "pitch_range_hz": [261.63, 2093.0],
+        "core_register_hz": [392.0, 1567.98],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside high woodwind register.", "weight": 0.23},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "relatively clear f0 with lighter upper partials and breath edge.", "weight": 0.22},
+        "spectral_envelope_prior": {"low_band": "weak", "mid_band": "moderate", "high_band": "moderate", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "high", "weight": 0.17},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "legato", "weight": 0.18},
+        "noise_or_inharmonic_prior": {"noise_component": "breath", "inharmonicity": "low", "weight": 0.1},
+        "ome_lane_compatibility": {"likely_lanes": ["foreground_contour_lane", "harmonic_ridge_lane"], "supporting_lanes": ["noise_texture_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "High contour and breath-edge evidence can support this prior later.", "weight": 0.1}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only low-body support", "only metallic/noisy decay", "no pitch contour"],
+      "source_notes": ["Broad flute prior."]
+    },
+    {
+      "instrument_id": "clarinet",
+      "display_name": "Clarinet",
+      "family": "woodwinds",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "single reed with airflow",
+        "primary_vibrator": "reed-coupled air column",
+        "resonator_or_radiator": "tube and tone holes",
+        "control_mechanism": "breath pressure, embouchure, fingering"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [50, 91],
+        "core_register_midi": [55, 84],
+        "pitch_range_hz": [146.83, 1567.98],
+        "core_register_hz": [196.0, 1046.5],
+        "standard_tuning_or_notes": [],
+        "transposition_note": "Common B-flat clarinet transposes in notation; this prior uses sounding pitch."
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside broad clarinet sounding range.", "weight": 0.23},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "reed/air-column partial pattern with strong tonal center and variable odd/even emphasis.", "weight": 0.23},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid", "spectral_rolloff_tendency": "mid", "weight": 0.17},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "legato", "weight": 0.18},
+        "noise_or_inharmonic_prior": {"noise_component": "breath", "inharmonicity": "low", "weight": 0.08},
+        "ome_lane_compatibility": {"likely_lanes": ["foreground_contour_lane", "harmonic_ridge_lane"], "supporting_lanes": ["pressure_peak_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Mid contour and sustained harmonic support are more important than broad high noise.", "weight": 0.11}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only broadband transient hits", "only low sub support", "no sustained pitch"],
+      "source_notes": ["Broad clarinet prior; notation transposition is not a source claim."]
+    },
+    {
+      "instrument_id": "saxophone",
+      "display_name": "Saxophone",
+      "family": "woodwinds",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "single reed with airflow",
+        "primary_vibrator": "reed-coupled air column",
+        "resonator_or_radiator": "conical metal body and tone holes",
+        "control_mechanism": "breath pressure, embouchure, fingering, overblowing"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [49, 85],
+        "core_register_midi": [53, 77],
+        "pitch_range_hz": [138.59, 1108.73],
+        "core_register_hz": [174.61, 698.46],
+        "standard_tuning_or_notes": [],
+        "transposition_note": "Different saxophones transpose in notation; this prior uses sounding pitch."
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside broad saxophone sounding range.", "weight": 0.21},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "strong reed-driven harmonic content with possible bright upper energy.", "weight": 0.22},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "high", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "legato", "weight": 0.18},
+        "noise_or_inharmonic_prior": {"noise_component": "breath", "inharmonicity": "low", "weight": 0.09},
+        "ome_lane_compatibility": {"likely_lanes": ["foreground_contour_lane", "harmonic_ridge_lane"], "supporting_lanes": ["pressure_peak_lane", "noise_texture_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Foreground contour plus strong mid harmonics can support this prior later.", "weight": 0.12}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only low-body support", "only cymbal-like high noise", "no pitch contour"],
+      "source_notes": ["Broad saxophone prior; does not distinguish saxophone size."]
+    },
+    {
+      "instrument_id": "trumpet",
+      "display_name": "Trumpet",
+      "family": "brass",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "lip vibration",
+        "primary_vibrator": "air column",
+        "resonator_or_radiator": "brass tubing and bell",
+        "control_mechanism": "embouchure, breath pressure, valves, mute"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [55, 82],
+        "core_register_midi": [58, 77],
+        "pitch_range_hz": [196.0, 932.33],
+        "core_register_hz": [233.08, 698.46],
+        "standard_tuning_or_notes": [],
+        "transposition_note": "Common B-flat trumpet transposes in notation; this prior uses sounding pitch."
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside high brass sounding range.", "weight": 0.22},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "strong harmonic series with bright upper partials at high dynamic levels.", "weight": 0.24},
+        "spectral_envelope_prior": {"low_band": "weak", "mid_band": "strong", "high_band": "strong", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "high", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "variable", "weight": 0.16},
+        "noise_or_inharmonic_prior": {"noise_component": "breath", "inharmonicity": "low", "weight": 0.07},
+        "ome_lane_compatibility": {"likely_lanes": ["foreground_contour_lane", "pressure_peak_lane"], "supporting_lanes": ["harmonic_ridge_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Bright foreground contour and pressure-forward support can matter later.", "weight": 0.13}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only low sub support", "no harmonic contour", "only soft diffuse tail"],
+      "source_notes": ["Broad trumpet prior."]
+    },
+    {
+      "instrument_id": "trombone",
+      "display_name": "Trombone",
+      "family": "brass",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "lip vibration",
+        "primary_vibrator": "air column",
+        "resonator_or_radiator": "brass tubing and bell",
+        "control_mechanism": "embouchure, breath pressure, slide, mute"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [40, 72],
+        "core_register_midi": [45, 65],
+        "pitch_range_hz": [82.41, 523.25],
+        "core_register_hz": [110.0, 349.23],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside mid-low brass range.", "weight": 0.23},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "strong brass harmonic series with possible slide/portamento behavior.", "weight": 0.24},
+        "spectral_envelope_prior": {"low_band": "moderate", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid", "spectral_rolloff_tendency": "mid", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "variable", "weight": 0.16},
+        "noise_or_inharmonic_prior": {"noise_component": "breath", "inharmonicity": "low", "weight": 0.07},
+        "ome_lane_compatibility": {"likely_lanes": ["harmonic_ridge_lane", "foreground_contour_lane"], "supporting_lanes": ["pressure_peak_lane", "low_body_lane"], "contradicting_lanes": ["noise_texture_lane"], "notes": "Mid-low harmonic pressure support is expected; pure high texture is contradictory.", "weight": 0.12}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only high noisy texture", "no harmonic sustain", "only plucked short decay"],
+      "source_notes": ["Broad trombone prior."]
+    },
+    {
+      "instrument_id": "horn",
+      "display_name": "Horn",
+      "family": "brass",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "lip vibration",
+        "primary_vibrator": "air column",
+        "resonator_or_radiator": "coiled brass tubing and bell",
+        "control_mechanism": "embouchure, breath pressure, valves, hand position"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [35, 77],
+        "core_register_midi": [43, 70],
+        "pitch_range_hz": [61.74, 698.46],
+        "core_register_hz": [98.0, 466.16],
+        "standard_tuning_or_notes": [],
+        "transposition_note": "Common horn parts transpose in notation; this prior uses sounding pitch."
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside broad horn sounding range.", "weight": 0.23},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "rounded brass harmonic series with strong mid support.", "weight": 0.24},
+        "spectral_envelope_prior": {"low_band": "moderate", "mid_band": "strong", "high_band": "limited", "spectral_centroid_tendency": "mid", "spectral_rolloff_tendency": "mid", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "legato", "weight": 0.17},
+        "noise_or_inharmonic_prior": {"noise_component": "breath", "inharmonicity": "low", "weight": 0.07},
+        "ome_lane_compatibility": {"likely_lanes": ["harmonic_ridge_lane"], "supporting_lanes": ["foreground_contour_lane", "pressure_peak_lane", "diffuse_tail_lane"], "contradicting_lanes": ["noise_texture_lane"], "notes": "Rounded sustained harmonic support should be checked against register and contour evidence.", "weight": 0.11}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only high-band noise", "only keyboard-like repeated attacks", "no sustained harmonic support"],
+      "source_notes": ["Broad horn prior."]
+    },
+    {
+      "instrument_id": "tuba",
+      "display_name": "Tuba",
+      "family": "brass",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "lip vibration",
+        "primary_vibrator": "air column",
+        "resonator_or_radiator": "large brass tubing and bell",
+        "control_mechanism": "embouchure, breath pressure, valves"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [24, 60],
+        "core_register_midi": [28, 52],
+        "pitch_range_hz": [32.7, 261.63],
+        "core_register_hz": [41.2, 164.81],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside low brass range.", "weight": 0.29},
+        "harmonic_comb_expectation": {"type": "quasi_harmonic", "expected_partials": "low brass harmonic series with strong fundamental/body support.", "weight": 0.22},
+        "spectral_envelope_prior": {"low_band": "dominant", "mid_band": "moderate", "high_band": "weak", "spectral_centroid_tendency": "low", "spectral_rolloff_tendency": "mid", "weight": 0.22},
+        "attack_decay_envelope_prior": {"attack_class": "medium", "decay_class": "sustained", "sustain_class": "high", "rearticulation_pattern": "variable", "weight": 0.14},
+        "noise_or_inharmonic_prior": {"noise_component": "breath", "inharmonicity": "low", "weight": 0.05},
+        "ome_lane_compatibility": {"likely_lanes": ["low_body_lane", "harmonic_ridge_lane"], "supporting_lanes": ["pressure_peak_lane"], "contradicting_lanes": ["noise_texture_lane"], "notes": "Low-body support must be pitch/harmonic, not only transient pressure.", "weight": 0.08}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only high texture", "no low register", "only short unpitched impact"],
+      "source_notes": ["Broad tuba prior."]
+    },
+    {
+      "instrument_id": "kick",
+      "display_name": "Kick",
+      "family": "percussion",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "beater or synthesized impact",
+        "primary_vibrator": "drum membrane or electronic transient source",
+        "resonator_or_radiator": "drum shell, room, or electronic processing",
+        "control_mechanism": "hit strength, damping, tuning, transient shaping"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [24, 55],
+        "core_register_midi": [28, 45],
+        "pitch_range_hz": [32.7, 196.0],
+        "core_register_hz": [41.2, 110.0],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "If pitched, low energy should fall in a broad low percussive range.", "weight": 0.12},
+        "harmonic_comb_expectation": {"type": "inharmonic", "expected_partials": "low impact plus non-harmonic membrane/processed decay.", "weight": 0.1},
+        "spectral_envelope_prior": {"low_band": "dominant", "mid_band": "limited", "high_band": "moderate", "spectral_centroid_tendency": "low", "spectral_rolloff_tendency": "variable", "weight": 0.2},
+        "attack_decay_envelope_prior": {"attack_class": "impulsive", "decay_class": "short", "sustain_class": "limited", "rearticulation_pattern": "single_hit", "weight": 0.28},
+        "noise_or_inharmonic_prior": {"noise_component": "strike_noise", "inharmonicity": "high", "weight": 0.18},
+        "ome_lane_compatibility": {"likely_lanes": ["transient_plane_lane", "pressure_peak_lane"], "supporting_lanes": ["low_body_lane"], "contradicting_lanes": ["harmonic_ridge_lane"], "notes": "Low transient plus pressure support can seed later hypotheses; harmonic ridge alone is weak.", "weight": 0.12}
+      },
+      "midi_alignment": {"expected_note_behavior": "rhythmic_hits", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["long legato harmonic contour", "only diffuse tail", "no transient support"],
+      "source_notes": ["Broad low impact percussion prior."]
+    },
+    {
+      "instrument_id": "snare",
+      "display_name": "Snare",
+      "family": "percussion",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "stick/brush/hand strike",
+        "primary_vibrator": "drum membrane and snare wires",
+        "resonator_or_radiator": "drum shell, wires, room, or processing",
+        "control_mechanism": "hit strength, damping, tuning, wire tension"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [38, 76],
+        "core_register_midi": [45, 67],
+        "pitch_range_hz": [73.42, 659.26],
+        "core_register_hz": [110.0, 392.0],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "If pitched, resonant body tends to be low-mid to mid.", "weight": 0.08},
+        "harmonic_comb_expectation": {"type": "inharmonic", "expected_partials": "membrane/body resonance plus noisy wire or transient spread.", "weight": 0.1},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "strong", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "high", "weight": 0.2},
+        "attack_decay_envelope_prior": {"attack_class": "impulsive", "decay_class": "short", "sustain_class": "limited", "rearticulation_pattern": "single_hit", "weight": 0.28},
+        "noise_or_inharmonic_prior": {"noise_component": "strike_noise", "inharmonicity": "high", "weight": 0.22},
+        "ome_lane_compatibility": {"likely_lanes": ["transient_plane_lane"], "supporting_lanes": ["pressure_peak_lane", "noise_texture_lane"], "contradicting_lanes": ["harmonic_ridge_lane"], "notes": "Transient plane with mid/high noisy body is expected.", "weight": 0.12}
+      },
+      "midi_alignment": {"expected_note_behavior": "rhythmic_hits", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["long sustained harmonic line", "only low sub body", "no transient event"],
+      "source_notes": ["Broad snare-like transient prior without asserting a drum kit source."]
+    },
+    {
+      "instrument_id": "cymbal",
+      "display_name": "Cymbal",
+      "family": "percussion",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "stick, mallet, brush, or collision",
+        "primary_vibrator": "metal plate",
+        "resonator_or_radiator": "metal disk and surrounding air",
+        "control_mechanism": "strike position, force, damping, decay length"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [72, 120],
+        "core_register_midi": [84, 108],
+        "pitch_range_hz": [523.25, 8372.02],
+        "core_register_hz": [1046.5, 4186.01],
+        "standard_tuning_or_notes": [],
+        "transposition_note": "MIDI range is a high-frequency reference gate, not a pitched-note claim."
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "High-band activity should dominate; exact pitch may be absent.", "weight": 0.03},
+        "harmonic_comb_expectation": {"type": "inharmonic", "expected_partials": "dense metallic inharmonic spread with long high-frequency decay.", "weight": 0.06},
+        "spectral_envelope_prior": {"low_band": "weak", "mid_band": "moderate", "high_band": "dominant", "spectral_centroid_tendency": "high", "spectral_rolloff_tendency": "high", "weight": 0.24},
+        "attack_decay_envelope_prior": {"attack_class": "impulsive", "decay_class": "long", "sustain_class": "moderate", "rearticulation_pattern": "single_hit", "weight": 0.2},
+        "noise_or_inharmonic_prior": {"noise_component": "metallic_noise", "inharmonicity": "high", "weight": 0.32},
+        "ome_lane_compatibility": {"likely_lanes": ["noise_texture_lane", "diffuse_tail_lane"], "supporting_lanes": ["transient_plane_lane", "spatial_spread_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "High noise texture and tail support matter more than pitch.", "weight": 0.15}
+      },
+      "midi_alignment": {"expected_note_behavior": "rhythmic_hits", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["stable low pitch line", "mid-only harmonic contour", "no high/noise activity"],
+      "source_notes": ["Broad cymbal-like metallic texture prior."]
+    },
+    {
+      "instrument_id": "timpani",
+      "display_name": "Timpani",
+      "family": "percussion",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "mallet strike",
+        "primary_vibrator": "tuned membrane",
+        "resonator_or_radiator": "kettle body and room",
+        "control_mechanism": "tuning pedal, mallet hardness, damping, roll pattern"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [33, 57],
+        "core_register_midi": [36, 53],
+        "pitch_range_hz": [55.0, 220.0],
+        "core_register_hz": [65.41, 174.61],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate resonant pitch should fall inside low pitched membrane range.", "weight": 0.22},
+        "harmonic_comb_expectation": {"type": "inharmonic", "expected_partials": "pitched but membrane-derived partials with non-integer spread.", "weight": 0.16},
+        "spectral_envelope_prior": {"low_band": "strong", "mid_band": "moderate", "high_band": "limited", "spectral_centroid_tendency": "low_mid", "spectral_rolloff_tendency": "mid", "weight": 0.2},
+        "attack_decay_envelope_prior": {"attack_class": "impulsive", "decay_class": "medium", "sustain_class": "moderate", "rearticulation_pattern": "single_hit", "weight": 0.22},
+        "noise_or_inharmonic_prior": {"noise_component": "strike_noise", "inharmonicity": "moderate", "weight": 0.1},
+        "ome_lane_compatibility": {"likely_lanes": ["low_body_lane", "transient_plane_lane"], "supporting_lanes": ["pressure_peak_lane"], "contradicting_lanes": ["noise_texture_lane"], "notes": "Low pitched impact plus decay is expected.", "weight": 0.1}
+      },
+      "midi_alignment": {"expected_note_behavior": "rhythmic_hits", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only high metallic texture", "continuous pad sustain", "no low pitched impact"],
+      "source_notes": ["Broad timpani-like pitched membrane prior."]
+    },
+    {
+      "instrument_id": "mallet_percussion",
+      "display_name": "Mallet percussion",
+      "family": "percussion",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "mallet strike",
+        "primary_vibrator": "bar, plate, or resonator",
+        "resonator_or_radiator": "instrument frame, tube, body, or resonator",
+        "control_mechanism": "mallet hardness, strike position, damping, register"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [48, 96],
+        "core_register_midi": [60, 84],
+        "pitch_range_hz": [130.81, 2093.0],
+        "core_register_hz": [261.63, 1046.5],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside broad mallet percussion range.", "weight": 0.18},
+        "harmonic_comb_expectation": {"type": "mixed", "expected_partials": "pitched or quasi-pitched struck bars with possible inharmonic overtones.", "weight": 0.17},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "high", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "fast", "decay_class": "medium", "sustain_class": "moderate", "rearticulation_pattern": "repeated_attack", "weight": 0.23},
+        "noise_or_inharmonic_prior": {"noise_component": "strike_noise", "inharmonicity": "moderate", "weight": 0.12},
+        "ome_lane_compatibility": {"likely_lanes": ["transient_plane_lane", "harmonic_ridge_lane"], "supporting_lanes": ["foreground_contour_lane", "noise_texture_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Repeated struck pitched events need attack plus register support.", "weight": 0.12}
+      },
+      "midi_alignment": {"expected_note_behavior": "repeated_notes", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["continuous non-attacked pad", "only sub-low body", "no pitched or transient support"],
+      "source_notes": ["Broad mallet percussion prior covering bars/plates without exact instrument assertion."]
+    },
+    {
+      "instrument_id": "synth_pad",
+      "display_name": "Synth pad",
+      "family": "electronic_fx",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "electronic oscillator or sampled layer",
+        "primary_vibrator": "electronic signal source",
+        "resonator_or_radiator": "filter, amplifier, modulation, effects chain",
+        "control_mechanism": "envelope, filter cutoff, LFO, chorus/reverb, voicing"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [24, 108],
+        "core_register_midi": [48, 84],
+        "pitch_range_hz": [32.7, 4186.01],
+        "core_register_hz": [130.81, 1046.5],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch or chord support may span a broad electronic range.", "weight": 0.1},
+        "harmonic_comb_expectation": {"type": "mixed", "expected_partials": "sustained oscillator/sample harmonics, filtered or detuned.", "weight": 0.17},
+        "spectral_envelope_prior": {"low_band": "moderate", "mid_band": "strong", "high_band": "variable", "spectral_centroid_tendency": "variable", "spectral_rolloff_tendency": "variable", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "slow", "decay_class": "sustained", "sustain_class": "continuous", "rearticulation_pattern": "continuous", "weight": 0.25},
+        "noise_or_inharmonic_prior": {"noise_component": "electronic_noise", "inharmonicity": "variable", "weight": 0.08},
+        "ome_lane_compatibility": {"likely_lanes": ["harmonic_ridge_lane", "diffuse_tail_lane", "spatial_spread_lane"], "supporting_lanes": ["foreground_contour_lane"], "contradicting_lanes": ["transient_plane_lane"], "notes": "Long sustain and spatial spread are stronger support than transient activity.", "weight": 0.22}
+      },
+      "midi_alignment": {"expected_note_behavior": "sustained_line", "rhythm_alignment": "texture_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only impulsive hits", "no sustain", "only low transient pressure"],
+      "source_notes": ["Broad synth pad prior."]
+    },
+    {
+      "instrument_id": "synth_lead",
+      "display_name": "Synth lead",
+      "family": "electronic_fx",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "electronic oscillator or sampled waveform",
+        "primary_vibrator": "electronic signal source",
+        "resonator_or_radiator": "filter, amplifier, modulation, effects chain",
+        "control_mechanism": "envelope, filter, pitch bend, portamento, modulation"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [48, 96],
+        "core_register_midi": [60, 84],
+        "pitch_range_hz": [130.81, 2093.0],
+        "core_register_hz": [261.63, 1046.5],
+        "standard_tuning_or_notes": [],
+        "transposition_note": null
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Candidate pitch should fall inside broad electronic lead range.", "weight": 0.18},
+        "harmonic_comb_expectation": {"type": "mixed", "expected_partials": "oscillator harmonics, filter-shaped spectra, or synthetic upper partials.", "weight": 0.17},
+        "spectral_envelope_prior": {"low_band": "limited", "mid_band": "strong", "high_band": "moderate", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "variable", "weight": 0.18},
+        "attack_decay_envelope_prior": {"attack_class": "variable", "decay_class": "variable", "sustain_class": "moderate", "rearticulation_pattern": "variable", "weight": 0.18},
+        "noise_or_inharmonic_prior": {"noise_component": "electronic_noise", "inharmonicity": "variable", "weight": 0.09},
+        "ome_lane_compatibility": {"likely_lanes": ["foreground_contour_lane", "harmonic_ridge_lane"], "supporting_lanes": ["pressure_peak_lane", "spatial_spread_lane", "noise_texture_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Foreground contour plus synthetic spectral behavior can support later hypotheses.", "weight": 0.2}
+      },
+      "midi_alignment": {"expected_note_behavior": "glissando_or_slide", "rhythm_alignment": "phrase_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["only low body", "only unpitched metallic noise", "no contour"],
+      "source_notes": ["Broad synth lead prior."]
+    },
+    {
+      "instrument_id": "noise_fx",
+      "display_name": "Noise FX",
+      "family": "electronic_fx",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "noise generator, sample, or processed texture",
+        "primary_vibrator": "electronic/noise signal",
+        "resonator_or_radiator": "filter, effects chain, stereo processing",
+        "control_mechanism": "filter sweep, gating, modulation, automation"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [20, 127],
+        "core_register_midi": [60, 110],
+        "pitch_range_hz": [25.96, 12543.85],
+        "core_register_hz": [261.63, 4698.64],
+        "standard_tuning_or_notes": [],
+        "transposition_note": "MIDI range is a frequency-region reference, not a pitched-note claim."
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Pitch may be absent; frequency region is used as a loose gate only.", "weight": 0.02},
+        "harmonic_comb_expectation": {"type": "noise_dominant", "expected_partials": "no stable harmonic comb required; filtered noise may show broad energy zones.", "weight": 0.04},
+        "spectral_envelope_prior": {"low_band": "variable", "mid_band": "variable", "high_band": "strong", "spectral_centroid_tendency": "high", "spectral_rolloff_tendency": "high", "weight": 0.24},
+        "attack_decay_envelope_prior": {"attack_class": "variable", "decay_class": "variable", "sustain_class": "variable", "rearticulation_pattern": "texture_based", "weight": 0.18},
+        "noise_or_inharmonic_prior": {"noise_component": "electronic_noise", "inharmonicity": "high", "weight": 0.34},
+        "ome_lane_compatibility": {"likely_lanes": ["noise_texture_lane"], "supporting_lanes": ["spatial_spread_lane", "diffuse_tail_lane", "pressure_peak_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Noise texture and spatial spread are stronger support than pitch.", "weight": 0.18}
+      },
+      "midi_alignment": {"expected_note_behavior": "variable", "rhythm_alignment": "texture_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["stable harmonic line as sole evidence", "low body without high/noise texture", "clear pitched melody only"],
+      "source_notes": ["Broad noise effect prior."]
+    },
+    {
+      "instrument_id": "riser",
+      "display_name": "Riser",
+      "family": "electronic_fx",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "synthesized sweep, noise, pitch ramp, or processed sample",
+        "primary_vibrator": "electronic/noise or pitched signal",
+        "resonator_or_radiator": "filter, pitch automation, effects chain",
+        "control_mechanism": "rising pitch, filter opening, amplitude automation, stereo widening"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [36, 120],
+        "core_register_midi": [60, 108],
+        "pitch_range_hz": [65.41, 8372.02],
+        "core_register_hz": [261.63, 4186.01],
+        "standard_tuning_or_notes": [],
+        "transposition_note": "MIDI range is a frequency motion reference, not a fixed instrument pitch range."
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Pitch or frequency motion may sweep across a broad range.", "weight": 0.08},
+        "harmonic_comb_expectation": {"type": "mixed", "expected_partials": "swept harmonic or noise-dominant energy with rising motion.", "weight": 0.08},
+        "spectral_envelope_prior": {"low_band": "variable", "mid_band": "moderate", "high_band": "strong", "spectral_centroid_tendency": "mid_high", "spectral_rolloff_tendency": "high", "weight": 0.2},
+        "attack_decay_envelope_prior": {"attack_class": "slow", "decay_class": "long", "sustain_class": "continuous", "rearticulation_pattern": "continuous", "weight": 0.22},
+        "noise_or_inharmonic_prior": {"noise_component": "electronic_noise", "inharmonicity": "variable", "weight": 0.2},
+        "ome_lane_compatibility": {"likely_lanes": ["noise_texture_lane", "spatial_spread_lane", "pressure_peak_lane"], "supporting_lanes": ["transient_plane_lane", "diffuse_tail_lane"], "contradicting_lanes": ["low_body_lane"], "notes": "Rising texture, widening, and pressure growth should align near a transition.", "weight": 0.22}
+      },
+      "midi_alignment": {"expected_note_behavior": "glissando_or_slide", "rhythm_alignment": "texture_based", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["static low body only", "no growth or motion", "stable repeated-note bass pattern alone"],
+      "source_notes": ["Broad transition riser prior."]
+    },
+    {
+      "instrument_id": "impact",
+      "display_name": "Impact",
+      "family": "electronic_fx",
+      "truth_boundary": "Acoustic prior only. This does not prove source identity certainty, original stems, performer/person identity, lyric truth, genre truth, or creator intent.",
+      "sound_production": {
+        "exciter": "layered hit, processed sample, or acoustic/electronic impact",
+        "primary_vibrator": "broadband transient source",
+        "resonator_or_radiator": "processing chain, low layer, tail, or room",
+        "control_mechanism": "transient shaping, low boost, noise layer, reverb tail"
+      },
+      "pitch_register": {
+        "pitch_range_midi": [20, 96],
+        "core_register_midi": [28, 72],
+        "pitch_range_hz": [25.96, 2093.0],
+        "core_register_hz": [41.2, 523.25],
+        "standard_tuning_or_notes": [],
+        "transposition_note": "MIDI range is a loose spectral-region reference, not a fixed pitch claim."
+      },
+      "filter_templates": {
+        "pitch_register_gate": {"description": "Low or broad frequency emphasis may be present, but exact pitch may be absent.", "weight": 0.06},
+        "harmonic_comb_expectation": {"type": "mixed", "expected_partials": "broadband hit with possible low pitched layer and noisy inharmonic spread.", "weight": 0.06},
+        "spectral_envelope_prior": {"low_band": "strong", "mid_band": "moderate", "high_band": "strong", "spectral_centroid_tendency": "variable", "spectral_rolloff_tendency": "high", "weight": 0.2},
+        "attack_decay_envelope_prior": {"attack_class": "impulsive", "decay_class": "short", "sustain_class": "limited", "rearticulation_pattern": "single_hit", "weight": 0.28},
+        "noise_or_inharmonic_prior": {"noise_component": "broadband_noise", "inharmonicity": "high", "weight": 0.24},
+        "ome_lane_compatibility": {"likely_lanes": ["pressure_peak_lane", "transient_plane_lane"], "supporting_lanes": ["low_body_lane", "noise_texture_lane", "diffuse_tail_lane"], "contradicting_lanes": ["harmonic_ridge_lane"], "notes": "A pressure-forward transient with broadband/noise support is expected.", "weight": 0.16}
+      },
+      "midi_alignment": {"expected_note_behavior": "rhythmic_hits", "rhythm_alignment": "beat_locked", "midi_truth_boundary": "MIDI or symbolic evidence supports timing and pitch hypotheses only; it is not original MIDI certainty."},
+      "contraindications": ["long legato contour", "only slow pad sustain", "no transient or pressure support"],
+      "source_notes": ["Broad impact effect prior."]
+    }
+  ]
+}

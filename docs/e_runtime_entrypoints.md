@@ -134,16 +134,82 @@ scripts/build_ome_spatial_filter_bank_layer.py
 Builds a receiver-side OME spatial field / spatial-band support layer. This maps supported material into spatial evidence; it must not be read as the sole object generator.
 
 ```text
+scripts/build_ome_gammatone_envelope_layer.py
+```
+
+Standalone auditory front-end bridge. It reads audio plus a full-song profile and writes an ERB/gammatone-like Mid/Side envelope layer. The JSON keeps compact analysis-matrix summaries and rolling 1-5 second support windows; the PNGs use a smoothed/downsampled display matrix for readability. It supports arrangement contrast and later bounded object hypotheses, but it does not identify instruments, separate sources, use trained models, or simulate biological cochlea truth.
+
+```text
+scripts/build_ome_arrangement_contrast_layer.py
+```
+
+Builds a second-pass OME arrangement contrast layer from an existing full-song profile. It turns continuous receiver-side spatial, frequency-band, pressure, width, motion, and onset evidence into arrangement lanes, mixed-state zones, and contrast events. When `--gammatone-envelope` contains rolling-window support, those 1-5 second windows drive local contrast, entry, exit, and recurrence events; full profile segments remain macro fallback/support. It also writes optional standalone human-readable views: `ome_arrangement_timeline.png` and `ome_arrangement_readable_summary.md`. These are visual/summary views of receiver-side arrangement evidence, not extra recognition layers. It does not identify instruments or produce source-family certainty.
+
+```text
+references/instrument_acoustic_prior_seed.json
+```
+
+Second-run-block preparation artifact. This is a hand-coded acoustic prior and filter-template seed for later ranked hypotheses. It is not connected to the default `run_mssl.py` chain and does not identify instruments by itself.
+
+```text
+scripts/validate_instrument_acoustic_prior_index.py
+```
+
+Validates the instrument acoustic prior seed: required families, MIDI-to-Hz register ranges, filter-template weights, OME lane names, and boundary text. It is a standalone static validator, not a runtime recognition stage.
+
+```text
+scripts/build_instrument_prior_filterbank_layer.py
+```
+
+Standalone second-run-block Step 2 artifact. It consumes OME/gammatone arrangement windows, the instrument acoustic prior index, and optional symbolic MIDI / pitch evidence to produce ranked acoustic hypotheses per 1-5 second window. It is not connected to the default `run_mssl.py` chain yet and does not provide source-family certainty.
+
+```text
+scripts/validate_instrument_prior_filterbank_layer.py
+```
+
+No-audio synthetic validator for the prior filterbank layer. It checks local window scoring, broad family hypotheses, no-pitch confidence caps, unresolved pitch gates, OME lane names, Markdown output, and boundary strings.
+
+```text
 scripts/build_temporal_timbre_object_candidate_layer.py
 ```
 
-Builds auditory object-family candidates from time-frequency-timbre continuity, source-family hints, optional external adapter evidence, symbolic timeline support, and optional OME mapping support. Object candidates come before musical performance language.
+Builds auditory object-family candidates from time-frequency-timbre continuity, source-family hints, optional external adapter evidence, symbolic timeline support, optional OME mapping support, and optional bounded instrument-prior filterbank support. Object candidates come before musical performance language.
+
+Optional standalone input:
+
+```text
+--instrument-prior-filterbank path/to/instrument_prior_filterbank_layer.json
+```
+
+This consumes ranked acoustic hypotheses as candidate support only. It is not connected to the default `run_mssl.py` chain yet and does not replace external recognition or family-gate logic.
+
+When this optional bridge is used without pitch/register evidence or external adapter support, instrument-like and effect-like candidates are capped conservatively and the Markdown includes a prior-bridge diagnostic. Functional object candidates may remain strong when full-mix continuity supports them.
+
+```text
+scripts/build_auditory_object_behavior_layer.py
+```
+
+Standalone optional layer after temporal-timbre object candidates and before musical object performance. It reads `temporal_timbre_object_candidate_layer.json` plus optional profile, OME arrangement contrast, gammatone envelope, and instrument-prior filterbank evidence, then writes `auditory_object_behavior_layer.json` and `.md`. It is not connected to the default `run_mssl.py` chain yet. It describes behavior for existing object candidates only, cannot exceed candidate claim strength, and cannot turn candidate-like language into source certainty.
+
+```text
+scripts/build_listening_region_locator_layer.py
+```
+
+Builds bounded listening-region locations from an existing full-song profile. It locates structural components such as low-body, transient-plane, foreground-contour, harmonic-ridge, diffuse-tail, noise-texture, spatial-spread, and pressure-peak regions. It does not name instruments, perform source separation, use trained models, or bypass external recognition.
 
 ```text
 scripts/build_musical_object_performance_layer.py
 ```
 
 Builds vocal / instrumental / effect-family performance cards. This layer is intentionally not a machine behavior layer. Specific family cards require the external family gate; otherwise the layer collapses to functional object language.
+
+Optional standalone input:
+
+```text
+--auditory-object-behavior path/to/auditory_object_behavior_layer.json
+```
+
+This consumes behavior cards as bounded performance support only. It is not connected to the default `run_mssl.py` chain yet, cannot exceed behavior-card claim strength, and cannot replace external recognition or family-gate permission.
 
 ```text
 scripts/build_lyric_context_layer.py
@@ -157,11 +223,19 @@ scripts/build_listening_experience_prompt_with_descriptors.py
 
 Descriptor-aware wrapper. It attaches song identity, lyric context, subjective descriptor validation, OME packet material, symbolic timeline MIDI layer, external recognition status, musical object performance layer, compact handoff, and full trace handoff.
 
+Optional standalone input:
+
+```text
+--musical-object-performance path/to/musical_object_performance_layer.json
+```
+
+This lets a behavior-enriched standalone performance layer feed compact handoff rendering without writing it back into the profile. It is optional / standalone and is not default `run_mssl.py` integration.
+
 ```text
 scripts/render_compact_online_handoff.py
 ```
 
-Renders the compact online handoff as a report-composer schema: song identity, source-family permission, vocal/lyric anchors, instrument/source-family performance, MIDI/melody/rhythm skeleton, general audio evidence, OME spatial performance state, macro arc, and writing boundaries.
+Renders the compact online handoff as a report-composer schema: song identity, source-family permission, vocal/lyric anchors, instrument/source-family performance, optional bounded musical-object behavior support, MIDI/melody/rhythm skeleton, general audio evidence, OME spatial performance state, macro arc, and writing boundaries. Behavior support is timing/action evidence only; it does not create source-family certainty or bypass the family gate.
 
 ## Song identity contract
 
@@ -370,7 +444,7 @@ One-second frames may still exist for inspection, but they should not become the
 
 ## Output folder policy
 
-Default output shape:
+Main-run output shape, with optional standalone layer artifacts marked when they are run separately:
 
 ```text
 outputs/<song-folder>/
@@ -382,7 +456,16 @@ outputs/<song-folder>/
   symbolic_timeline_midi_layer.json / .md
   external_strong_recognition_layer.json / .md
   ome_spatial_filter_bank_layer.json / .md
+  ome_gammatone_envelope_layer.json / .md (optional standalone)
+  ome_gammatonegram_mid.png (optional standalone)
+  ome_gammatonegram_side.png (optional standalone)
+  ome_arrangement_contrast_layer.json / .md (optional standalone)
+  ome_arrangement_timeline.png (optional standalone)
+  ome_arrangement_readable_summary.md (optional standalone)
+  listening_region_locator_layer.json / .md (optional standalone)
+  instrument_prior_filterbank_layer.json / .md (optional standalone)
   temporal_timbre_object_candidate_layer.json / .md
+  auditory_object_behavior_layer.json / .md (optional standalone)
   musical_object_performance_layer.json / .md
   lyric_context_layer.json / .md
   original_song_listening_prompt_input.md

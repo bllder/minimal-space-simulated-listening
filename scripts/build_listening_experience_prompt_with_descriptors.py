@@ -11,7 +11,9 @@ written separately as `online_ai_listening_handoff_full_trace.md`.
 
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -40,9 +42,16 @@ FULL_TRACE_HANDOFF_NAME = "online_ai_listening_handoff_full_trace.md"
 
 
 def main() -> None:
-    args = base.parse_args()
+    args, base_argv = parse_args()
 
-    base.main()
+    original_argv = sys.argv[:]
+    try:
+        sys.argv = base_argv
+        base.main()
+    finally:
+        sys.argv = original_argv
+
+    performance_override_path = Path(args.musical_object_performance) if args.musical_object_performance else None
 
     profile_path = Path(args.profile)
     output_dir = Path(args.output_dir) if args.output_dir else profile_path.parent
@@ -72,6 +81,8 @@ def main() -> None:
     ome_spatial_filter_bank_layer = as_dict(profile.get("ome_spatial_filter_bank_layer"))
     temporal_timbre_object_candidate_layer = as_dict(profile.get("temporal_timbre_object_candidate_layer"))
     musical_object_performance_layer = as_dict(profile.get("musical_object_performance_layer"))
+    if performance_override_path:
+        musical_object_performance_layer = read_json(performance_override_path)
 
     proxy_json_path.write_text(json.dumps(descriptor_proxy_layer, ensure_ascii=False, indent=2), encoding="utf-8")
     proxy_md_path.write_text(render_layer_md(descriptor_proxy_layer), encoding="utf-8")
@@ -212,7 +223,10 @@ def main() -> None:
     print(f"Attached lyric context layer to {evidence_path}")
     print(f"Attached P0 subjective descriptor validation tables to {evidence_path}")
     print(f"Attached symbolic timeline MIDI layer to {evidence_path}")
-    print(f"Attached musical object performance layer to {evidence_path}")
+    if performance_override_path:
+        print(f"Attached musical object performance layer override from {performance_override_path} to {evidence_path}")
+    else:
+        print(f"Attached musical object performance layer to {evidence_path}")
     print(f"Attached OME Spatial Filter Bank status to {evidence_path}")
     print(f"Attached temporal-timbre object candidate layer to {evidence_path}")
     print(f"Wrote compact handoff to {handoff_path}")
@@ -221,6 +235,34 @@ def main() -> None:
     print(f"Wrote {proxy_md_path}")
     print(f"Wrote {ome_packet_json_path}")
     print(f"Wrote {ome_packet_md_path}")
+
+
+def parse_args() -> tuple[argparse.Namespace, list[str]]:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--musical-object-performance",
+        default=None,
+        help="Optional standalone musical_object_performance_layer.json for behavior-enriched compact handoff rendering.",
+    )
+    known, remaining = parser.parse_known_args()
+    original_argv = sys.argv[:]
+    base_argv = [original_argv[0], *remaining]
+    try:
+        sys.argv = base_argv
+        args = base.parse_args()
+    finally:
+        sys.argv = original_argv
+    args.musical_object_performance = known.musical_object_performance
+    return args, base_argv
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"JSON file not found: {path}")
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected JSON object in {path}")
+    return data
 
 
 def render_song_identity_section(layer: dict[str, Any]) -> str:
@@ -356,7 +398,7 @@ def render_temporal_timbre_object_candidate_section(layer: dict[str, Any]) -> st
         timbre = as_dict(evidence.get("timbre_continuity"))
         ome = as_dict(evidence.get("ome_mapping_support"))
         lines.append(f"| {candidate.get('object_candidate_id')} | {candidate.get('claim_strength')} | {support.get('support_band')} / max {support.get('max_support')} | {temporal.get('state')} | {timbre.get('state')} | {ome.get('summary') or ome.get('status')} |")
-    lines.extend(["", "Use rule: object candidates come before musical performance summaries. Do not turn spatial bins, MIR tags, or external stems into source truth."])
+    lines.extend(["", "Use rule: object candidates come before musical performance summaries. Do not turn spatial bins, MIR tags, or external stems into source certainty."])
     return "\n".join(lines).rstrip() + "\n"
 
 

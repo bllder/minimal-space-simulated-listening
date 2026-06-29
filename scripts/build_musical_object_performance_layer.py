@@ -249,6 +249,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--output-json", default=DEFAULT_JSON_NAME)
     parser.add_argument("--output-md", default=DEFAULT_MD_NAME)
+    parser.add_argument("--auditory-object-behavior", default=None, help="Optional auditory_object_behavior_layer.json with bounded behavior support.")
     parser.add_argument("--no-write-profile", action="store_true")
     return parser.parse_args()
 
@@ -259,7 +260,8 @@ def main() -> None:
     profile = read_json(profile_path)
     output_dir = Path(args.output_dir) if args.output_dir else profile_path.parent
     output_dir.mkdir(parents=True, exist_ok=True)
-    layer = build_layer(profile)
+    auditory_object_behavior = read_json(Path(args.auditory_object_behavior)) if args.auditory_object_behavior else None
+    layer = build_layer(profile, auditory_object_behavior)
     json_path = output_dir / args.output_json
     md_path = output_dir / args.output_md
     json_path.write_text(json.dumps(layer, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -282,13 +284,14 @@ def read_json(path: Path) -> dict[str, Any]:
     return data
 
 
-def build_layer(profile: dict[str, Any]) -> dict[str, Any]:
+def build_layer(profile: dict[str, Any], auditory_object_behavior_layer: dict[str, Any] | None = None) -> dict[str, Any]:
     object_layer = as_dict(profile.get("temporal_timbre_object_candidate_layer"))
     symbolic_layer = as_dict(profile.get("symbolic_timeline_midi_layer"))
     stream_layer = as_dict(profile.get("reconstructed_stream_layer"))
     ome_layer = as_dict(profile.get("ome_spatial_filter_bank_layer"))
     recognition_layer = as_dict(profile.get("external_strong_recognition_layer"))
     allowed_specific = set(list_strings(as_dict(recognition_layer.get("performance_gate")).get("allowed_specific_families")))
+    behavior_index = index_auditory_object_behavior(auditory_object_behavior_layer)
 
     raw_candidates = list_dicts(object_layer.get("object_candidates")) or fallback_candidates_from_streams(stream_layer)
     cards = []
@@ -306,13 +309,13 @@ def build_layer(profile: dict[str, Any]) -> dict[str, Any]:
                 folded[fallback_id] = make_folded_candidate(fallback_id, candidate)
             continue
         if family_id in PERFORMANCE_FAMILIES:
-            card = build_card(family_id, PERFORMANCE_FAMILIES[family_id], candidate, symbolic_layer, stream_layer, ome_layer, recognition_layer)
+            card = build_card(family_id, PERFORMANCE_FAMILIES[family_id], candidate, symbolic_layer, stream_layer, ome_layer, recognition_layer, behavior_index)
             if card:
                 cards.append(card)
 
     for fallback_id, candidate in folded.items():
         if fallback_id in PERFORMANCE_FAMILIES:
-            card = build_card(fallback_id, PERFORMANCE_FAMILIES[fallback_id], candidate, symbolic_layer, stream_layer, ome_layer, recognition_layer)
+            card = build_card(fallback_id, PERFORMANCE_FAMILIES[fallback_id], candidate, symbolic_layer, stream_layer, ome_layer, recognition_layer, behavior_index)
             if card:
                 cards.append(card)
 
@@ -335,6 +338,13 @@ def build_layer(profile: dict[str, Any]) -> dict[str, Any]:
             "symbolic_timeline_midi_layer": symbolic_layer.get("status") or "not_attached",
             "reconstructed_stream_layer": stream_layer.get("status") or "not_attached",
             "ome_spatial_filter_bank_layer": ome_layer.get("status") or "not_attached",
+            "auditory_object_behavior_layer": behavior_index.get("status"),
+        },
+        "auditory_object_behavior_input": {
+            "status": behavior_index.get("status"),
+            "source_layer": behavior_index.get("source_layer"),
+            "behavior_card_count": behavior_index.get("behavior_card_count"),
+            "rule": "Behavior cards may enrich performance wording but cannot authorize source-family claims or exceed behavior-card claim strength.",
         },
         "performance_cards": cards,
         "truth_boundary": "Specific instrument/effect performance language requires external strong recognition evidence. Without it, MSSL only emits functional performance language such as foreground line, low body, pulse, harmonic bed, and diffuse texture.",
@@ -344,10 +354,168 @@ def build_layer(profile: dict[str, Any]) -> dict[str, Any]:
 
 def make_folded_candidate(fallback_id: str, candidate: dict[str, Any]) -> dict[str, Any]:
     folded = dict(candidate)
+    folded["folded_from_object_family"] = candidate.get("object_family")
     folded["object_family"] = fallback_id
     folded["claim_strength"] = "functional_fallback"
     folded["truth_boundary"] = "Specific family lacked external strong recognition and was folded into a functional performance card."
     return folded
+
+
+def index_auditory_object_behavior(layer: dict[str, Any] | None) -> dict[str, Any]:
+    if not layer:
+        return {"status": "not_provided", "source_layer": None, "behavior_card_count": 0, "cards": []}
+    cards = list_dicts(layer.get("behavior_cards"))
+    return {
+        "status": "available" if cards else "available_no_behavior_cards",
+        "source_layer": layer.get("version") or "auditory_object_behavior_layer",
+        "behavior_card_count": len(cards),
+        "cards": cards,
+        "input_diagnostic": as_dict(layer.get("input_diagnostic")),
+    }
+
+
+def auditory_object_behavior_support(family_id: str, candidate: dict[str, Any], gate: dict[str, Any], behavior_index: dict[str, Any]) -> dict[str, Any]:
+    if behavior_index.get("status") != "available":
+        return {
+            "status": "not_provided",
+            "source_layer": behavior_index.get("source_layer"),
+            "matched_behavior_cards": [],
+            "summary": {"boundary": "No auditory object behavior layer was provided."},
+        }
+    matched = select_behavior_cards_for_performance(family_id, candidate, behavior_index)
+    support_cards = [build_behavior_support_match(card) for card in matched]
+    summary = summarize_behavior_support(support_cards)
+    summary["family_gate_status"] = gate.get("status")
+    summary["boundary"] = "Auditory object behavior can shape performance wording but cannot authorize source-family claims."
+    return {
+        "status": "available" if support_cards else "available_no_relevant_behavior_cards",
+        "source_layer": behavior_index.get("source_layer"),
+        "matched_behavior_cards": support_cards,
+        "summary": summary,
+    }
+
+
+def select_behavior_cards_for_performance(family_id: str, candidate: dict[str, Any], behavior_index: dict[str, Any]) -> list[dict[str, Any]]:
+    target_families = {family_id}
+    folded_from = candidate.get("folded_from_object_family")
+    if folded_from:
+        target_families.add(str(folded_from))
+    if family_id not in SPECIFIC_RECOGNITION_REQUIRED:
+        target_families.update(family for family, fallback in FUNCTIONAL_FALLBACK.items() if fallback == family_id)
+    source_candidate_id = candidate.get("object_candidate_id")
+    matched = []
+    for card in list_dicts(behavior_index.get("cards")):
+        if source_candidate_id and card.get("object_candidate_id") == source_candidate_id:
+            matched.append(card)
+            continue
+        if str(card.get("object_family") or "") in target_families:
+            matched.append(card)
+    matched.sort(key=lambda item: (claim_rank(str(item.get("claim_strength"))), behavior_locality_rank(item)), reverse=True)
+    return matched[:8]
+
+
+def build_behavior_support_match(card: dict[str, Any]) -> dict[str, Any]:
+    behavior = as_dict(card.get("behavior_card"))
+    evidence = as_dict(card.get("evidence_used"))
+    flow_type = field_type(behavior, "flow_type")
+    support_role = field_type(behavior, "support_role")
+    entry_shape = field_type(behavior, "entry_shape")
+    continuity_mode = field_type(behavior, "continuity_mode")
+    release_shape = field_type(behavior, "release_shape")
+    return {
+        "object_candidate_id": card.get("object_candidate_id"),
+        "object_family": card.get("object_family"),
+        "object_family_group": card.get("object_family_group"),
+        "claim_strength": bounded_claim(card.get("claim_strength")),
+        "flow_type": flow_type,
+        "support_role": support_role,
+        "entry_shape": entry_shape,
+        "continuity_mode": continuity_mode,
+        "pressure_relation": field_type(behavior, "pressure_relation"),
+        "tail_attachment": field_type(behavior, "tail_attachment"),
+        "release_shape": release_shape,
+        "recurrence_pattern": field_type(behavior, "recurrence_pattern"),
+        "spatial_behavior": field_type(behavior, "spatial_behavior"),
+        "missing_evidence": list_strings(evidence.get("missing_evidence")),
+        "safe_performance_affordance": safe_performance_affordance(flow_type, support_role, entry_shape, continuity_mode, release_shape, str(card.get("object_family_group") or "")),
+        "boundary": "Behavior support only; not source certainty.",
+    }
+
+
+def summarize_behavior_support(matches: list[dict[str, Any]]) -> dict[str, Any]:
+    functional = []
+    candidate = []
+    missing: Counter[str] = Counter()
+    for match in matches:
+        row = {
+            "object_candidate_id": match.get("object_candidate_id"),
+            "object_family": match.get("object_family"),
+            "claim_strength": match.get("claim_strength"),
+            "affordance": match.get("safe_performance_affordance"),
+        }
+        if match.get("object_family_group") == "functional_object_family":
+            functional.append(row)
+        else:
+            candidate.append(row)
+        for item in list_strings(match.get("missing_evidence")):
+            missing[item] += 1
+    return {
+        "functional_behavior_support": functional,
+        "candidate_behavior_support": candidate,
+        "missing_evidence": [item for item, _count in missing.most_common()],
+    }
+
+
+def safe_performance_affordance(flow_type: str, support_role: str, entry_shape: str, continuity_mode: str, release_shape: str, group: str) -> str:
+    if flow_type == "foreground_flow" and support_role == "foreground_carrier":
+        base = "foreground phrase / lead-line behavior support"
+    elif flow_type == "low_body_support" and support_role == "grounding_body":
+        base = "grounding low-body behavior support"
+    elif flow_type == "harmonic_bed_support" and support_role == "harmonic_support":
+        base = "sustained harmonic support behavior"
+    elif flow_type == "pulse_flow" and support_role == "rhythmic_driver":
+        base = "local pulse / rhythmic articulation behavior" if continuity_mode in {"local_fragment", "intermittent"} else "rhythmic articulation behavior"
+    elif flow_type == "transient_burst" and support_role == "transition_marker":
+        base = "local transition burst behavior"
+    elif flow_type == "diffuse_tail_flow" and support_role == "tail_or_air_support":
+        base = "tail / air / diffuse support behavior"
+    elif flow_type == "texture_motion":
+        base = "texture-motion / masking-edge behavior"
+    else:
+        base = "bounded object-behavior support"
+    if group in {"instrument_like_timbre_family", "effect_like_texture_family"}:
+        base += " from a capped candidate" if continuity_mode != "persistent" or release_shape == "local_decay" else " from a bounded candidate"
+    if entry_shape == "already_present" and continuity_mode == "persistent":
+        return f"persistent {base}"
+    if entry_shape == "local_burst" or release_shape == "local_decay":
+        return base if base.startswith("local ") else f"local {base}"
+    return base
+
+
+def field_type(behavior: dict[str, Any], key: str) -> str:
+    return str(as_dict(behavior.get(key)).get("type") or "unresolved")
+
+
+def bounded_claim(value: Any) -> str:
+    text = str(value or "weak")
+    return text if text in {"weak", "medium", "strong"} else "weak"
+
+
+def claim_rank(value: str) -> int:
+    return {"weak": 1, "medium": 2, "strong": 3}.get(value, 0)
+
+
+def behavior_locality_rank(card: dict[str, Any]) -> int:
+    behavior = as_dict(card.get("behavior_card"))
+    continuity = field_type(behavior, "continuity_mode")
+    entry = field_type(behavior, "entry_shape")
+    if continuity == "persistent":
+        return 3
+    if continuity in {"recurrent", "intermittent"}:
+        return 2
+    if entry == "local_burst":
+        return 1
+    return 0
 
 
 def fallback_candidates_from_streams(stream_layer: dict[str, Any]) -> list[dict[str, Any]]:
@@ -367,7 +535,7 @@ def fallback_candidates_from_streams(stream_layer: dict[str, Any]) -> list[dict[
     return results
 
 
-def build_card(family_id: str, spec: dict[str, Any], candidate: dict[str, Any], symbolic_layer: dict[str, Any], stream_layer: dict[str, Any], ome_layer: dict[str, Any], recognition_layer: dict[str, Any]) -> dict[str, Any] | None:
+def build_card(family_id: str, spec: dict[str, Any], candidate: dict[str, Any], symbolic_layer: dict[str, Any], stream_layer: dict[str, Any], ome_layer: dict[str, Any], recognition_layer: dict[str, Any], behavior_index: dict[str, Any] | None = None) -> dict[str, Any] | None:
     stream_id = str(spec.get("source_stream"))
     events = list_dicts(as_dict(symbolic_layer.get("event_streams")).get(stream_id))
     support = as_dict(candidate.get("support_summary"))
@@ -378,6 +546,7 @@ def build_card(family_id: str, spec: dict[str, Any], candidate: dict[str, Any], 
     spatial = infer_spatial_expression(candidate)
     sentence = build_human_sentence(spec, modes, relations, spatial, events)
     gate = recognition_gate_for_family(family_id, recognition_layer, bool(spec.get("requires_external_recognition")))
+    behavior_support = auditory_object_behavior_support(family_id, candidate, gate, behavior_index or {})
     return {
         "object_family": family_id,
         "display_name": spec.get("display_name"),
@@ -390,10 +559,11 @@ def build_card(family_id: str, spec: dict[str, Any], candidate: dict[str, Any], 
         "melodic_or_phrase_behavior": summarize_phrase_behavior(events),
         "arrangement_relation": relations,
         "spatial_expression": spatial,
+        "auditory_object_behavior_support": behavior_support,
         "human_sentence": sentence,
         "review_language": review_language_for_family(family_id),
         "do_not_write_as": do_not_write_for_family(family_id),
-        "internal_boundary_terms": ["not source truth", "not original stem", "not performer action truth"],
+        "internal_boundary_terms": ["not source certainty", "not original stem", "not performer action certainty"],
         "truth_boundary": "Performance card describes musical expression. Specific source-family naming is allowed only when recognition_gate permits it.",
     }
 
@@ -549,6 +719,27 @@ def render_markdown(profile: dict[str, Any], layer: dict[str, Any]) -> str:
         for mode in list_dicts(card.get("performance_modes")):
             lines.append(f"  - {mode.get('mode')}: {mode.get('description')}")
         lines.append("")
+    behavior_supported = [card for card in list_dicts(layer.get("performance_cards")) if list_dicts(as_dict(card.get("auditory_object_behavior_support")).get("matched_behavior_cards"))]
+    if behavior_supported:
+        lines.extend(["## Auditory Object Behavior Support", ""])
+        for card in behavior_supported:
+            support = as_dict(card.get("auditory_object_behavior_support"))
+            lines.extend([f"### {card.get('display_name')} / {card.get('object_family')}", ""])
+            for match in list_dicts(support.get("matched_behavior_cards"))[:6]:
+                lines.extend(
+                    [
+                        f"- Matched object candidate: {match.get('object_candidate_id')} / {match.get('object_family')}",
+                        f"  - Behavior claim strength: {match.get('claim_strength')}",
+                        f"  - Entry / continuity: {match.get('entry_shape')} / {match.get('continuity_mode')}",
+                        f"  - Flow / role: {match.get('flow_type')} / {match.get('support_role')}",
+                        f"  - Pressure / tail / release: {match.get('pressure_relation')} / {match.get('tail_attachment')} / {match.get('release_shape')}",
+                        f"  - Recurrence / spatial behavior: {match.get('recurrence_pattern')} / {match.get('spatial_behavior')}",
+                        f"  - Missing evidence: {', '.join(list_strings(match.get('missing_evidence'))) or 'none flagged'}",
+                        f"  - Safe performance wording: {match.get('safe_performance_affordance')}",
+                        f"  - Boundary: {match.get('boundary')}",
+                    ]
+                )
+            lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 

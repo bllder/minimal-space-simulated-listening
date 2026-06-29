@@ -14,6 +14,21 @@ from typing import Any
 SAFE_STREAM_STATUSES = {"profile_derived_descriptor_packet_not_ome_filterbank_stream"}
 OME_RUNTIME_STATUSES = {"computed_numpy_runtime_not_stem_extraction"}
 OME_RUNTIME_STREAM_PREFIX = "ome_spatial_filter_bank_stream_v0"
+FUNCTIONAL_BEHAVIOR_ORDER = [
+    "voice_like_foreground_line",
+    "harmonic_bed_layer",
+    "low_body_layer",
+    "rhythmic_pulse_layer",
+    "diffuse_texture_layer",
+]
+FUNCTIONAL_BEHAVIOR_LABELS = {
+    "voice_like_foreground_line": "Foreground / lead-line",
+    "harmonic_bed_layer": "Harmonic bed",
+    "low_body_layer": "Low-body grounding",
+    "rhythmic_pulse_layer": "Local pulse / transient",
+    "diffuse_texture_layer": "Diffuse texture / tail",
+}
+CLAIM_RANK = {"weak": 1, "medium": 2, "strong": 3}
 
 
 def render_compact_online_handoff(
@@ -65,7 +80,7 @@ def render_compact_online_handoff(
         "-> bounded Chinese close-listening criticism",
         "```",
         "",
-        "Do not treat MSSL as source truth, lyric truth, emotion truth, original MIDI, original stems, singer identity, or creator intent.",
+        "Do not treat MSSL as source certainty, lyric truth, emotion truth, original MIDI, original stems, singer identity, or creator intent.",
         "",
     ]
 
@@ -73,6 +88,7 @@ def render_compact_online_handoff(
     lines.extend(render_family_permission(external_layer))
     lines.extend(render_vocal_lyric_context(lyric_context_layer))
     lines.extend(render_performance_summary(performance_layer))
+    lines.extend(render_musical_object_behavior_support(performance_layer))
     lines.extend(render_symbolic_midi_summary(symbolic_midi_layer))
     lines.extend(render_general_audio_summary(descriptor_summary, track_summary))
     lines.extend(render_ome_runtime_or_fallback(ome_runtime_layer, packets))
@@ -163,7 +179,7 @@ def render_performance_summary(layer: dict[str, Any]) -> list[str]:
         return lines
     gate = as_dict(layer.get("recognition_gate"))
     lines.extend([
-        "This layer describes how like-candidate sound objects perform musically. It is not a machine-behavior debug layer and not source truth.",
+        "This layer describes how like-candidate sound objects perform musically. It is not a machine-behavior debug layer and not source certainty.",
         "",
         f"Status: {layer.get('status')} | cards: {layer.get('performance_card_count')}",
         f"Family gate: {gate.get('rule') or 'specific family names require external evidence'}",
@@ -179,6 +195,154 @@ def render_performance_summary(layer: dict[str, Any]) -> list[str]:
         lines.append(f"| {card.get('display_name')} | {gate_status} | {modes} | {event_support.get('event_count')} / {event_support.get('dominant_event_type')} | {sentence} |")
     lines.extend(["", "Use rule: write these as arrangement, vocal, instrument-family, or FX-like performance expressions only within the family permission table.", ""])
     return lines
+
+
+def render_musical_object_behavior_support(layer: dict[str, Any]) -> list[str]:
+    if not layer:
+        return []
+    cards = list_dicts(layer.get("performance_cards"))
+    supported = [
+        card
+        for card in cards
+        if list_dicts(as_dict(card.get("auditory_object_behavior_support")).get("matched_behavior_cards"))
+    ]
+    if not supported:
+        return []
+
+    gate = as_dict(layer.get("recognition_gate"))
+    allowed = list_strings(gate.get("allowed_specific_families"))
+    external_status = gate.get("external_strong_recognition_status") or "not_attached"
+    first_support = as_dict(supported[0].get("auditory_object_behavior_support"))
+    source_layer = first_support.get("source_layer") or "auditory_object_behavior_layer_v0_1"
+    lines = ["## 4.5 Musical Object Behavior Support", ""]
+    if allowed:
+        lines.append(f"* Source-family gate: allowed specific families from external evidence: {', '.join(allowed)}.")
+    else:
+        lines.append(f"* Source-family gate: external recognition {external_status}; specific source-family names are not authorized.")
+    lines.extend(
+        [
+            f"* Behavior support: available from {source_layer}.",
+            "* Functional behavior summary:",
+            "",
+        ]
+    )
+
+    card_by_family = {str(card.get("object_family") or ""): card for card in cards}
+    rendered = 0
+    all_missing: list[str] = []
+    for family_id in FUNCTIONAL_BEHAVIOR_ORDER:
+        card = card_by_family.get(family_id)
+        if not card:
+            continue
+        support = as_dict(card.get("auditory_object_behavior_support"))
+        matches = list_dicts(support.get("matched_behavior_cards"))
+        if not matches:
+            continue
+        rendered += 1
+        summary_line, missing = compact_behavior_summary_line(
+            label=FUNCTIONAL_BEHAVIOR_LABELS.get(family_id, family_id),
+            card=card,
+            support=support,
+            matches=matches,
+        )
+        all_missing.extend(missing)
+        lines.append(f"{rendered}. {summary_line}")
+
+    missing_items = unique_preserve_order(all_missing)
+    if missing_items:
+        lines.extend(["", f"* Missing evidence: {', '.join(missing_items)}."])
+    lines.extend(
+        [
+            "* Writing boundary: use behavior terms such as foreground flow, low-body grounding, sustained harmonic support, local pulse articulation, and diffuse tail support. Do not use this section to name instruments, performers, stems, exact effect chains, or physical source positions.",
+            "",
+        ]
+    )
+    return lines
+
+
+def compact_behavior_summary_line(
+    label: str,
+    card: dict[str, Any],
+    support: dict[str, Any],
+    matches: list[dict[str, Any]],
+) -> tuple[str, list[str]]:
+    primary = select_primary_behavior_match(matches)
+    summary = as_dict(support.get("summary"))
+    candidate_matches = [
+        match
+        for match in matches
+        if str(match.get("object_family_group") or "") != "functional_object_family"
+    ]
+    missing = []
+    missing.extend(list_strings(summary.get("missing_evidence")))
+    missing.extend(list_strings(primary.get("missing_evidence")))
+    for match in candidate_matches:
+        missing.extend(list_strings(match.get("missing_evidence")))
+
+    strength = str(primary.get("claim_strength") or card.get("claim_strength") or "weak")
+    entry = readable_token(primary.get("entry_shape"))
+    continuity = readable_token(primary.get("continuity_mode"))
+    flow = readable_token(primary.get("flow_type"))
+    role = readable_token(primary.get("support_role"))
+    pressure = strip_leading_word(readable_token(primary.get("pressure_relation")), "pressure")
+    tail = readable_token(primary.get("tail_attachment"))
+    release = readable_token(primary.get("release_shape"))
+    recurrence = readable_token(primary.get("recurrence_pattern"))
+    spatial = readable_token(primary.get("spatial_behavior"))
+    affordance = compact_text(primary.get("safe_performance_affordance"), 110)
+    candidate_note = ""
+    if candidate_matches:
+        max_candidate_strength = max((str(match.get("claim_strength") or "weak") for match in candidate_matches), key=claim_sort_key)
+        candidate_note = f" Bounded candidate detail: {len(candidate_matches)} capped/bounded match(es), up to {max_candidate_strength}, add timing/action support only."
+    line = (
+        f"{label}: {strength} behavior support; {entry} / {continuity}; "
+        f"{flow} / {role}; pressure {pressure}; tail {tail}; release {release}; "
+        f"recurrence {recurrence}; spatial {spatial}. {affordance}.{candidate_note}"
+    )
+    return line, unique_preserve_order(missing)
+
+
+def select_primary_behavior_match(matches: list[dict[str, Any]]) -> dict[str, Any]:
+    functional = [
+        match
+        for match in matches
+        if str(match.get("object_family_group") or "") == "functional_object_family"
+    ]
+    pool = functional or matches
+    return sorted(pool, key=behavior_match_rank, reverse=True)[0]
+
+
+def behavior_match_rank(match: dict[str, Any]) -> tuple[int, int]:
+    return (
+        claim_sort_key(str(match.get("claim_strength") or "")),
+        1 if str(match.get("continuity_mode") or "") == "persistent" else 0,
+    )
+
+
+def claim_sort_key(value: str) -> int:
+    return CLAIM_RANK.get(str(value), 0)
+
+
+def readable_token(value: Any) -> str:
+    text = str(value or "unresolved").strip()
+    return text.replace("_", " ")
+
+
+def strip_leading_word(value: str, word: str) -> str:
+    prefix = f"{word} "
+    return value[len(prefix):] if value.startswith(prefix) else value
+
+
+def unique_preserve_order(values: list[str]) -> list[str]:
+    results: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        results.append(text)
+        seen.add(text)
+    return results
 
 
 def render_symbolic_midi_summary(layer: dict[str, Any]) -> list[str]:
@@ -207,7 +371,7 @@ def render_symbolic_midi_summary(layer: dict[str, Any]) -> list[str]:
     for stream_id, events in streams.items():
         events_list = list_dicts(events)
         dominant_event = dominant([str(event.get("event_type") or "") for event in events_list])
-        lines.append(f"| {stream_id} | {len(events_list)} | {dominant_event or '—'} | Use as time/phrase skeleton, not source truth. |")
+        lines.append(f"| {stream_id} | {len(events_list)} | {dominant_event or '—'} | Use as time/phrase skeleton, not source certainty. |")
     lines.append("")
     return lines
 
@@ -316,15 +480,38 @@ def render_writing_style_guidance() -> list[str]:
 def render_boundaries(p0: dict[str, Any], critical_brief: dict[str, Any]) -> list[str]:
     lines = ["## 10. P0 do-not-claim boundaries", ""]
     for item in list_strings(p0.get("review_decisions")):
-        lines.append(f"- Use: {item}")
+        lines.append(f"- Use: {safe_boundary_text(item)}")
     for item in list_strings(p0.get("hold_for_review")):
-        lines.append(f"- Hold for review: {item}")
+        lines.append(f"- Hold for review: {safe_boundary_text(item)}")
     if p0.get("default_boundary"):
-        lines.append(f"- Default boundary: {p0.get('default_boundary')}")
+        lines.append(f"- Default boundary: {safe_boundary_text(p0.get('default_boundary'))}")
     for item in list_strings(critical_brief.get("data_boundary")):
-        lines.append(f"- Data boundary: {item}")
-    lines.append("- Final boundary: do not treat OME stream names, reconstructed streams, score skeletons, object intersections, performance cards, or source-family hypotheses as confirmed instruments, original stems, original MIDI, lyrics, or creator intent.")
+        lines.append(f"- Data boundary: {safe_boundary_text(item)}")
+    lines.append("- Final boundary: do not treat OME stream names, reconstructed streams, score skeletons, object intersections, performance cards, or source-family hypotheses as settled instruments, original stems, original MIDI, lyrics, or creator intent.")
     return lines
+
+
+def safe_boundary_text(value: Any) -> str:
+    text = str(value or "")
+    replacements = {
+        "source " + "truth": "source certainty",
+        "stem " + "truth": "stem certainty",
+        "original " + "track": "original multitrack",
+        "performer " + "identity": "performer/person claim",
+        "confirmed " + "instrument": "settled instrument",
+        "confirmed " + "instruments": "settled instruments",
+    }
+    lowered = text.lower()
+    for old, new in replacements.items():
+        start = 0
+        while True:
+            index = lowered.find(old, start)
+            if index < 0:
+                break
+            text = text[:index] + new + text[index + len(old):]
+            lowered = text.lower()
+            start = index + len(new)
+    return text
 
 
 def compact_ome_runtime_use(packet: dict[str, Any]) -> str:
