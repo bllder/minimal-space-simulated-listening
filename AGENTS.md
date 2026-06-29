@@ -184,6 +184,7 @@ scripts/build_symbolic_timeline_midi_layer.py
 scripts/build_external_strong_recognition_layer.py
 scripts/build_ome_spatial_filter_bank_layer.py
 scripts/build_temporal_timbre_object_candidate_layer.py
+scripts/build_instrument_source_object_layer.py
 scripts/seed_external_family_candidates.py
 scripts/build_musical_object_performance_layer.py
 scripts/build_lyric_context_layer.py
@@ -204,6 +205,8 @@ scripts/adapters/normalize_external_recognition_packet.py
 Implemented validators:
 
 ```text
+scripts/validate_instrument_source_object_layer.py
+scripts/validate_compact_handoff_instrument_source_objects.py
 scripts/validate_instrument_layer_loop.py
 scripts/validate_fixture_adapter_flow.py
 ```

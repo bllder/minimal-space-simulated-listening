@@ -209,6 +209,17 @@ OME mapping places the already-supported performance as near-center, side-openin
 
 Object candidate first. Then musical performance. Then receiver-side mapping.
 
+The optional instrument / source-family object layer may sit after temporal-timbre object candidates:
+
+```text
+temporal-timbre object candidate
++ instrument prior / behavior / performance support
+-> explicit source-family object card
+-> compact handoff object map
+```
+
+Its job is MVP visibility: keep voice, bass / low-register, drum / percussion, guitar / plucked, keyboard / piano, synth / pad / harmonic, strings / bowed, brass / wind, and FX / texture / tail objects visible as candidates. It does not verify exact instrumentation or separated sources. Missing evidence and confusion groups must stay on the object card instead of deleting the object name.
+
 The standalone auditory object behavior layer may sit between object candidates and musical object performance:
 
 ```text

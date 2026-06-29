@@ -26,6 +26,39 @@ Do not import old material unless it is intentionally reused, rewritten, summari
 
 ## Current durable entries
 
+### 2026-06-30 — First MVP source-family object layer
+
+The first MVP object-visibility implementation was added as a standalone optional layer.
+
+New layer:
+
+```text
+scripts/build_instrument_source_object_layer.py
+```
+
+Validation:
+
+```text
+scripts/validate_instrument_source_object_layer.py
+scripts/validate_compact_handoff_instrument_source_objects.py
+```
+
+Runtime position:
+
+```text
+temporal-timbre object candidates
++ optional instrument prior / behavior / performance support
+-> explicit instrument / source-family object cards
+-> optional compact handoff section
+```
+
+Durable rule:
+
+```text
+The compact handoff may show explicit source-family object candidates before verification.
+Verification status, missing evidence, and confusion groups are object fields.
+```
+
 ### 2026-06-30 — MVP source-family object visibility correction
 
 The project corrected an over-conservative MVP reading.

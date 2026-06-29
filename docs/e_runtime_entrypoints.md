@@ -27,6 +27,7 @@ audio file
 -> external recognition command / external strong recognition layer
 -> OME Spatial Filter Bank runtime layer
 -> temporal-timbre object candidate layer
+-> optional instrument / source-family object layer
 -> musical object performance layer
 -> lyric context layer
 -> professional audio terminology report
@@ -204,6 +205,21 @@ This consumes ranked acoustic hypotheses as candidate support only. It is not co
 When this optional bridge is used without pitch/register evidence or external adapter support, instrument-like and effect-like candidates are capped conservatively and the Markdown includes a prior-bridge diagnostic. Functional object candidates may remain strong when full-mix continuity supports them.
 
 ```text
+scripts/build_instrument_source_object_layer.py
+```
+
+Standalone optional MVP visibility layer after temporal-timbre object candidates. It reads `temporal_timbre_object_candidate_layer.json` plus optional `instrument_prior_filterbank_layer.json`, `auditory_object_behavior_layer.json`, and `musical_object_performance_layer.json`, then writes `instrument_source_object_layer.json` and `.md`.
+
+It groups existing evidence into explicit source-family object cards such as voice / vocal-like, bass / low-register, drum / percussion, guitar / plucked, keyboard / piano, synth / pad / harmonic, strings / bowed, brass / wind, and FX / texture / tail. These are candidate objects, not verified instrumentation or separated stems. This layer is not connected to default `run_mssl.py` yet.
+
+```text
+scripts/validate_instrument_source_object_layer.py
+scripts/validate_compact_handoff_instrument_source_objects.py
+```
+
+No-audio validators for the source-family object layer and its compact handoff rendering.
+
+```text
 scripts/build_auditory_object_behavior_layer.py
 ```
 
@@ -245,9 +261,10 @@ Optional standalone input:
 
 ```text
 --musical-object-performance path/to/musical_object_performance_layer.json
+--instrument-source-objects path/to/instrument_source_object_layer.json
 ```
 
-This lets a behavior-enriched standalone performance layer feed compact handoff rendering without writing it back into the profile. It is optional / standalone and is not default `run_mssl.py` integration.
+These let behavior-enriched standalone performance and explicit source-family object layers feed compact handoff rendering without writing them back into the profile. They are optional / standalone and are not default `run_mssl.py` integration.
 
 ```text
 scripts/render_compact_online_handoff.py
@@ -483,6 +500,7 @@ outputs/<song-folder>/
   listening_region_locator_layer.json / .md (optional standalone)
   instrument_prior_filterbank_layer.json / .md (optional standalone)
   temporal_timbre_object_candidate_layer.json / .md
+  instrument_source_object_layer.json / .md (optional standalone)
   auditory_object_behavior_layer.json / .md (optional standalone)
   musical_object_performance_layer.json / .md
   lyric_context_layer.json / .md

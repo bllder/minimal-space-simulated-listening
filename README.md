@@ -36,6 +36,7 @@ local audio
 -> external strong recognition layer
 -> OME Spatial Filter Bank runtime layer
 -> temporal-timbre object candidate layer
+-> optional instrument / source-family object layer
 -> musical object performance layer
 -> lyric context layer
 -> listening-experience evidence pack
@@ -182,6 +183,7 @@ symbolic_timeline_midi_layer.json / .md
 external_strong_recognition_layer.json / .md
 ome_spatial_filter_bank_layer.json / .md
 temporal_timbre_object_candidate_layer.json / .md
+instrument_source_object_layer.json / .md (optional standalone)
 musical_object_performance_layer.json / .md
 lyric_context_layer.json / .md
 subjective_descriptor_proxy_layer.json / .md

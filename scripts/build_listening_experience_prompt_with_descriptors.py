@@ -52,6 +52,7 @@ def main() -> None:
         sys.argv = original_argv
 
     performance_override_path = Path(args.musical_object_performance) if args.musical_object_performance else None
+    source_object_override_path = Path(args.instrument_source_objects) if args.instrument_source_objects else None
 
     profile_path = Path(args.profile)
     output_dir = Path(args.output_dir) if args.output_dir else profile_path.parent
@@ -81,8 +82,11 @@ def main() -> None:
     ome_spatial_filter_bank_layer = as_dict(profile.get("ome_spatial_filter_bank_layer"))
     temporal_timbre_object_candidate_layer = as_dict(profile.get("temporal_timbre_object_candidate_layer"))
     musical_object_performance_layer = as_dict(profile.get("musical_object_performance_layer"))
+    instrument_source_object_layer = as_dict(profile.get("instrument_source_object_layer"))
     if performance_override_path:
         musical_object_performance_layer = read_json(performance_override_path)
+    if source_object_override_path:
+        instrument_source_object_layer = read_json(source_object_override_path)
 
     proxy_json_path.write_text(json.dumps(descriptor_proxy_layer, ensure_ascii=False, indent=2), encoding="utf-8")
     proxy_md_path.write_text(render_layer_md(descriptor_proxy_layer), encoding="utf-8")
@@ -98,6 +102,7 @@ def main() -> None:
     evidence_pack["external_strong_recognition_layer"] = external_strong_recognition_layer
     evidence_pack["ome_spatial_filter_bank_layer"] = ome_spatial_filter_bank_layer
     evidence_pack["temporal_timbre_object_candidate_layer"] = temporal_timbre_object_candidate_layer
+    evidence_pack["instrument_source_object_layer"] = instrument_source_object_layer
     evidence_pack["musical_object_performance_layer"] = musical_object_performance_layer
     evidence_pack["reconstructed_stream_layer"] = reconstructed_stream_layer
     evidence_pack["reconstructed_score_layer"] = reconstructed_score_layer
@@ -154,6 +159,13 @@ def main() -> None:
         "boundary": temporal_timbre_object_candidate_layer.get("truth_boundary"),
         "rule": temporal_timbre_object_candidate_layer.get("candidate_generation_rule"),
     }
+    critical_brief["instrument_source_object_status"] = {
+        "status": instrument_source_object_layer.get("status"),
+        "source_family_object_count": instrument_source_object_layer.get("source_family_object_count"),
+        "visible_object_count": instrument_source_object_layer.get("visible_object_count"),
+        "boundary": instrument_source_object_layer.get("truth_boundary"),
+        "rule": instrument_source_object_layer.get("object_visibility_rule"),
+    }
     critical_brief["musical_object_performance_status"] = {
         "status": musical_object_performance_layer.get("status"),
         "performance_card_count": musical_object_performance_layer.get("performance_card_count"),
@@ -178,6 +190,7 @@ def main() -> None:
     external_recognition_section = render_external_strong_recognition_section(external_strong_recognition_layer)
     ome_runtime_section = render_ome_runtime_section(ome_spatial_filter_bank_layer)
     object_candidate_section = render_temporal_timbre_object_candidate_section(temporal_timbre_object_candidate_layer)
+    source_object_section = render_instrument_source_object_section(instrument_source_object_layer)
     performance_section = render_musical_object_performance_section(musical_object_performance_layer)
     digest_section = review_digest.render_digest(profile)
     proxy_section = render_layer_md(descriptor_proxy_layer)
@@ -197,6 +210,7 @@ def main() -> None:
         + "\n\n" + external_recognition_section
         + "\n\n" + ome_runtime_section
         + "\n\n" + object_candidate_section
+        + "\n\n" + source_object_section
         + "\n\n" + performance_section
         + "\n\n" + digest_section
         + "\n\n" + descriptor_section
@@ -216,6 +230,7 @@ def main() -> None:
         symbolic_timeline_midi_layer=symbolic_timeline_midi_layer,
         ome_spatial_filter_bank_layer=ome_spatial_filter_bank_layer,
         musical_object_performance_layer=musical_object_performance_layer,
+        instrument_source_object_layer=instrument_source_object_layer,
     )
     handoff_path.write_text(compact_handoff, encoding="utf-8")
 
@@ -227,6 +242,10 @@ def main() -> None:
         print(f"Attached musical object performance layer override from {performance_override_path} to {evidence_path}")
     else:
         print(f"Attached musical object performance layer to {evidence_path}")
+    if source_object_override_path:
+        print(f"Attached instrument/source-family object layer override from {source_object_override_path} to {evidence_path}")
+    else:
+        print(f"Attached instrument/source-family object layer to {evidence_path}")
     print(f"Attached OME Spatial Filter Bank status to {evidence_path}")
     print(f"Attached temporal-timbre object candidate layer to {evidence_path}")
     print(f"Wrote compact handoff to {handoff_path}")
@@ -244,6 +263,11 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         default=None,
         help="Optional standalone musical_object_performance_layer.json for behavior-enriched compact handoff rendering.",
     )
+    parser.add_argument(
+        "--instrument-source-objects",
+        default=None,
+        help="Optional standalone instrument_source_object_layer.json for explicit source-family object handoff rendering.",
+    )
     known, remaining = parser.parse_known_args()
     original_argv = sys.argv[:]
     base_argv = [original_argv[0], *remaining]
@@ -253,6 +277,7 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     finally:
         sys.argv = original_argv
     args.musical_object_performance = known.musical_object_performance
+    args.instrument_source_objects = known.instrument_source_objects
     return args, base_argv
 
 
@@ -400,6 +425,52 @@ def render_temporal_timbre_object_candidate_section(layer: dict[str, Any]) -> st
         lines.append(f"| {candidate.get('object_candidate_id')} | {candidate.get('claim_strength')} | {support.get('support_band')} / max {support.get('max_support')} | {temporal.get('state')} | {timbre.get('state')} | {ome.get('summary') or ome.get('status')} |")
     lines.extend(["", "Use rule: object candidates come before musical performance summaries. Do not turn spatial bins, MIR tags, or external stems into source certainty."])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_instrument_source_object_section(layer: dict[str, Any]) -> str:
+    lines = ["## Full-trace D2. Instrument / Source-Family Object Layer / 乐器与声源族对象层", ""]
+    if not layer:
+        lines.extend(["Status: not attached.", "", "Boundary: no explicit source-family object layer was found in the profile or override input."])
+        return "\n".join(lines).rstrip() + "\n"
+    lines.extend(
+        [
+            f"Status: {layer.get('status')}",
+            f"Objects: {layer.get('visible_object_count')} visible / {layer.get('source_family_object_count')} total",
+            "",
+            f"Boundary: {layer.get('truth_boundary')}",
+            "",
+            "| Object | Status | Verification | Confidence | Time ranges | Missing evidence | Confused with |",
+            "|---|---|---|---:|---|---|---|",
+        ]
+    )
+    for item in list_dicts(layer.get("source_family_objects")):
+        ranges = ", ".join(format_source_ranges(item)) or "unresolved"
+        missing = ", ".join(list_strings(item.get("missing_evidence"))[:5]) or "none flagged"
+        confused = ", ".join(str(row.get("display_name")) for row in list_dicts(item.get("confused_with"))[:4]) or "none highlighted"
+        lines.append(
+            f"| {item.get('display_name')} | {item.get('visibility_status')} | {item.get('verification_status')} | {item.get('confidence')} | {ranges} | {missing} | {confused} |"
+        )
+    lines.extend(["", "Use rule: keep explicit object names visible as candidates; do not turn candidate objects into verified instrumentation without gate/external support."])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def format_source_ranges(item: dict[str, Any]) -> list[str]:
+    results = []
+    for row in list_dicts(item.get("time_ranges"))[:5]:
+        start = row.get("start_seconds")
+        end = row.get("end_seconds")
+        if start is None or end is None:
+            continue
+        results.append(f"{round_display(start)}-{round_display(end)}s")
+    return results
+
+
+def round_display(value: object) -> str:
+    try:
+        number = round(float(value), 1)
+    except (TypeError, ValueError):
+        return str(value)
+    return str(number).rstrip("0").rstrip(".")
 
 
 def render_musical_object_performance_section(layer: dict[str, Any]) -> str:

@@ -42,6 +42,7 @@ def render_compact_online_handoff(
     symbolic_timeline_midi_layer: dict[str, Any] | None = None,
     ome_spatial_filter_bank_layer: dict[str, Any] | None = None,
     musical_object_performance_layer: dict[str, Any] | None = None,
+    instrument_source_object_layer: dict[str, Any] | None = None,
 ) -> str:
     global_ctx = as_dict(evidence_pack.get("global_context"))
     track_summary = as_dict(evidence_pack.get("track_professional_summary"))
@@ -57,6 +58,7 @@ def render_compact_online_handoff(
     symbolic_midi_layer = as_dict(symbolic_timeline_midi_layer or evidence_pack.get("symbolic_timeline_midi_layer"))
     ome_runtime_layer = as_dict(ome_spatial_filter_bank_layer or evidence_pack.get("ome_spatial_filter_bank_layer"))
     performance_layer = as_dict(musical_object_performance_layer or evidence_pack.get("musical_object_performance_layer"))
+    source_object_layer = as_dict(instrument_source_object_layer or evidence_pack.get("instrument_source_object_layer"))
     packets = list_dicts(ome_stream_descriptor_packets.get("stream_packets"))
 
     lines: list[str] = [
@@ -86,6 +88,7 @@ def render_compact_online_handoff(
 
     lines.extend(render_song_identity(song_identity_layer, global_ctx))
     lines.extend(render_family_permission(external_layer))
+    lines.extend(render_instrument_source_object_summary(source_object_layer))
     lines.extend(render_vocal_lyric_context(lyric_context_layer))
     lines.extend(render_performance_summary(performance_layer))
     lines.extend(render_musical_object_behavior_support(performance_layer))
@@ -195,6 +198,102 @@ def render_performance_summary(layer: dict[str, Any]) -> list[str]:
         lines.append(f"| {card.get('display_name')} | {gate_status} | {modes} | {event_support.get('event_count')} / {event_support.get('dominant_event_type')} | {sentence} |")
     lines.extend(["", "Use rule: write these as arrangement, vocal, instrument-family, or FX-like performance expressions only within the family permission table.", ""])
     return lines
+
+
+def render_instrument_source_object_summary(layer: dict[str, Any]) -> list[str]:
+    if not layer:
+        return []
+    objects = list_dicts(layer.get("source_family_objects"))
+    if not objects:
+        return []
+    visible = [item for item in objects if item.get("visibility_status") != "not_supported"]
+    ordered = sorted(visible or objects, key=source_object_sort_key)
+    lines = [
+        "## 2.5 Instrument / Source-Family Objects",
+        "",
+        "MVP object map: explicit source-family object candidates from local MSSL evidence. Candidate names stay visible; verification status and missing evidence remain attached.",
+        "",
+        f"- Layer status: {layer.get('status')}",
+        f"- Visible objects: {layer.get('visible_object_count')} / {layer.get('source_family_object_count')}",
+        f"- Boundary: {layer.get('truth_boundary')}",
+        "",
+        "| Object | Status | Verification | Time ranges | Evidence / role | Missing evidence | Confused with |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for item in ordered[:9]:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(item.get("display_name") or item.get("source_object_id")),
+                    str(item.get("visibility_status") or "unknown"),
+                    str(item.get("verification_status") or "unknown"),
+                    compact_source_object_ranges(item),
+                    compact_text(item.get("online_ai_handoff_role") or item.get("safe_handoff_sentence"), 100),
+                    compact_list(item.get("missing_evidence"), 4),
+                    compact_confusion(item.get("confused_with"), 3),
+                ]
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "Writing rule: use these as explicit candidate objects, not verified instrumentation. Do not hide bass/guitar/drum/synth/voice/FX object names inside only low-body, pulse, harmonic-bed, or diffuse-tail labels.",
+            "",
+        ]
+    )
+    return lines
+
+
+SOURCE_OBJECT_ORDER = {
+    "voice_object": 1,
+    "bass_low_register_object": 2,
+    "drum_percussion_object": 3,
+    "guitar_plucked_object": 4,
+    "keyboard_piano_object": 5,
+    "synth_pad_harmonic_object": 6,
+    "strings_bowed_object": 7,
+    "brass_wind_object": 8,
+    "fx_texture_tail_object": 9,
+}
+
+
+def source_object_sort_key(item: dict[str, Any]) -> tuple[int, int, float]:
+    status_rank = {
+        "externally_supported": 4,
+        "likely_local": 3,
+        "possible": 2,
+        "weak_local": 1,
+        "not_supported": 0,
+    }.get(str(item.get("visibility_status") or ""), 0)
+    return (SOURCE_OBJECT_ORDER.get(str(item.get("source_object_id")), 99), -status_rank, -to_float(item.get("confidence")))
+
+
+def compact_source_object_ranges(item: dict[str, Any]) -> str:
+    ranges = []
+    for row in list_dicts(item.get("time_ranges"))[:4]:
+        start = row.get("start_seconds")
+        end = row.get("end_seconds")
+        if start is None or end is None:
+            continue
+        ranges.append(f"{round_number(start)}-{round_number(end)}s")
+    return ", ".join(ranges) or "unresolved"
+
+
+def compact_confusion(value: Any, limit: int) -> str:
+    rows = list_dicts(value)[:limit]
+    return ", ".join(str(row.get("display_name")) for row in rows if row.get("display_name")) or "none highlighted"
+
+
+def compact_list(value: Any, limit: int) -> str:
+    items = list_strings(value)[:limit]
+    return ", ".join(items) or "none flagged"
+
+
+def round_number(value: Any) -> str:
+    number = to_float(value)
+    return str(round(number, 1)).rstrip("0").rstrip(".")
 
 
 def render_musical_object_behavior_support(layer: dict[str, Any]) -> list[str]:
