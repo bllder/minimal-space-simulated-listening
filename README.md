@@ -5,6 +5,12 @@
 > We do not train taste. We build a minimal spatiotemporal domain for simulated listening.  
 > 我们不训练品味；我们构造模拟听觉所需的最小时空与语言承接结构。
 
+## Modeling diagrams
+
+![Sound modeling framework](./声的建模框架图解.png)
+
+![Overall framework flow](./总体框架流程图.png)
+
 ## Project goal
 
 Target report role:
