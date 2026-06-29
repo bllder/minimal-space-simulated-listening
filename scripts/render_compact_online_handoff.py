@@ -132,7 +132,7 @@ def render_family_permission(layer: dict[str, Any]) -> list[str]:
     ]
     if not families:
         lines.extend([
-            "No external family evidence is attached. Do not name guitar, piano, strings, brass, synth lead, drums, bass, or FX as confirmed sources. Use functional object language only.",
+            "No external family evidence is attached. Do not name guitar, piano, strings, brass, synth lead, drums, bass, or FX as confirmed sources. Locally supported source-family objects may still appear as candidate / possible / likely-local / weak-local objects in the dedicated object section.",
             "",
         ])
         return lines
@@ -218,7 +218,7 @@ def render_musical_object_behavior_support(layer: dict[str, Any]) -> list[str]:
     if allowed:
         lines.append(f"* Source-family gate: allowed specific families from external evidence: {', '.join(allowed)}.")
     else:
-        lines.append(f"* Source-family gate: external recognition {external_status}; specific source-family names are not authorized.")
+        lines.append(f"* Source-family gate: external recognition {external_status}; verified source-family claims are not authorized by this gate.")
     lines.extend(
         [
             f"* Behavior support: available from {source_layer}.",
@@ -253,7 +253,7 @@ def render_musical_object_behavior_support(layer: dict[str, Any]) -> list[str]:
         lines.extend(["", f"* Missing evidence: {', '.join(missing_items)}."])
     lines.extend(
         [
-            "* Writing boundary: use behavior terms such as foreground flow, low-body grounding, sustained harmonic support, local pulse articulation, and diffuse tail support. Do not use this section to name instruments, performers, stems, exact effect chains, or physical source positions.",
+            "* Writing boundary: use behavior terms such as foreground flow, low-body grounding, sustained harmonic support, local pulse articulation, and diffuse tail support. Do not use this behavior section to confirm instruments, performers, stems, exact effect chains, or physical source positions.",
             "",
         ]
     )
@@ -474,7 +474,7 @@ def render_key_moments_compact(key_moments: list[dict[str, Any]]) -> list[str]:
 
 
 def render_writing_style_guidance() -> list[str]:
-    return ["## 9. Writing instruction", "", "Write Chinese close-listening criticism, not an engineering checklist.", "", "Required report shape:", "", "```text", "1. Identify the song / context if verified.", "2. State the central listening thesis.", "3. Explain vocal and lyric performance using verified lyric context and MSSL vocal anchors.", "4. Explain instrument / source-family performance only when family permission allows it.", "5. Explain MIDI / melody / rhythm behavior.", "6. Explain how OME spatial state changes the listening experience.", "7. Keep uncertainty visible when identity, lyrics, or family evidence is not confirmed.", "```", "", "Guard examples:", "", "```text", "青春流行 != automatically first love", "舞曲 != automatically happiness", "低频重 != automatically anger", "空间大 != automatically grandeur", "评论多 != song truth", "```", ""]
+    return ["## 9. Writing instruction", "", "Write Chinese close-listening criticism, not an engineering checklist.", "", "Required report shape:", "", "```text", "1. Identify the song / context if verified.", "2. State the central listening thesis.", "3. Explain vocal and lyric performance using verified lyric context and MSSL vocal anchors.", "4. Explain instrument / source-family objects as confirmed only when family permission allows it; otherwise keep them as candidate / possible / likely-local / weak-local objects.", "5. Explain MIDI / melody / rhythm behavior.", "6. Explain how OME spatial state changes the listening experience.", "7. Keep uncertainty visible when identity, lyrics, or family evidence is not confirmed.", "```", "", "Guard examples:", "", "```text", "青春流行 != automatically first love", "舞曲 != automatically happiness", "低频重 != automatically anger", "空间大 != automatically grandeur", "评论多 != song truth", "```", ""]
 
 
 def render_boundaries(p0: dict[str, Any], critical_brief: dict[str, Any]) -> list[str]:

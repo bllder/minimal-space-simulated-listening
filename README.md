@@ -47,9 +47,17 @@ The compact handoff is a report-composer schema. It should foreground identity s
 
 Object-family candidates should be formed from time-frequency-timbre continuity and optional external timbre / stem / transcription evidence, then mapped into receiver-side O/M/E space. OME field packets are spatial mapping support, not object identity by themselves.
 
+Current MVP priority:
+
+```text
+make rough but explicit instrument / source-family object candidates visible.
+```
+
+MSSL should expose bounded candidates such as voice / vocal-like foreground, bass / low-register, drum / percussion, guitar / plucked, keyboard / piano, synth / pad / harmonic, and FX / texture / tail objects when supported by local acoustic evidence. These are not confirmed stems or source truth; they should carry status, confidence, missing evidence, and confusion groups instead of being hidden inside only functional labels.
+
 MIDI in MSSL is a runtime music-time skeleton: beat/bar context, section timeline, symbolic stream events, and optional adapter-backed transcription evidence. Default MIDI output is not original MIDI truth.
 
-The musical object performance layer is not a machine behavior layer. It describes vocal, instrument, and effect-family performance only when the family gate allows it. Without external family evidence, it must stay at functional object language.
+The musical object performance layer is not a machine behavior layer. It describes vocal, instrument, and effect-family performance while preserving the family gate for verified source-family claims. The family gate should not be read as a ban on local source-family object candidates; without external evidence, those names remain candidate / possible / likely-local / weak-local language.
 
 Song identity and lyric context are bounded layers. MSSL audio features alone do not prove title, artist, lyrics, lyric meaning, or singer identity. Those claims require supplied metadata, external identity evidence, lyric/alignment files, fingerprint/search context, or online AI verification.
 

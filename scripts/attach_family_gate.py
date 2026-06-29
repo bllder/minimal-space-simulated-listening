@@ -70,7 +70,7 @@ def compact_block(layer: dict[str, Any]) -> str:
         "",
     ]
     if not fams:
-        lines.append("No adapter family evidence is attached. Use functional object language only.")
+        lines.append("No adapter family evidence is attached. Do not claim confirmed instruments or stems. Local acoustic source-family object candidates may still appear as possible / likely-local / weak-local objects when another MSSL layer supports them.")
         return "\n".join(lines).rstrip() + "\n"
     lines.extend(["| Family | Tier | Confidence |", "|---|---|---:|"])
     for item in fams:

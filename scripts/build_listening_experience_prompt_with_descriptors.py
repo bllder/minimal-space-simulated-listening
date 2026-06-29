@@ -358,7 +358,7 @@ def render_external_strong_recognition_section(layer: dict[str, Any]) -> str:
     ])
     families = list_dicts(layer.get("recognized_families"))
     if not families:
-        lines.append("| none | — | — | — | — | Specific family names are blocked; use functional object language. |")
+        lines.append("| none | — | — | — | — | Verified family claims are blocked; locally supported source-family candidates may remain candidate language. |")
     for item in families:
         adapters = ", ".join(list_strings(item.get("adapters"))) or "—"
         lines.append(f"| {item.get('family')} | {item.get('group')} | {item.get('evidence_tier')} | {item.get('best_confidence')} | {adapters} | {item.get('boundary')} |")
@@ -416,7 +416,7 @@ def render_musical_object_performance_section(layer: dict[str, Any]) -> str:
         sentence = compact_text(card.get("human_sentence"), 220)
         lines.append(f"| {card.get('display_name')} | {gate_status} | {card.get('performance_role')} | {event_support.get('event_count')} / {event_support.get('dominant_event_type')} | {modes} | {sentence} |")
     lines.append("")
-    lines.append("Use rule: specific instrument/effect performance cards require external strong recognition evidence. Functional cards may be used without source naming.")
+    lines.append("Use rule: verified instrument/effect performance claims require external strong recognition evidence. Local source-family object candidates may remain visible as candidate / possible / likely-local / weak-local language.")
     return "\n".join(lines).rstrip() + "\n"
 
 

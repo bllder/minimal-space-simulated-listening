@@ -26,6 +26,45 @@ Do not import old material unless it is intentionally reused, rewritten, summari
 
 ## Current durable entries
 
+### 2026-06-30 — MVP source-family object visibility correction
+
+The project corrected an over-conservative MVP reading.
+
+Durable correction:
+
+```text
+MSSL MVP must make rough instrument / source-family object candidates visible.
+```
+
+The MVP target is not a complete listening system, perfect source separation, exact instrument recognition, or a full verification framework. It is:
+
+```text
+given one song,
+produce a rough but explicit and usable object layering:
+voice / vocal-like foreground,
+bass / low-register,
+drum / percussion,
+guitar / plucked,
+keyboard / piano,
+synth / pad / harmonic,
+FX / texture / tail.
+```
+
+Boundary:
+
+```text
+candidate object name != confirmed source truth
+family gate / external recognition != permission for candidate name to appear
+family gate / external recognition = upgrade or verification evidence
+```
+
+Implementation implication:
+
+```text
+Do not treat "no risky wording appeared" as feature completion.
+The first question is whether explicit instrument / source-family objects are more visible and useful for the online AI handoff.
+```
+
 ### 2026-06-15 — V3 temporal-spatial auditory object tracking
 
 MSSL moved from visualized listening fields toward trackable auditory objects.

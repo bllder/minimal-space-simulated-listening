@@ -41,6 +41,24 @@ online_ai_listening_handoff.md
 
 Copy or upload that file to an online AI account instead of uploading audio.
 
+## MVP object visibility rule
+
+The current MVP target is to make rough instrument / source-family object candidates visible for the online AI handoff.
+
+Local OME, gammatone / ERB-like, time-frequency, timbre, envelope, transient, harmonic, noise, spatial, MIDI/pitch, and acoustic-prior evidence may support explicit candidate names such as:
+
+```text
+voice / vocal-like foreground object
+bass / low-register object
+drum / percussion object
+guitar / plucked object
+keyboard / piano object
+synth / pad / harmonic object
+FX / texture / tail object
+```
+
+External recognition and family gate evidence upgrade or verify these candidates. They are not the only permission for the candidate name to appear. Without external support, keep status such as possible, likely-local, weak-local, confused-with, and missing-evidence instead of erasing the object into only functional language.
+
 ## Supported input behavior
 
 The core analyzer reads PCM WAV directly. The main runner and experience pipeline may decode other common local audio formats through ffmpeg when available:
@@ -107,7 +125,7 @@ Normalizes Basic Pitch / MT3 / custom transcription notes JSON or CSV into the M
 scripts/build_external_strong_recognition_layer.py
 ```
 
-Normalizes external family evidence from command-generated or pre-existing adapter JSON packets. This layer decides which vocal, instrument, and effect-family names may be used downstream. It also accepts mixed accompaniment / `other` stem evidence as broad backing-bed context, not as a specific instrument claim.
+Normalizes external family evidence from command-generated or pre-existing adapter JSON packets. This layer decides which vocal, instrument, and effect-family names may be treated as externally supported or verified downstream. It does not cancel local source-family object candidates. It also accepts mixed accompaniment / `other` stem evidence as broad backing-bed context, not as a specific instrument claim.
 
 ```text
 scripts/adapters/run_demucs_adapter.py
@@ -137,7 +155,7 @@ Builds a receiver-side OME spatial field / spatial-band support layer. This maps
 scripts/build_ome_gammatone_envelope_layer.py
 ```
 
-Standalone auditory front-end bridge. It reads audio plus a full-song profile and writes an ERB/gammatone-like Mid/Side envelope layer. The JSON keeps compact analysis-matrix summaries and rolling 1-5 second support windows; the PNGs use a smoothed/downsampled display matrix for readability. It supports arrangement contrast and later bounded object hypotheses, but it does not identify instruments, separate sources, use trained models, or simulate biological cochlea truth.
+Standalone auditory front-end bridge. It reads audio plus a full-song profile and writes an ERB/gammatone-like Mid/Side envelope layer. The JSON keeps compact analysis-matrix summaries and rolling 1-5 second support windows; the PNGs use a smoothed/downsampled display matrix for readability. It supports arrangement contrast and later bounded source-family object hypotheses, but it does not confirm instruments, separate sources, use trained models, or simulate biological cochlea truth.
 
 ```text
 scripts/build_ome_arrangement_contrast_layer.py
@@ -201,7 +219,7 @@ Builds bounded listening-region locations from an existing full-song profile. It
 scripts/build_musical_object_performance_layer.py
 ```
 
-Builds vocal / instrumental / effect-family performance cards. This layer is intentionally not a machine behavior layer. Specific family cards require the external family gate; otherwise the layer collapses to functional object language.
+Builds vocal / instrumental / effect-family performance cards. This layer is intentionally not a machine behavior layer. Specific verified family cards require the external family gate. Local source-family candidates may still remain visible as bounded candidate evidence; unverified performance prose must not become confirmed source identity.
 
 Optional standalone input:
 
@@ -235,7 +253,7 @@ This lets a behavior-enriched standalone performance layer feed compact handoff 
 scripts/render_compact_online_handoff.py
 ```
 
-Renders the compact online handoff as a report-composer schema: song identity, source-family permission, vocal/lyric anchors, instrument/source-family performance, optional bounded musical-object behavior support, MIDI/melody/rhythm skeleton, general audio evidence, OME spatial performance state, macro arc, and writing boundaries. Behavior support is timing/action evidence only; it does not create source-family certainty or bypass the family gate.
+Renders the compact online handoff as a report-composer schema: song identity, source-family permission, vocal/lyric anchors, explicit source-family object candidates when available, instrument/source-family performance, optional bounded musical-object behavior support, MIDI/melody/rhythm skeleton, general audio evidence, OME spatial performance state, macro arc, and writing boundaries. Behavior support is timing/action evidence only; it does not create verified source-family certainty or bypass the family gate.
 
 ## Song identity contract
 

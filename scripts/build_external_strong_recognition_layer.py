@@ -7,7 +7,9 @@ instrument-family classifiers, transcription systems, or effect recognizers.
 
 Boundary:
 - MSSL does not pretend full-mix heuristics are strong instrument recognition.
-- Strong family claims require external adapter evidence.
+- Verified family claims require external adapter evidence.
+- Local acoustic source-family object candidates may still be named as
+  possible / likely-local / weak-local candidates by later layers.
 - External evidence is still evidence, not original source truth, performer
   identity, lyrics, exact sample truth, or creator intent.
 """
@@ -151,14 +153,14 @@ def build_layer(profile: dict[str, Any], packets: list[dict[str, Any]], min_conf
         "performance_gate": {
             "allowed_specific_families": allowed_specific,
             "non_specific_context_families": sorted(family for family in by_family.keys() if family in NON_SPECIFIC_FAMILIES),
-            "rule": "Specific instrument/effect performance cards require retained external recognition evidence. Mixed accompaniment stems may support backing-bed context but must not become a specific instrument claim.",
+            "rule": "Specific verified instrument/effect performance claims require retained external recognition evidence. Mixed accompaniment stems may support backing-bed context but must not become a specific instrument claim. Local acoustic source-family object candidates are not cancelled by this gate.",
         },
         "vocal_evidence": filter_group(by_family, "vocal_family"),
         "instrument_family_evidence": filter_group(by_family, "instrument_family"),
         "effect_family_evidence": filter_group(by_family, "effect_family"),
         "stem_function_evidence": filter_group(by_family, "stem_function_family"),
         "unresolved_policy": {
-            "rule": "If a specific family is absent here, do not name it as an instrument/effect in compact handoff. Collapse to functional harmonic bed, low body, rhythm pulse, foreground line, or diffuse texture.",
+            "rule": "If a specific family is absent here, do not name it as a verified instrument/effect in compact handoff. Keep any locally supported source-family object as candidate / possible / likely-local / weak-local language instead of erasing it into only functional labels.",
         },
         "expected_adapter_shapes": expected_adapter_shapes(),
         "truth_boundary": "External strong recognition can support family-level naming, but it is still not original stem truth, performer identity, lyric truth, exact sample truth, or creator intent.",
@@ -326,7 +328,7 @@ def render_markdown(profile: dict[str, Any], layer: dict[str, Any]) -> str:
     ]
     families = list_dicts(layer.get("recognized_families"))
     if not families:
-        lines.extend(["No external strong recognition evidence is attached. Specific instrument/effect naming must be suppressed; use functional object language only.", ""])
+        lines.extend(["No external strong recognition evidence is attached. Confirmed instrument/effect claims must be suppressed, but locally supported source-family object candidates may still appear as possible / likely-local / weak-local objects.", ""])
     else:
         lines.extend(["| Family | Group | Tier | Confidence | Adapters | Boundary |", "|---|---|---|---:|---|---|"])
         for item in families:

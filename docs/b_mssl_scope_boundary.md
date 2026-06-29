@@ -81,6 +81,28 @@ It helps describe where an already-supported object appears, how stable it is, h
 
 It must not be used as the sole generator of object identity.
 
+## MVP source-family object visibility
+
+The current MVP priority is explicit source-family object visibility.
+
+MSSL should produce rough but usable instrument / source-family object candidates when local evidence supports them:
+
+```text
+voice / vocal-like foreground object
+bass / low-register object
+drum / percussion object
+guitar / plucked object
+keyboard / piano object
+synth / pad / harmonic object
+FX / texture / tail object
+```
+
+These are candidate objects, not confirmed stems, performer identity, or source truth. They may be labeled `possible`, `likely-local`, `weak-local`, or `confused-with`.
+
+Boundary, confidence, missing evidence, confusion groups, and external verification status belong inside the object record. They are not reasons to remove the object name.
+
+External recognition and family gate evidence can upgrade a candidate toward verified source-family support. They must not be treated as the only permission for a local acoustic source-family candidate to appear.
+
 ## OME gammatone envelope boundary
 
 Before arrangement lanes, MSSL may add an auditory front-end bridge:
@@ -94,9 +116,9 @@ audio + full-song profile
 -> arrangement contrast support
 ```
 
-This layer is a receiver-side auditory filterbank envelope representation. It supports arrangement contrast and later bounded object hypotheses by showing where low, mid, high, sustained, transient, center-focused, and side-heavy envelope activity lives over time. The analysis matrix supports numeric summaries; the display matrix is smoothed and downsampled only for human-readable PNGs.
+This layer is a receiver-side auditory filterbank envelope representation. It supports arrangement contrast and later bounded source-family object hypotheses by showing where low, mid, high, sustained, transient, center-focused, and side-heavy envelope activity lives over time. The analysis matrix supports numeric summaries; the display matrix is smoothed and downsampled only for human-readable PNGs.
 
-It is not biological cochlea truth, source separation, stem recovery, instrument recognition, performer/person evidence, lyric truth, genre truth, or creator intent. It must not bypass external recognition when source-family language is needed.
+It is not biological cochlea truth, source separation, stem recovery, confirmed instrument recognition, performer/person evidence, lyric truth, genre truth, or creator intent. It must not bypass external recognition when verified source-family certainty is needed.
 
 ## OME arrangement contrast layer
 
@@ -122,7 +144,7 @@ continuous OME / frequency / pressure / width / motion evidence
 -> readable arrangement timeline / summary views
 ```
 
-This second pass is a spatial-time arrangement map. It may say that a low-body lane enters, a transient plane intensifies, a diffuse tail opens, or a mixed arrangement zone appears. It must not say which instrument caused the lane, and it must not replace external recognition when source-family language is needed.
+This second pass is a spatial-time arrangement map. It may say that a low-body lane enters, a transient plane intensifies, a diffuse tail opens, or a mixed arrangement zone appears. By itself it must not say which instrument caused the lane, and it must not replace external recognition when verified source-family certainty is needed. It may still provide lane evidence for later source-family object candidates.
 
 Readable arrangement timeline outputs are visualizations of receiver-side arrangement evidence only. They may show lane activity, major contrast markers, and broad arrangement ranges, but they are not source identification, stem recovery, performer evidence, lyric evidence, genre evidence, or creator-intent evidence.
 
@@ -141,7 +163,7 @@ instrument/source-family acoustic priors
 -> later ranked hypotheses, when combined with local evidence
 ```
 
-It does not identify instruments by itself. It must be combined with OME arrangement windows, gammatone / spectral-envelope evidence, MIDI or pitch support, local 1-5 second dynamics, and explicit external evidence where source-family naming is needed.
+It does not confirm instruments by itself. It must be combined with OME arrangement windows, gammatone / spectral-envelope evidence, MIDI or pitch support, and local 1-5 second dynamics to support local source-family object candidates. Explicit external evidence is required when the claim is verified source-family certainty rather than candidate visibility.
 
 The prior index is below source-identity certainty. It does not prove original stems, people, lyrics, genre, or creator intent.
 
@@ -158,13 +180,13 @@ OME / gammatone arrangement windows
 
 This layer may rank broad acoustic families and prior matches inside 1-5 second windows. It remains below source certainty. Without pitch or MIDI support, pitch/register matching stays unresolved and exact prior scores must stay capped. Without external recognition, the result is still only an acoustic hypothesis.
 
-It can support later handoff language as candidate evidence, but it must not replace external recognition, stem evidence, transcription evidence, metadata, or user-supplied context when source-family certainty is needed.
+It can support later handoff language as candidate evidence, but it must not replace external recognition, stem evidence, transcription evidence, metadata, or user-supplied context when verified source-family certainty is needed.
 
-Instrument prior filterbank support may feed the temporal-timbre object candidate layer only as bounded acoustic evidence. It can raise the plausibility of functional objects such as transient-pressure, low-body, foreground-contour, harmonic-sustain, noise-texture, diffuse-tail, or wide-diffuse candidates, but it does not name the source by itself.
+Instrument prior filterbank support may feed the temporal-timbre object candidate layer only as bounded acoustic evidence. It can raise the plausibility of both functional objects and local source-family object candidates such as low-register, percussion, plucked, keyboard, synth/pad, voice/vocal-presence, bowed/string, brass/wind, and FX/texture objects. It does not verify source truth by itself.
 
-Without pitch/register evidence or external adapter support, instrument-like and effect-like object candidates must stay conservative even when broad acoustic priors are active. Functional object candidates may still be strong when full-mix time-frequency-timbre continuity supports them, but exact prior names remain bounded support details.
+Without pitch/register evidence or external adapter support, instrument-like and effect-like object candidates must stay conservative even when broad acoustic priors are active. Conservative means possible / likely-local / weak-local / confused-with, not hidden. Functional object candidates may still be strong when full-mix time-frequency-timbre continuity supports them, but exact prior names remain bounded support details.
 
-Object candidates still require temporal continuity, timbre / spectral structure, optional MIDI or pitch support, optional external evidence, and OME mapping. Exact source-family language still requires external recognition and family-gate permission where needed.
+Object candidates still require temporal continuity, timbre / spectral structure, optional MIDI or pitch support, optional external evidence, and OME mapping. Verified or confirmed source-family language still requires external recognition and family-gate permission where needed.
 
 ## Object before musical performance
 
@@ -195,11 +217,11 @@ temporal-timbre object candidate
 -> later musical object performance layer
 ```
 
-It describes entry, continuity, flow, masking, pressure, tail, release, recurrence, and spatial behavior for existing `object_candidate_id` values only. It must not create new objects, exceed the object candidate claim strength, turn candidate-like language into source certainty, or promote exact instrument/effect names without external evidence and family-gate permission.
+It describes entry, continuity, flow, masking, pressure, tail, release, recurrence, and spatial behavior for existing `object_candidate_id` values only. It must not create new objects, exceed the object candidate claim strength, turn candidate-like language into source certainty, or promote exact instrument/effect names to verified claims without external evidence and family-gate permission.
 
 Auditory object behavior may feed the musical object performance layer only as bounded behavior support. It can shape timing/action words such as entry, continuity, pressure, tail, release, recurrence, and spatial behavior, but it cannot create source-family certainty, exceed object-candidate or behavior-card claim strength, or bypass the external family gate.
 
-The compact online handoff may surface this behavior support only as bounded timing/action evidence for report composition. It can summarize entry, continuity, flow, pressure, tail, release, recurrence, spatial behavior, and missing evidence, but it cannot create source-family certainty or bypass the family gate.
+The compact online handoff may surface this behavior support only as bounded timing/action evidence for report composition. It can summarize entry, continuity, flow, pressure, tail, release, recurrence, spatial behavior, and missing evidence, but it cannot create verified source-family certainty or bypass the family gate.
 
 This layer is intentionally not a machine behavior layer. It should describe vocal, instrumental, and effect-like expression:
 
@@ -245,7 +267,7 @@ spatial_spread_region
 pressure_peak_region
 ```
 
-These regions are atomic listening components, not instruments, stems, source certainty, performer/person evidence, lyric truth, or creator intent. They must not bypass external recognition when source-family language is needed.
+These regions are atomic listening components, not instruments, stems, source certainty, performer/person evidence, lyric truth, or creator intent. They must not bypass external recognition when verified source-family certainty is needed.
 
 A valid object candidate should carry at least some of these supports:
 

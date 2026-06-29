@@ -85,6 +85,45 @@ MSSL is best understood as a music-listening evidence compiler, not a local all-
 
 ---
 
+## MSSL MVP Object Visibility Principle
+
+The current project stage is MVP.
+
+The first MVP target is not a complete listening system, perfect source separation, exact instrument recognition, or a full verification framework. The first target is:
+
+```text
+given one song,
+produce a rough but explicit and usable instrument / source-family object layering.
+```
+
+MVP-facing outputs should make these object candidates visible when supported by bounded local evidence:
+
+```text
+voice / vocal-like foreground object
+bass / low-register object
+drum / percussion object
+guitar / plucked object
+keyboard / piano object
+synth / pad / harmonic object
+FX / texture / tail object
+```
+
+These names are allowed as `candidate`, `possible`, `likely-local`, `weak-local`, or `confused-with` objects. They are not confirmed isolated stems, performer identity, or source truth.
+
+Boundary, confidence, confusion groups, missing evidence, and external verification status are object fields. They are not reasons to remove the source-family object name.
+
+The family gate and external recognition upgrade or verify source-family claims. They must not be interpreted as permission for a local acoustic object candidate name to appear at all.
+
+When judging an implementation, ask first:
+
+```text
+Does this make explicit instrument / source-family objects more visible and useful for the online AI handoff?
+```
+
+Do not treat "no risky wording appeared" as feature completion if the output still hides bass, guitar, drum, synth, voice, or FX objects inside only functional labels.
+
+---
+
 ## Current Runtime Path
 
 Current normal path:
@@ -398,7 +437,7 @@ vocal / instrument / effect-family musical expression over the whole song
 
 It is not a machine behavior layer. It must describe performance expression, not debug labels such as generic entry/masking/release behavior.
 
-Specific instrument/effect performance cards require the external family gate. Without external family evidence, collapse to functional language such as foreground line, low body, pulse, harmonic bed, or diffuse texture.
+Specific verified instrument/effect performance cards require the external family gate. Without external family evidence, performance certainty must remain bounded, but local source-family object candidates should still remain visible as candidates instead of being erased into only functional labels.
 
 ### Done: compact report-composer handoff
 
@@ -492,10 +531,10 @@ Do not claim that MSSL can accurately identify all instruments from internal heu
 Correct position:
 
 ```text
-instrument / vocal / FX family naming requires external recognition, stem, transcription, metadata, or user-supplied evidence.
+confirmed instrument / vocal / FX source-family truth requires external recognition, stem, transcription, metadata, or user-supplied evidence.
 ```
 
-Internal audio evidence can support functional object language, not confirmed source identity.
+Internal OME, gammatone / ERB-like, time-frequency, timbre, envelope, transient, harmonic, noise, spatial, MIDI/pitch, and acoustic-prior evidence can support explicit local source-family object candidates. Those candidates must carry status such as possible, likely-local, weak-local, confused-with, or missing-evidence, and they must not be promoted to confirmed source identity without external support.
 
 ### Abandon: asking user to run before chain is closed
 
@@ -578,6 +617,7 @@ Allowed core language:
 - MSSL evidence compiler
 - song identity status
 - source-family permission
+- source-family object candidate
 - O / M / E source-to-receiver mapping
 - audio evidence
 - symbolic MIDI / melody skeleton

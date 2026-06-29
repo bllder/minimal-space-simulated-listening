@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Build MSSL musical object performance cards.
 
-This layer does not perform instrument or vocal recognition. It consumes object
-candidates, symbolic timeline evidence, reconstructed streams, OME support, and
-external strong recognition evidence. Specific instrument/effect performance
-cards are emitted only when the external strong recognition layer allows that
-family. Without external evidence, the layer collapses to functional musical
-performance cards such as foreground line, low body, rhythmic pulse, harmonic
-bed, and diffuse texture.
+This layer does not perform confirmed instrument or vocal recognition. It
+consumes object candidates, symbolic timeline evidence, reconstructed streams,
+OME support, and external strong recognition evidence. Specific verified
+instrument/effect performance claims require external strong recognition. Local
+source-family object candidates can still remain visible in candidate language;
+they must not be promoted to source certainty.
 """
 
 from __future__ import annotations
@@ -329,7 +328,7 @@ def build_layer(profile: dict[str, Any], auditory_object_behavior_layer: dict[st
             "allowed_specific_families": sorted(allowed_specific),
             "suppressed_specific_family_count": len(suppressed),
             "suppressed_specific_families": suppressed,
-            "rule": "Specific instrument/effect performance cards require retained external recognition evidence; otherwise they collapse to functional performance cards.",
+            "rule": "Specific verified instrument/effect performance claims require retained external recognition evidence. Local source-family candidates may remain visible as candidate evidence; unverified wording must not become source certainty.",
         },
         "performance_card_count": len(cards),
         "input_layers": {
@@ -564,7 +563,7 @@ def build_card(family_id: str, spec: dict[str, Any], candidate: dict[str, Any], 
         "review_language": review_language_for_family(family_id),
         "do_not_write_as": do_not_write_for_family(family_id),
         "internal_boundary_terms": ["not source certainty", "not original stem", "not performer action certainty"],
-        "truth_boundary": "Performance card describes musical expression. Specific source-family naming is allowed only when recognition_gate permits it.",
+        "truth_boundary": "Performance card describes musical expression. Verified source-family certainty is allowed only when recognition_gate permits it; local source-family candidates remain candidate evidence.",
     }
 
 
@@ -685,8 +684,8 @@ def do_not_write_for_family(family_id: str) -> list[str]:
     if family_id in DO_NOT_WRITE:
         return DO_NOT_WRITE[family_id]
     if family_id in SPECIFIC_RECOGNITION_REQUIRED:
-        return ["不要写成真实分轨", "不要写成演奏者动作事实", "不要超出外部识别给出的声源族证据"]
-    return ["不要命名为具体乐器", "不要写成真实来源识别", "不要把功能层当成分轨"]
+        return ["不要写成真实分轨", "不要写成演奏者动作事实", "不要写成已验证声源真相"]
+    return ["不要写成真实来源识别", "不要把功能层当成分轨", "不要把候选对象写成 confirmed source"]
 
 
 def stream_activity_summary(stream_layer: dict[str, Any]) -> dict[str, str]:

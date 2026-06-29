@@ -383,7 +383,7 @@ def validate_markdown(markdown: str) -> None:
         "## 4.5 Musical Object Behavior Support",
         "Functional behavior summary",
         "Source-family gate: external recognition not_attached",
-        "specific source-family names are not authorized",
+        "verified source-family claims are not authorized",
         "Foreground / lead-line",
         "Harmonic bed",
         "Low-body grounding",
