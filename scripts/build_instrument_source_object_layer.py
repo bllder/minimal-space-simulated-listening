@@ -105,6 +105,7 @@ SOURCE_OBJECT_SPECS: dict[str, dict[str, Any]] = {
         "prior_families": ["bowed_strings"],
         "confusion_targets": ["synth_pad_harmonic_object", "brass_wind_object"],
         "handoff_role": "bowed/sustained harmonic object candidate",
+        "requires_pitch_or_external_for_likely": True,
     },
     "brass_wind_object": {
         "display_name": "Brass / wind object",
@@ -115,6 +116,7 @@ SOURCE_OBJECT_SPECS: dict[str, dict[str, Any]] = {
         "prior_families": ["brass", "woodwinds"],
         "confusion_targets": ["voice_object", "strings_bowed_object", "synth_pad_harmonic_object"],
         "handoff_role": "sustained wind/brass-family contour candidate",
+        "requires_pitch_or_external_for_likely": True,
     },
     "fx_texture_tail_object": {
         "display_name": "FX / texture / tail object",
@@ -231,10 +233,7 @@ def build_source_object(object_id: str, spec: dict[str, Any], indexes: dict[str,
     prior_score = max((prior_window_score(row, set(spec["prior_families"])) for row in prior_windows), default=0.0)
     behavior_score = max((claim_score(row.get("claim_strength")) for row in behavior_cards), default=0.0)
     performance_score = max((claim_score(row.get("claim_strength")) for row in performance_cards), default=0.0)
-    score = clamp(max(primary_score, 0.72 * supporting_score, 0.84 * prior_score, 0.68 * behavior_score, 0.62 * performance_score))
-
     exact_verification = verified_candidate_families(spec["candidate_families"], indexes["allowed_specific"])
-    visibility_status = visibility_status_for(score, bool(primary_candidates), bool(prior_windows), bool(exact_verification))
     time_ranges = merge_ranges(
         [
             *candidate_ranges(primary_candidates),
@@ -245,8 +244,23 @@ def build_source_object(object_id: str, spec: dict[str, Any], indexes: dict[str,
     missing = collect_missing_evidence(primary_candidates, supporting_candidates, behavior_cards, prior_windows, exact_verification)
     prior_summary = summarize_prior_windows(prior_windows, set(spec["prior_families"]))
     top_priors = collect_top_priors(prior_windows, set(spec["prior_families"]))
-    confusion = confusion_for(object_id, spec, indexes, score)
-    handoff_sentence = build_handoff_sentence(spec, visibility_status, time_ranges, missing, confusion, exact_verification)
+    raw_score = clamp(max(primary_score, 0.72 * supporting_score, 0.84 * prior_score, 0.68 * behavior_score, 0.62 * performance_score))
+    raw_status = visibility_status_for(raw_score, bool(primary_candidates), bool(prior_windows), bool(exact_verification))
+    confusion = confusion_for(object_id, spec, indexes, raw_score)
+    calibration = calibrate_source_object(
+        object_id=object_id,
+        spec=spec,
+        raw_score=raw_score,
+        raw_status=raw_status,
+        has_primary=bool(primary_candidates),
+        has_prior=bool(prior_windows),
+        has_external_verification=bool(exact_verification),
+        missing_evidence=missing,
+        confusion=confusion,
+    )
+    score = to_float(calibration.get("calibrated_confidence"))
+    visibility_status = str(calibration.get("calibrated_visibility_status") or raw_status)
+    handoff_sentence = build_handoff_sentence(spec, visibility_status, time_ranges, missing, confusion, exact_verification, calibration)
 
     return {
         "source_object_id": object_id,
@@ -256,6 +270,8 @@ def build_source_object(object_id: str, spec: dict[str, Any], indexes: dict[str,
         "visibility_status": visibility_status,
         "verification_status": "externally_supported_candidate" if exact_verification else "local_acoustic_candidate_not_verified",
         "confidence": round_float(score),
+        "raw_confidence": round_float(raw_score),
+        "calibration": calibration,
         "claim_boundary": "Candidate object name only; not a confirmed source or separated stem.",
         "time_ranges": format_ranges(time_ranges),
         "primary_object_candidate_ids": [row.get("object_candidate_id") for row in primary_candidates],
@@ -291,6 +307,79 @@ def visibility_status_for(score: float, has_primary: bool, has_prior: bool, veri
     if score >= 0.42:
         return "possible"
     return "weak_local"
+
+
+def calibrate_source_object(
+    *,
+    object_id: str,
+    spec: dict[str, Any],
+    raw_score: float,
+    raw_status: str,
+    has_primary: bool,
+    has_prior: bool,
+    has_external_verification: bool,
+    missing_evidence: list[str],
+    confusion: list[dict[str, Any]],
+) -> dict[str, Any]:
+    score = raw_score
+    applied: list[dict[str, Any]] = []
+    missing_pitch = "pitch/register evidence" in set(missing_evidence)
+    strongest_confusion = max((to_float(item.get("relative_support")) for item in confusion), default=0.0)
+
+    if (
+        spec.get("requires_pitch_or_external_for_likely")
+        and not has_external_verification
+        and missing_pitch
+        and raw_status == "likely_local"
+    ):
+        cap = 0.54
+        if score > cap:
+            applied.append(
+                {
+                    "rule": "fine_grained_sustained_family_cap",
+                    "reason": (
+                        "This object remains visible, but without pitch/register or external evidence "
+                        "it overlaps too strongly with broader sustained foreground/harmonic candidates "
+                        "to call likely-local."
+                    ),
+                    "cap": cap,
+                }
+            )
+            score = min(score, cap)
+
+    calibrated_status = visibility_status_for(score, has_primary, has_prior, has_external_verification)
+    if has_external_verification and raw_status == "externally_supported":
+        calibrated_status = "externally_supported"
+
+    if calibrated_status != raw_status:
+        applied.append(
+            {
+                "rule": "visibility_status_adjusted",
+                "reason": f"Visibility changed from {raw_status} to {calibrated_status} after calibration.",
+            }
+        )
+
+    status = "calibrated_with_caps" if applied else "no_calibration_cap_applied"
+    if spec.get("requires_pitch_or_external_for_likely") and not has_external_verification and missing_pitch and not applied:
+        status = "fine_grained_sustained_family_unverified"
+
+    return {
+        "status": status,
+        "raw_confidence": round_float(raw_score),
+        "calibrated_confidence": round_float(score),
+        "raw_visibility_status": raw_status,
+        "calibrated_visibility_status": calibrated_status,
+        "missing_pitch_register_evidence": missing_pitch,
+        "external_verification_available": has_external_verification,
+        "has_primary_candidate": has_primary,
+        "has_prior_support": has_prior,
+        "strongest_confusion_support": round_float(strongest_confusion),
+        "applied_adjustments": applied,
+        "boundary": (
+            "Calibration changes object visibility strength only. It keeps explicit source-family "
+            "candidate names visible and does not create verified instrumentation."
+        ),
+    }
 
 
 def confusion_for(object_id: str, spec: dict[str, Any], indexes: dict[str, Any], own_score: float) -> list[dict[str, Any]]:
@@ -416,6 +505,7 @@ def build_handoff_sentence(
     missing: list[str],
     confusion: list[dict[str, Any]],
     verified: list[str],
+    calibration: dict[str, Any],
 ) -> str:
     if status == "not_supported":
         return f"{spec['display_name']}: not enough local support to show as an active source-family object."
@@ -423,11 +513,21 @@ def build_handoff_sentence(
     verification = "externally supported" if verified else "local candidate"
     confusion_text = ", ".join(str(item.get("display_name")) for item in confusion[:3]) or "none highlighted"
     missing_text = ", ".join(missing[:4]) or "none flagged"
+    calibration_text = calibration_sentence(calibration)
     return (
         f"{spec['display_name']}: {status.replace('_', '-')} {verification}; "
         f"active/supporting ranges {time_text}; role: {spec['handoff_role']}; "
-        f"confused with: {confusion_text}; missing evidence: {missing_text}."
+        f"confused with: {confusion_text}; missing evidence: {missing_text}; "
+        f"calibration: {calibration_text}."
     )
+
+
+def calibration_sentence(calibration: dict[str, Any]) -> str:
+    adjustments = list_dicts(calibration.get("applied_adjustments"))
+    if not adjustments:
+        return str(calibration.get("status") or "no calibration cap applied").replace("_", " ")
+    reason = str(adjustments[0].get("reason") or adjustments[0].get("rule") or "calibrated")
+    return compact_sentence(reason, 150)
 
 
 def summarize_behavior_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -530,13 +630,15 @@ def render_markdown(layer: dict[str, Any]) -> str:
 
 
 def render_object_markdown(item: dict[str, Any]) -> list[str]:
+    calibration = as_dict(item.get("calibration"))
     lines = [
         f"### {item.get('display_name')}",
         "",
         f"- Object id: `{item.get('source_object_id')}`",
         f"- Visibility status: {item.get('visibility_status')}",
         f"- Verification status: {item.get('verification_status')}",
-        f"- Confidence: {item.get('confidence')}",
+        f"- Confidence: {item.get('confidence')} (raw {item.get('raw_confidence')})",
+        f"- Calibration: {format_calibration(calibration)}",
         f"- Time ranges: {', '.join(format_range_dict(row) for row in list_dicts(item.get('time_ranges'))) or 'none'}",
         f"- Primary candidates: {', '.join(list_strings(item.get('primary_object_candidate_ids'))) or 'none'}",
         f"- Supporting candidates: {', '.join(list_strings(item.get('supporting_object_candidate_ids'))) or 'none'}",
@@ -560,6 +662,15 @@ def render_object_markdown(item: dict[str, Any]) -> list[str]:
             lines.append(f"  - {row.get('display_name')} ({row.get('family')}, {row.get('score')}) at {format_range(row.get('time_range'))}")
         lines.append("")
     return lines
+
+
+def format_calibration(calibration: dict[str, Any]) -> str:
+    if not calibration:
+        return "not recorded"
+    adjustments = list_dicts(calibration.get("applied_adjustments"))
+    if not adjustments:
+        return str(calibration.get("status") or "no cap")
+    return "; ".join(str(item.get("reason") or item.get("rule")) for item in adjustments[:2])
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -726,6 +837,13 @@ def round_float(value: Any) -> float:
 
 def clamp(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
+
+
+def compact_sentence(value: Any, limit: int) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 3)].rstrip() + "..."
 
 
 if __name__ == "__main__":

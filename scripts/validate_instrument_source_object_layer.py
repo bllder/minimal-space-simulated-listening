@@ -23,6 +23,8 @@ REQUIRED_OBJECT_IDS = {
     "guitar_plucked_object",
     "keyboard_piano_object",
     "synth_pad_harmonic_object",
+    "strings_bowed_object",
+    "brass_wind_object",
     "fx_texture_tail_object",
 }
 
@@ -109,6 +111,8 @@ def build_object_layer() -> dict[str, Any]:
         ("guitar_like_plucked_melodic_layer", "instrument_like_timbre_family", "medium", [6.0, 9.0]),
         ("piano_like_percussive_harmonic_layer", "instrument_like_timbre_family", "medium", [6.0, 9.0]),
         ("synth_pad_like_sustained_harmonic_bed", "instrument_like_timbre_family", "medium", [0.0, 12.0]),
+        ("string_like_sustained_harmonic_layer", "instrument_like_timbre_family", "medium", [0.0, 12.0]),
+        ("brass_wind_like_sustained_lead_layer", "instrument_like_timbre_family", "medium", [0.0, 12.0]),
         ("noise_riser_like_effect_flow", "effect_like_texture_family", "weak", [9.0, 12.0]),
     ]
     candidates = [candidate(family, group, claim, time_range) for family, group, claim, time_range in families]
@@ -171,6 +175,8 @@ def build_prior_layer() -> dict[str, Any]:
             prior_window([6.0, 9.0], "plucked_strings", [prior("electric_guitar", "Electric guitar", "plucked_strings", 0.52)]),
             prior_window([6.0, 9.0], "keyboard", [prior("piano", "Piano", "keyboard", 0.52)]),
             prior_window([0.0, 12.0], "electronic_fx", [prior("synth_pad", "Synth pad", "electronic_fx", 0.55)]),
+            prior_window([0.0, 12.0], "bowed_strings", [prior("cello", "Cello", "bowed_strings", 0.54)]),
+            prior_window([0.0, 12.0], "brass", [prior("trombone", "Trombone", "brass", 0.54)]),
             prior_window([9.0, 12.0], "electronic_fx", [prior("noise_fx", "Noise FX", "electronic_fx", 0.56)]),
         ],
     }
@@ -205,6 +211,8 @@ def build_behavior_layer() -> dict[str, Any]:
         ("guitar_like_plucked_melodic_layer", "foreground_flow", "foreground_carrier"),
         ("piano_like_percussive_harmonic_layer", "foreground_flow", "foreground_carrier"),
         ("synth_pad_like_sustained_harmonic_bed", "harmonic_bed_support", "harmonic_support"),
+        ("string_like_sustained_harmonic_layer", "harmonic_bed_support", "harmonic_support"),
+        ("brass_wind_like_sustained_lead_layer", "foreground_flow", "foreground_carrier"),
         ("noise_riser_like_effect_flow", "texture_motion", "transition_marker"),
     ]:
         cards.append(behavior_card(family, flow, role))
@@ -259,6 +267,17 @@ def validate_layer(layer: dict[str, Any]) -> None:
     for expected in ("Voice", "Bass", "Drum", "Guitar", "Keyboard", "Synth", "FX"):
         if expected not in display_names:
             fail(f"Expected display label missing: {expected}")
+    for calibrated_id in ("strings_bowed_object", "brass_wind_object"):
+        item = by_id[calibrated_id]
+        if item.get("visibility_status") == "likely_local":
+            fail(f"{calibrated_id} should be capped below likely_local without pitch/external evidence")
+        calibration = as_dict(item.get("calibration"))
+        if calibration.get("status") != "calibrated_with_caps":
+            fail(f"{calibrated_id} missing calibration cap diagnostic")
+        if calibration.get("raw_visibility_status") != "likely_local":
+            fail(f"{calibrated_id} synthetic fixture should prove likely_local was downgraded")
+        if calibration.get("calibrated_visibility_status") != "possible":
+            fail(f"{calibrated_id} should be calibrated to possible")
     if int(layer.get("visible_object_count") or 0) < len(REQUIRED_OBJECT_IDS):
         fail("Visible object count is too low")
 
@@ -273,8 +292,11 @@ def validate_markdown(markdown: str) -> None:
         "Guitar / plucked object",
         "Keyboard / piano object",
         "Synth / pad / harmonic object",
+        "Strings / bowed object",
+        "Brass / wind object",
         "FX / texture / tail object",
         "Visibility status",
+        "Calibration",
         "Confused with",
         "Writing Rule",
     ]

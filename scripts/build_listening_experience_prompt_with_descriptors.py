@@ -439,16 +439,17 @@ def render_instrument_source_object_section(layer: dict[str, Any]) -> str:
             "",
             f"Boundary: {layer.get('truth_boundary')}",
             "",
-            "| Object | Status | Verification | Confidence | Time ranges | Missing evidence | Confused with |",
-            "|---|---|---|---:|---|---|---|",
+            "| Object | Status | Verification | Confidence | Calibration | Time ranges | Missing evidence | Confused with |",
+            "|---|---|---|---:|---|---|---|---|",
         ]
     )
     for item in list_dicts(layer.get("source_family_objects")):
         ranges = ", ".join(format_source_ranges(item)) or "unresolved"
         missing = ", ".join(list_strings(item.get("missing_evidence"))[:5]) or "none flagged"
         confused = ", ".join(str(row.get("display_name")) for row in list_dicts(item.get("confused_with"))[:4]) or "none highlighted"
+        calibration = format_source_calibration(item)
         lines.append(
-            f"| {item.get('display_name')} | {item.get('visibility_status')} | {item.get('verification_status')} | {item.get('confidence')} | {ranges} | {missing} | {confused} |"
+            f"| {item.get('display_name')} | {item.get('visibility_status')} | {item.get('verification_status')} | {item.get('confidence')} | {calibration} | {ranges} | {missing} | {confused} |"
         )
     lines.extend(["", "Use rule: keep explicit object names visible as candidates; do not turn candidate objects into verified instrumentation without gate/external support."])
     return "\n".join(lines).rstrip() + "\n"
@@ -463,6 +464,27 @@ def format_source_ranges(item: dict[str, Any]) -> list[str]:
             continue
         results.append(f"{round_display(start)}-{round_display(end)}s")
     return results
+
+
+def format_source_calibration(item: dict[str, Any]) -> str:
+    calibration = as_dict(item.get("calibration"))
+    if not calibration:
+        return "not recorded"
+    adjustments = list_dicts(calibration.get("applied_adjustments"))
+    if not adjustments:
+        return str(calibration.get("status") or "no cap").replace("_", " ")
+    reason = str(adjustments[0].get("reason") or adjustments[0].get("rule") or "calibrated")
+    raw_status = calibration.get("raw_visibility_status")
+    calibrated_status = calibration.get("calibrated_visibility_status")
+    prefix = f"{raw_status}->{calibrated_status}: " if raw_status and calibrated_status and raw_status != calibrated_status else ""
+    return compact_markdown_cell(prefix + reason, 120)
+
+
+def compact_markdown_cell(value: object, limit: int) -> str:
+    text = " ".join(str(value or "").split()).replace("|", "/")
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 3)].rstrip() + "..."
 
 
 def round_display(value: object) -> str:

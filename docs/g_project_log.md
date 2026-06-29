@@ -26,6 +26,25 @@ Do not import old material unless it is intentionally reused, rewritten, summari
 
 ## Current durable entries
 
+### 2026-06-30 - Source-family object calibration
+
+The explicit MVP source-family object layer gained calibration.
+
+Durable rule:
+
+```text
+Do not erase rough source-family object names.
+Do not over-promote fine-grained ambiguous objects either.
+```
+
+Implementation implication:
+
+```text
+voice / bass / drum / guitar / keyboard / synth / FX / strings / brass-wind objects stay visible as candidates,
+but highly confused fine-grained sustained families can be capped from likely-local to possible
+when pitch/register evidence and external verification are missing.
+```
+
 ### 2026-06-30 — First MVP source-family object layer
 
 The first MVP object-visibility implementation was added as a standalone optional layer.

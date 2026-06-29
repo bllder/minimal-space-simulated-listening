@@ -212,6 +212,8 @@ Standalone optional MVP visibility layer after temporal-timbre object candidates
 
 It groups existing evidence into explicit source-family object cards such as voice / vocal-like, bass / low-register, drum / percussion, guitar / plucked, keyboard / piano, synth / pad / harmonic, strings / bowed, brass / wind, and FX / texture / tail. These are candidate objects, not verified instrumentation or separated stems. This layer is not connected to default `run_mssl.py` yet.
 
+It records both raw and calibrated confidence. Calibration may cap highly confused fine-grained sustained families, such as strings / bowed or brass / wind, when pitch/register evidence and external verification are missing. The object name stays visible; only the visibility strength is reduced and explained.
+
 ```text
 scripts/validate_instrument_source_object_layer.py
 scripts/validate_compact_handoff_instrument_source_objects.py

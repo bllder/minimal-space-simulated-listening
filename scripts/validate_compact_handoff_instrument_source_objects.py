@@ -76,6 +76,8 @@ def build_source_object_layer() -> dict[str, Any]:
         ("guitar_plucked_object", "Guitar / plucked object", "possible"),
         ("keyboard_piano_object", "Keyboard / piano object", "possible"),
         ("synth_pad_harmonic_object", "Synth / pad / harmonic object", "likely_local"),
+        ("strings_bowed_object", "Strings / bowed object", "possible"),
+        ("brass_wind_object", "Brass / wind object", "possible"),
         ("fx_texture_tail_object", "FX / texture / tail object", "weak_local"),
     ]
     return {
@@ -91,6 +93,20 @@ def build_source_object_layer() -> dict[str, Any]:
                 "visibility_status": status,
                 "verification_status": "local_acoustic_candidate_not_verified",
                 "confidence": 0.55,
+                "raw_confidence": 0.72,
+                "calibration": {
+                    "status": "calibrated_with_caps" if object_id in {"strings_bowed_object", "brass_wind_object"} else "no_calibration_cap_applied",
+                    "raw_visibility_status": "likely_local" if object_id in {"strings_bowed_object", "brass_wind_object"} else status,
+                    "calibrated_visibility_status": status,
+                    "applied_adjustments": [
+                        {
+                            "rule": "fine_grained_sustained_family_cap",
+                            "reason": "This object remains visible but is capped because pitch/register and external evidence are absent.",
+                        }
+                    ]
+                    if object_id in {"strings_bowed_object", "brass_wind_object"}
+                    else [],
+                },
                 "time_ranges": [{"start_seconds": 0.0, "end_seconds": 8.0}],
                 "online_ai_handoff_role": "explicit source-family candidate for MVP handoff",
                 "missing_evidence": ["pitch/register evidence", "external verification"],
@@ -111,8 +127,11 @@ def validate_markdown(markdown: str) -> None:
         "Guitar / plucked object",
         "Keyboard / piano object",
         "Synth / pad / harmonic object",
+        "Strings / bowed object",
+        "Brass / wind object",
         "FX / texture / tail object",
         "candidate / possible / likely-local / weak-local",
+        "Calibration",
         "Do not hide bass/guitar/drum/synth/voice/FX object names",
     ]
     missing = [item for item in required if item not in markdown]

@@ -217,8 +217,8 @@ def render_instrument_source_object_summary(layer: dict[str, Any]) -> list[str]:
         f"- Visible objects: {layer.get('visible_object_count')} / {layer.get('source_family_object_count')}",
         f"- Boundary: {layer.get('truth_boundary')}",
         "",
-        "| Object | Status | Verification | Time ranges | Evidence / role | Missing evidence | Confused with |",
-        "|---|---|---|---|---|---|---|",
+        "| Object | Status | Verification | Time ranges | Evidence / role | Calibration | Missing evidence | Confused with |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for item in ordered[:9]:
         lines.append(
@@ -230,6 +230,7 @@ def render_instrument_source_object_summary(layer: dict[str, Any]) -> list[str]:
                     str(item.get("verification_status") or "unknown"),
                     compact_source_object_ranges(item),
                     compact_text(item.get("online_ai_handoff_role") or item.get("safe_handoff_sentence"), 100),
+                    compact_calibration(item),
                     compact_list(item.get("missing_evidence"), 4),
                     compact_confusion(item.get("confused_with"), 3),
                 ]
@@ -279,6 +280,20 @@ def compact_source_object_ranges(item: dict[str, Any]) -> str:
             continue
         ranges.append(f"{round_number(start)}-{round_number(end)}s")
     return ", ".join(ranges) or "unresolved"
+
+
+def compact_calibration(item: dict[str, Any]) -> str:
+    calibration = as_dict(item.get("calibration"))
+    if not calibration:
+        return "not recorded"
+    adjustments = list_dicts(calibration.get("applied_adjustments"))
+    if not adjustments:
+        return str(calibration.get("status") or "no cap").replace("_", " ")
+    reason = str(adjustments[0].get("reason") or adjustments[0].get("rule") or "calibrated")
+    raw_status = calibration.get("raw_visibility_status")
+    calibrated_status = calibration.get("calibrated_visibility_status")
+    prefix = f"{raw_status}->{calibrated_status}: " if raw_status and calibrated_status and raw_status != calibrated_status else ""
+    return compact_text(prefix + reason, 110)
 
 
 def compact_confusion(value: Any, limit: int) -> str:

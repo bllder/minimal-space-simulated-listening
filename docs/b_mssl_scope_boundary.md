@@ -220,6 +220,8 @@ temporal-timbre object candidate
 
 Its job is MVP visibility: keep voice, bass / low-register, drum / percussion, guitar / plucked, keyboard / piano, synth / pad / harmonic, strings / bowed, brass / wind, and FX / texture / tail objects visible as candidates. It does not verify exact instrumentation or separated sources. Missing evidence and confusion groups must stay on the object card instead of deleting the object name.
 
+The same layer may calibrate visibility strength when a fine-grained source-family object is too ambiguous. For example, sustained strings / bowed or brass / wind candidates without pitch/register evidence or external verification should remain visible, but may be capped to `possible` with a calibration note instead of being promoted to `likely-local`.
+
 The standalone auditory object behavior layer may sit between object candidates and musical object performance:
 
 ```text
