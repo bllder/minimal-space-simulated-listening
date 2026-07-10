@@ -188,6 +188,24 @@ Without pitch/register evidence or external adapter support, instrument-like and
 
 Object candidates still require temporal continuity, timbre / spectral structure, optional MIDI or pitch support, optional external evidence, and OME mapping. Verified or confirmed source-family language still requires external recognition and family-gate permission where needed.
 
+### Component competition calibration
+
+Compatible evidence is not the same as distinctive evidence. A harmonic/mid-band window may be compatible with guitar, keyboard, bowed strings, brass/wind, voice, or a synth layer, but it must not make all of them simultaneous winners.
+
+The temporal and source-object layers therefore retain an executable competition record:
+
+```text
+candidate family
++ positive distinctive evidence
+- counterevidence
+-> adjusted score
+-> rank inside the competing component group
+-> gap to the group leader
+-> ambiguity / leading / trailing / insufficient status
+```
+
+Without external verification, `insufficient_distinctive_evidence` is capped at `weak-local`; a close or trailing alternative is capped at `possible`; only a locally leading candidate may remain `likely-local`. Current-song lineup evidence may override the automatic ranking for that recording only.
+
 ## Object before musical performance
 
 Do not write performance before an object candidate exists.
@@ -222,6 +240,8 @@ Its job is MVP visibility: keep voice, bass / low-register, drum / percussion, g
 
 The same layer may calibrate visibility strength when a fine-grained source-family object is too ambiguous. For example, sustained strings / bowed or brass / wind candidates without pitch/register evidence or external verification should remain visible, but may be capped to `possible` with a calibration note instead of being promoted to `likely-local`.
 
+The same layer must use a source-object judgment template rather than turning any one correction into a permanent song template. A song-specific user lineup can be supplied as current-run evidence; if it is marked exclusive, listed objects are treated as user-supported for that run and unlisted acoustic matches become confusion/function evidence. This does not become the default instrumentation for other songs. Without a song-specific lineup, MSSL should fall back to external family-gate support when present, then to bounded local acoustic candidates with missing-evidence and confusion fields attached.
+
 The standalone auditory object behavior layer may sit between object candidates and musical object performance:
 
 ```text
@@ -235,6 +255,18 @@ It describes entry, continuity, flow, masking, pressure, tail, release, recurren
 Auditory object behavior may feed the musical object performance layer only as bounded behavior support. It can shape timing/action words such as entry, continuity, pressure, tail, release, recurrence, and spatial behavior, but it cannot create source-family certainty, exceed object-candidate or behavior-card claim strength, or bypass the external family gate.
 
 The compact online handoff may surface this behavior support only as bounded timing/action evidence for report composition. It can summarize entry, continuity, flow, pressure, tail, release, recurrence, spatial behavior, and missing evidence, but it cannot create verified source-family certainty or bypass the family gate.
+
+The compact handoff may also act as a listening-recap composer. It can organize evidence into overall constitution, vocal/lyrics, source inventory, instrument roles, section progression, and performance judgement prompts. This is still a handoff contract, not final review truth. Heard-lyric fragments from ASR are bounded heard evidence, may be misheard, and unclear fragments must remain unclear.
+
+The user-facing compact handoff has exactly three practical content types:
+
+```text
+light online-AI generation prompt with an explicit external-search request
++ local MSSL data, timelines, source objects, and competition evidence
++ short review examples for tone reference
+```
+
+Detailed evidence discipline remains in layer JSON, this scope document, and `online_ai_listening_handoff_full_trace.md`. It must not be duplicated into the compact file as sentence-by-sentence evidence tags or a long prohibition checklist.
 
 This layer is intentionally not a machine behavior layer. It should describe vocal, instrumental, and effect-like expression:
 

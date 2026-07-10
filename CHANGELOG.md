@@ -2,6 +2,15 @@
 
 This file consolidates the former root-level V3/V4 update notes. It keeps the useful project history without leaving staged update files in the repository root.
 
+## 2026-07-10 MVP source-object competition
+
+- Connected gammatone rolling envelopes, arrangement contrast, and the instrument-prior filterbank to the default experience path.
+- Added explicit component competition with positive evidence, counterevidence, rank, and candidate gap.
+- Prevented MIDI transcription from opening the external source-family gate.
+- Capped ambiguous or insufficient source-family objects without hiding their candidate names.
+- Reduced per-window prior-family output to a bounded set and allowed unresolved windows.
+- Simplified the compact handoff to prompt + data + review examples with an explicit external-search request.
+
 ## V4.2 Theory foundation
 
 - Added a theory-support layer without changing runtime code.

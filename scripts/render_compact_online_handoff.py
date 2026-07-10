@@ -8,6 +8,7 @@ close-listening criticism.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -64,25 +65,28 @@ def render_compact_online_handoff(
     lines: list[str] = [
         "# Online AI Listening Handoff / Compact",
         "",
-        "## 0. Scope / report composer contract",
+        "## 0. Online AI prompt + data packet",
         "",
         "You have not received the audio file. You are receiving a compact MSSL listening handoff generated from local analysis.",
         f"Full audit trace: `{full_trace_filename}`",
         "",
-        "Target report:",
+        "Suggested output:",
         "",
         "```text",
         "song identity / context",
-        "+ source-family permission",
-        "+ vocal and lyric anchors",
-        "+ instrument / source-family performance",
+        "+ searchable external facts",
+        "+ vocal, heard-lyric, and lyric-context anchors",
+        "+ instrument / source-family objects and performance",
         "+ MIDI / melody / rhythm skeleton",
         "+ general audio evidence",
         "+ OME receiver-side spatial state",
-        "-> bounded Chinese close-listening criticism",
+        "+ section-by-section timeline",
+        "-> Chinese listening recap / review draft (听歌复盘 / 乐评草稿)",
         "```",
         "",
-        "Do not treat MSSL as source certainty, lyric truth, emotion truth, original MIDI, original stems, singer identity, or creator intent.",
+        "Suggested angle: combine this local listening data with external search for lyrics, release background, credits, artist context, and useful review references.",
+        "",
+        "Use this file as source material for a fluent, imaginative, human-readable review draft.",
         "",
     ]
 
@@ -96,9 +100,9 @@ def render_compact_online_handoff(
     lines.extend(render_general_audio_summary(descriptor_summary, track_summary))
     lines.extend(render_ome_runtime_or_fallback(ome_runtime_layer, packets))
     lines.extend(render_reconstructed_summary(stream_layer, score_layer, has_ome_runtime=is_ome_runtime_ready(ome_runtime_layer)))
+    lines.extend(render_section_recap_timeline(symbolic_midi_layer, source_object_layer))
     lines.extend(render_macro_and_moments(macro_arc, key_moments))
     lines.extend(render_writing_style_guidance())
-    lines.extend(render_boundaries(p0, critical_brief))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -116,7 +120,7 @@ def render_song_identity(layer: dict[str, Any], global_ctx: dict[str, Any]) -> l
         f"- Filename / analysis hint: {layer.get('filename_hint') or global_ctx.get('analysis_label')}",
         f"- Lookup query hint: {layer.get('lookup_query_hint') or 'verify from title / artist / filename before using external context'}",
         "",
-        "Rule: verify identity before using lyrics, release context, public reviews, comments, or exact instrumentation claims.",
+        "Search prompt: use the filename / title / artist hints to look up lyrics, release context, public reviews, comments, credits, or instrumentation notes if available.",
         "",
     ]
     return lines
@@ -126,22 +130,22 @@ def render_family_permission(layer: dict[str, Any]) -> list[str]:
     gate = as_dict(layer.get("performance_gate"))
     families = list_dicts(layer.get("recognized_families"))
     lines = [
-        "## 2. Source-family permission table",
+        "## 2. External source-family evidence table",
         "",
         f"- Recognition status: {layer.get('status') or 'not_attached'}",
         f"- Adapter packets: {layer.get('adapter_packet_count') or 0}",
-        f"- Allowed specific families: {', '.join(list_strings(gate.get('allowed_specific_families'))) or 'none'}",
+        f"- Externally supported families: {', '.join(list_strings(gate.get('allowed_specific_families'))) or 'none attached'}",
         "",
     ]
     if not families:
         lines.extend([
-            "No external family evidence is attached. Do not name guitar, piano, strings, brass, synth lead, drums, bass, or FX as confirmed sources. Locally supported source-family objects may still appear as candidate / possible / likely-local / weak-local objects in the dedicated object section.",
+            "No external family evidence is attached. Use the source-family objects below as local listening clues, and let external search / credits / lyrics / context add factual detail where available.",
             "",
         ])
         return lines
-    lines.extend(["| Family | Group | Tier | Confidence | Review permission |", "|---|---|---|---:|---|"])
+    lines.extend(["| Family | Group | Tier | Confidence | How this helps |", "|---|---|---|---:|---|"])
     for item in families:
-        lines.append(f"| {item.get('family')} | {item.get('group')} | {item.get('evidence_tier')} | {item.get('best_confidence')} | May use as bounded family-level performance evidence. |")
+        lines.append(f"| {item.get('family')} | {item.get('group')} | {item.get('evidence_tier')} | {item.get('best_confidence')} | Adds source-family context for the review draft. |")
     lines.append("")
     return lines
 
@@ -158,45 +162,81 @@ def render_vocal_lyric_context(layer: dict[str, Any]) -> list[str]:
         f"- Lyrics source: {source.get('status') or 'not_attached'}",
         f"- Alignment: {alignment.get('status') or 'not_attached'} / anchors {alignment.get('anchor_count') or 0}",
         "",
-        f"Rule: {task.get('rule') or 'Use verified lyrics only after identity is confirmed.'}",
-        f"No-full-lyrics policy: {task.get('no_full_lyrics_policy') or 'Do not copy full lyrics into the report.'}",
+        f"Lyric lookup hint: {task.get('rule') or 'Search lyrics after checking song identity.'}",
+        "Local lyric note: this handoff carries vocal anchors/fragments; fuller lyric context can come from external lyric search.",
         "",
         "| Anchor | Source | Use |",
         "|---|---|---|",
     ]
     anchors = list_dicts(layer.get("vocal_performance_anchors"))
     if not anchors:
-        lines.append("| none | — | Use section-level vocal caution; do not make line-by-line lyric claims. |")
+        lines.append("| none | — | Use section-level vocal description; search lyrics externally if lyric meaning matters. |")
     for item in anchors[:10]:
         use = item.get("dominant_event_type") or item.get("dominant_phrase_shape") or item.get("review_use") or item.get("display_name") or "bounded vocal anchor"
         lines.append(f"| {item.get('anchor_id')} | {item.get('source')} | {use} |")
     lines.append("")
+    lines.extend(render_heard_lyric_fragments(as_dict(layer.get("heard_lyric_fragments"))))
+    return lines
+
+
+def render_heard_lyric_fragments(heard: dict[str, Any]) -> list[str]:
+    if heard.get("status") != "attached_vocal_transcription":
+        return [
+            "### Heard lyric fragments (ASR)",
+            "",
+            "- No vocal transcription adapter is attached. Add lyric detail from external search if a credible lyric source is found.",
+            "",
+        ]
+    clarity = as_dict(heard.get("clarity_summary"))
+    lines = [
+        "### Heard lyric fragments (ASR)",
+        "",
+        f"- Fragments: {heard.get('fragment_count')} total / {heard.get('rendered_fragment_count')} shown",
+        f"- Clarity: clear {clarity.get('clear', 0)} / partial {clarity.get('partial', 0)} / unclear {clarity.get('unclear', 0)}",
+        "",
+        "| Time | Clarity | Heard fragment |",
+        "|---|---|---|",
+    ]
+    for fragment in list_dicts(heard.get("fragments"))[:12]:
+        time_range = fragment.get("time_range")
+        label = "-".join(round_number(value) for value in time_range) + "s" if isinstance(time_range, list) else str(time_range or "unresolved")
+        if fragment.get("clarity") == "unclear":
+            text = "(unclear - text withheld)"
+        else:
+            text = compact_text(fragment.get("heard_text"), 90)
+        lines.append(f"| {label} | {fragment.get('clarity')} | {text} |")
+    lines.extend([
+        "",
+        "Data note: these are ASR-decoded heard fragments and may be misheard. External lyric search can supply the fuller lyric context.",
+        "",
+    ])
     return lines
 
 
 def render_performance_summary(layer: dict[str, Any]) -> list[str]:
     lines = ["## 4. Instrument / vocal / FX performance cards", ""]
     if not layer:
-        lines.append("- No musical object performance layer is attached. Use object candidates only, with caution.")
+        lines.append("- No musical object performance layer is attached. Use the object candidate table as the role material.")
         lines.append("")
         return lines
     gate = as_dict(layer.get("recognition_gate"))
+    external_status = gate.get("external_strong_recognition_status") or gate.get("status") or "not_attached"
     lines.extend([
-        "This layer describes how like-candidate sound objects perform musically. It is not a machine-behavior debug layer and not source certainty.",
+        "This layer describes how candidate sound objects perform musically and gives the online AI role material for the review draft.",
         "",
         f"Status: {layer.get('status')} | cards: {layer.get('performance_card_count')}",
-        f"Family gate: {gate.get('rule') or 'specific family names require external evidence'}",
+        f"External source-family data: {external_status}",
         "",
-        "| Object | Gate | Performance modes | Event support | Human-use sentence |",
+        "| Object | External data status | Performance modes | Event support | Human-use sentence |",
         "|---|---|---|---|---|",
     ])
     for card in list_dicts(layer.get("performance_cards"))[:10]:
         modes = ", ".join(str(mode.get("mode")) for mode in list_dicts(card.get("performance_modes"))[:4]) or "—"
         event_support = as_dict(card.get("symbolic_event_support"))
         sentence = compact_text(card.get("human_sentence"), 180)
-        gate_status = as_dict(card.get("recognition_gate")).get("status")
+        gate_status = readable_token(as_dict(card.get("recognition_gate")).get("status"))
         lines.append(f"| {card.get('display_name')} | {gate_status} | {modes} | {event_support.get('event_count')} / {event_support.get('dominant_event_type')} | {sentence} |")
-    lines.extend(["", "Use rule: write these as arrangement, vocal, instrument-family, or FX-like performance expressions only within the family permission table.", ""])
+    lines.extend(["", "Drafting hint: use these rows to discuss arrangement roles, vocal presence, instrument-family color, or FX-like texture.", ""])
     return lines
 
 
@@ -208,31 +248,41 @@ def render_instrument_source_object_summary(layer: dict[str, Any]) -> list[str]:
         return []
     visible = [item for item in objects if item.get("visibility_status") != "not_supported"]
     ordered = sorted(visible or objects, key=source_object_sort_key)
+    judgment = as_dict(layer.get("source_object_judgment_template"))
     lines = [
         "## 2.5 Instrument / Source-Family Objects",
         "",
-        "MVP object map: explicit source-family object candidates from local MSSL evidence. Candidate names stay visible; verification status and missing evidence remain attached.",
+        "MVP object map: explicit source-family object candidates from local MSSL evidence, with status, missing evidence, and confusion notes shown as data columns.",
         "",
         f"- Layer status: {layer.get('status')}",
         f"- Visible objects: {layer.get('visible_object_count')} / {layer.get('source_family_object_count')}",
-        f"- Boundary: {layer.get('truth_boundary')}",
-        "",
-        "| Object | Status | Verification | Time ranges | Evidence / role | Calibration | Missing evidence | Confused with |",
-        "|---|---|---|---|---|---|---|---|",
+        "- Data note: source-family object candidates with confidence, time ranges, confusion notes, and supporting role evidence.",
     ]
+    if judgment:
+        lines.extend(
+            [
+                f"- Judgment mode: {judgment.get('mode')}",
+                f"- Judgment applies to: {judgment.get('applies_to')}",
+                f"- Current-song judgment: {compact_text(judgment.get('current_run_rule'), 220)}",
+            ]
+        )
+    lines.extend([
+        "",
+        "| Object | Status / confidence | Time ranges | Component competition | Positive evidence | Counterevidence | Missing / confused with |",
+        "|---|---|---|---|---|---|---|",
+    ])
     for item in ordered[:9]:
         lines.append(
             "| "
             + " | ".join(
                 [
                     str(item.get("display_name") or item.get("source_object_id")),
-                    str(item.get("visibility_status") or "unknown"),
-                    str(item.get("verification_status") or "unknown"),
+                    f"{item.get('visibility_status') or 'unknown'} / {item.get('confidence')}",
                     compact_source_object_ranges(item),
-                    compact_text(item.get("online_ai_handoff_role") or item.get("safe_handoff_sentence"), 100),
-                    compact_calibration(item),
-                    compact_list(item.get("missing_evidence"), 4),
-                    compact_confusion(item.get("confused_with"), 3),
+                    compact_component_competition(item),
+                    compact_metric_evidence(item, "positive_evidence"),
+                    compact_metric_evidence(item, "counterevidence"),
+                    compact_source_object_limits(item),
                 ]
             )
             + " |"
@@ -240,7 +290,7 @@ def render_instrument_source_object_summary(layer: dict[str, Any]) -> list[str]:
     lines.extend(
         [
             "",
-            "Writing rule: use these as explicit candidate objects, not verified instrumentation. Do not hide bass/guitar/drum/synth/voice/FX object names inside only low-body, pulse, harmonic-bed, or diffuse-tail labels.",
+            "Data reading note: candidate status, competition gap, positive evidence, and counterevidence belong together; the table is source material rather than a required article structure.",
             "",
         ]
     )
@@ -262,6 +312,7 @@ SOURCE_OBJECT_ORDER = {
 
 def source_object_sort_key(item: dict[str, Any]) -> tuple[int, int, float]:
     status_rank = {
+        "user_supported": 5,
         "externally_supported": 4,
         "likely_local": 3,
         "possible": 2,
@@ -282,23 +333,30 @@ def compact_source_object_ranges(item: dict[str, Any]) -> str:
     return ", ".join(ranges) or "unresolved"
 
 
-def compact_calibration(item: dict[str, Any]) -> str:
-    calibration = as_dict(item.get("calibration"))
-    if not calibration:
-        return "not recorded"
-    adjustments = list_dicts(calibration.get("applied_adjustments"))
-    if not adjustments:
-        return str(calibration.get("status") or "no cap").replace("_", " ")
-    reason = str(adjustments[0].get("reason") or adjustments[0].get("rule") or "calibrated")
-    raw_status = calibration.get("raw_visibility_status")
-    calibrated_status = calibration.get("calibrated_visibility_status")
-    prefix = f"{raw_status}->{calibrated_status}: " if raw_status and calibrated_status and raw_status != calibrated_status else ""
-    return compact_text(prefix + reason, 110)
-
-
 def compact_confusion(value: Any, limit: int) -> str:
     rows = list_dicts(value)[:limit]
     return ", ".join(str(row.get("display_name")) for row in rows if row.get("display_name")) or "none highlighted"
+
+
+def compact_component_competition(item: dict[str, Any]) -> str:
+    judgment = as_dict(item.get("judgment_evidence"))
+    if not judgment or judgment.get("status") == "competition_data_not_available":
+        return "no exact-family competition result"
+    rank = judgment.get("rank_in_group")
+    gap = judgment.get("candidate_gap")
+    return compact_text(f"{judgment.get('status')}; rank {rank}; gap to leader {gap}", 90)
+
+
+def compact_metric_evidence(item: dict[str, Any], key: str) -> str:
+    judgment = as_dict(item.get("judgment_evidence"))
+    rows = list_dicts(judgment.get(key))[:3]
+    return "; ".join(f"{row.get('reading')} ({row.get('value')})" for row in rows) or "none recorded"
+
+
+def compact_source_object_limits(item: dict[str, Any]) -> str:
+    missing = compact_list(item.get("missing_evidence"), 3)
+    confused = compact_confusion(item.get("confused_with"), 2)
+    return compact_text(f"missing: {missing}; confused with: {confused}", 150)
 
 
 def compact_list(value: Any, limit: int) -> str:
@@ -330,9 +388,9 @@ def render_musical_object_behavior_support(layer: dict[str, Any]) -> list[str]:
     source_layer = first_support.get("source_layer") or "auditory_object_behavior_layer_v0_1"
     lines = ["## 4.5 Musical Object Behavior Support", ""]
     if allowed:
-        lines.append(f"* Source-family gate: allowed specific families from external evidence: {', '.join(allowed)}.")
+        lines.append(f"* External source-family evidence: {', '.join(allowed)}.")
     else:
-        lines.append(f"* Source-family gate: external recognition {external_status}; verified source-family claims are not authorized by this gate.")
+        lines.append(f"* External source-family evidence: {external_status}. Use this section mainly as behavior/timing material.")
     lines.extend(
         [
             f"* Behavior support: available from {source_layer}.",
@@ -367,7 +425,7 @@ def render_musical_object_behavior_support(layer: dict[str, Any]) -> list[str]:
         lines.extend(["", f"* Missing evidence: {', '.join(missing_items)}."])
     lines.extend(
         [
-            "* Writing boundary: use behavior terms such as foreground flow, low-body grounding, sustained harmonic support, local pulse articulation, and diffuse tail support. Do not use this behavior section to confirm instruments, performers, stems, exact effect chains, or physical source positions.",
+            "* Drafting note: this behavior section is useful for timing/action wording such as foreground flow, low-body grounding, sustained harmonic support, local pulse articulation, and diffuse tail support.",
             "",
         ]
     )
@@ -439,6 +497,15 @@ def claim_sort_key(value: str) -> int:
 
 def readable_token(value: Any) -> str:
     text = str(value or "unresolved").strip()
+    status_map = {
+        "not_allowed_specific_family_no_external_evidence": "local listening cue / no external adapter data",
+        "no_external_recognition_adapter_attached": "no external adapter data",
+        "external_evidence_attached": "external adapter data attached",
+        "allowed_by_external_family_gate": "supported by external adapter data",
+        "specific_family_allowed": "supported by external adapter data",
+    }
+    if text in status_map:
+        return status_map[text]
     return text.replace("_", " ")
 
 
@@ -462,14 +529,14 @@ def unique_preserve_order(values: list[str]) -> list[str]:
 def render_symbolic_midi_summary(layer: dict[str, Any]) -> list[str]:
     lines = ["## 5. MIDI / melody / rhythm skeleton", ""]
     if not layer:
-        lines.append("- No symbolic timeline MIDI layer is attached. Use reconstructed score skeleton only.")
+        lines.append("- No symbolic timeline MIDI layer is attached. The reconstructed score skeleton is the available timing material.")
         lines.append("")
         return lines
     tempo = as_dict(layer.get("tempo_grid"))
     summary = as_dict(layer.get("whole_track_symbolic_summary"))
     adapter = as_dict(layer.get("optional_real_midi_adapter"))
     lines.extend([
-        "Default events are full-mix symbolic timeline events, not original MIDI or note-level transcription.",
+        "Default events are full-mix symbolic timeline estimates.",
         "",
         f"- Estimated BPM: {tempo.get('estimated_bpm')} / confidence {tempo.get('tempo_confidence')}",
         f"- Beat count: {tempo.get('beat_count')} | bar count: {tempo.get('bar_count')}",
@@ -485,13 +552,13 @@ def render_symbolic_midi_summary(layer: dict[str, Any]) -> list[str]:
     for stream_id, events in streams.items():
         events_list = list_dicts(events)
         dominant_event = dominant([str(event.get("event_type") or "") for event in events_list])
-        lines.append(f"| {stream_id} | {len(events_list)} | {dominant_event or '—'} | Use as time/phrase skeleton, not source certainty. |")
+        lines.append(f"| {stream_id} | {len(events_list)} | {dominant_event or '—'} | Time/phrase skeleton for the draft. |")
     lines.append("")
     return lines
 
 
 def render_general_audio_summary(descriptor_summary: dict[str, Any], track_summary: dict[str, Any]) -> list[str]:
-    lines = ["## 6. General audio evidence / professional descriptors", "", "These are profile-derived descriptor targets. They describe the track/segments, not separated streams.", "", "### Dominant descriptor targets", ""]
+    lines = ["## 6. General audio evidence / professional descriptors", "", "Profile-derived descriptor targets for the track and its segments.", "", "### Dominant descriptor targets", ""]
     for item in list_dicts(descriptor_summary.get("dominant_descriptor_targets"))[:12]:
         lines.append(f"- {item.get('descriptor')} | segment support: {item.get('segment_support_count')}")
     lines.extend(["", "### Track-level professional anchors", ""])
@@ -501,9 +568,9 @@ def render_general_audio_summary(descriptor_summary: dict[str, Any], track_summa
     object_items = list_dicts(descriptor_summary.get("object_candidate_summary"))[:10]
     if object_items:
         for item in object_items:
-            lines.append(f"- {item.get('candidate')} | segment support: {item.get('segment_support_count')} | boundary: {item.get('boundary')}")
+            lines.append(f"- {item.get('candidate')} | segment support: {item.get('segment_support_count')} | note: {item.get('boundary')}")
     else:
-        lines.append("- No object-candidate intersection is safe enough at profile level.")
+        lines.append("- No strong profile-level object-candidate intersection was selected.")
     lines.append("")
     return lines
 
@@ -515,7 +582,7 @@ def render_ome_runtime_or_fallback(ome_runtime_layer: dict[str, Any], profile_pa
 
 
 def render_ome_runtime_summary(layer: dict[str, Any]) -> list[str]:
-    lines = ["## 7. OME spatial performance state", "", "This section is computed from local audio. It is receiver-side stream support, not source separation and not original stems.", "", f"Status: {layer.get('status')}", "", "| Stream | Runtime support | Binaural cue summary | Safe descriptor targets | Review use |", "|---|---|---|---|---|"]
+    lines = ["## 7. OME spatial performance state", "", "Receiver-side spatial stream support computed from local audio.", "", f"Status: {layer.get('status')}", "", "| Stream | Runtime support | Binaural cue summary | Descriptor targets | Review use |", "|---|---|---|---|---|"]
     for packet in list_dicts(layer.get("stream_packets")):
         stream_id = str(packet.get("stream_id"))
         status = str(packet.get("status"))
@@ -526,26 +593,26 @@ def render_ome_runtime_summary(layer: dict[str, Any]) -> list[str]:
         support = f"{status.replace(OME_RUNTIME_STREAM_PREFIX + '_', '')}; {evidence.get('support_band')} / coverage {evidence.get('active_coverage')}"
         binaural_summary = f"side {binaural.get('mean_side_ratio_norm')} / corr {binaural.get('mean_signed_correlation_norm')} / diffuse {binaural.get('diffuse_proxy')}"
         lines.append(f"| {stream_id} | {support} | {binaural_summary} | {targets} | {review_use} |")
-    lines.extend(["", "Use rule: connect OME state to how vocal/instrument/MIDI performance is spatially heard; do not claim physical room geometry.", ""])
+    lines.extend(["", "Drafting hint: connect OME state to how vocal/instrument/MIDI performance is spatially heard.", ""])
     return lines
 
 
 def render_profile_ome_fallback(profile_packets: list[dict[str, Any]], runtime_layer: dict[str, Any]) -> list[str]:
     runtime_status = runtime_layer.get("status") or "not attached"
-    lines = ["## 7. OME stream descriptor packets / fallback", "", f"OME runtime status: {runtime_status}", "", "Fallback packets are weaker than OME runtime evidence.", "", "| Stream | Status | Safe descriptor targets | Review use |", "|---|---|---|---|"]
+    lines = ["## 7. OME stream descriptor packets / fallback", "", f"OME runtime status: {runtime_status}", "", "Lightweight spatial descriptor packets are available as fallback material.", "", "| Stream | Status | Descriptor targets | Review use |", "|---|---|---|---|"]
     for packet in profile_packets:
         stream_id = str(packet.get("stream_id"))
         status = str(packet.get("status"))
         targets = ", ".join(list_strings(packet.get("subjective_descriptor_targets"))) or "—"
-        review_use = str(packet.get("review_affordance") or "Use only with boundary.") if status in SAFE_STREAM_STATUSES else "Do not use as review language yet; stream-level OME evidence is required."
+        review_use = str(packet.get("review_affordance") or "Use as receiver-side spatial color.") if status in SAFE_STREAM_STATUSES else "Weak stream cue; keep it as background data."
         lines.append(f"| {stream_id} | {status} | {targets} | {review_use} |")
     lines.append("")
     return lines
 
 
 def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict[str, Any], has_ome_runtime: bool) -> list[str]:
-    boundary = "Cross-check stream spatial cues against the attached OME runtime layer." if has_ome_runtime else "No OME runtime layer is attached; treat spatial tendencies as full-mix receiver-side binding."
-    lines = ["## 7.5 Reconstructed stream / score support", "", "This is MSSL's functional reconstruction layer. It is not original stems and not original MIDI transcription.", "", boundary, ""]
+    note = "Spatial cues can be read alongside the attached OME runtime layer." if has_ome_runtime else "Spatial tendencies come from full-mix receiver-side binding."
+    lines = ["## 7.5 Reconstructed stream / score support", "", "MSSL functional reconstruction layer: useful for arrangement functions and score-like skeleton cues.", "", note, ""]
     if not stream_layer and not score_layer:
         lines.append("- No reconstructed stream / score layer is attached.")
         lines.append("")
@@ -562,14 +629,105 @@ def render_reconstructed_summary(stream_layer: dict[str, Any], score_layer: dict
             spatial = as_dict(stream.get("spatial_binding"))
             score = as_dict(stream.get("score_binding"))
             lines.append(f"| {stream.get('stream_id')} / {stream.get('cn_name')} | {support.get('support_band')} / coverage {support.get('active_coverage')} | {compact_score_cue(score)} | {compact_spatial_cue(support, spatial)} | {compact_stream_use(stream, support)} |")
-    lines.extend(["", "Use rule: write arrangement functions, score design, and receiver-side spatial behavior; not original separated tracks or exact instruments.", ""])
+    lines.extend(["", "Drafting hint: use this for arrangement functions, score design, and receiver-side spatial behavior.", ""])
     return lines
 
 
+def render_section_recap_timeline(symbolic_midi_layer: dict[str, Any], source_object_layer: dict[str, Any]) -> list[str]:
+    sections = list_dicts(symbolic_midi_layer.get("section_timeline"))
+    lines = [
+        "## 8. Section-by-section recap timeline",
+        "",
+        "Human section map: structural sections joined with active source-family object candidates. Section roles are functional hints from full-mix evidence; useful as intro-like / verse-like / lift-like drafting material.",
+        "",
+    ]
+    if not sections:
+        lines.extend([
+            "- No section timeline is attached. Use the macro arc below as the only sectional backbone.",
+            "",
+        ])
+        return lines
+    objects = active_source_objects(source_object_layer)
+    lines.extend([
+        "| # | Time | Role hint | Note density | Melodic contour | Active source-family candidates |",
+        "|---|---|---|---|---|---|",
+    ])
+    for section in sections[:24]:
+        time_label = str(section.get("time_range") or "unresolved")
+        span = parse_time_span(time_label)
+        active = active_object_labels(objects, span) if objects else "no source-family object layer attached"
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(section.get("section_index") or "unresolved"),
+                    time_label,
+                    readable_token(section.get("section_role")),
+                    readable_token(section.get("note_density")),
+                    readable_token(section.get("melodic_contour")),
+                    active,
+                ]
+            )
+            + " |"
+        )
+    lines.extend([
+        "",
+        "Drafting hint: compare adjacent sections in human terms - what enters, what leaves, what gets denser or louder - and use this table for the section walk-through.",
+        "",
+    ])
+    return lines
+
+
+def active_source_objects(layer: dict[str, Any]) -> list[dict[str, Any]]:
+    objects = []
+    for item in list_dicts(layer.get("source_family_objects")):
+        if item.get("visibility_status") in (None, "not_supported"):
+            continue
+        ranges = []
+        for row in list_dicts(item.get("time_ranges")):
+            start = row.get("start_seconds")
+            end = row.get("end_seconds")
+            if start is None or end is None:
+                continue
+            ranges.append((to_float(start), to_float(end)))
+        objects.append({
+            "label": str(item.get("short_label") or item.get("display_name") or item.get("source_object_id")),
+            "status": str(item.get("visibility_status") or "unknown"),
+            "ranges": ranges,
+        })
+    return objects
+
+
+def active_object_labels(objects: list[dict[str, Any]], span: tuple[float, float] | None) -> str:
+    labels = []
+    for item in objects:
+        ranges = item.get("ranges") or []
+        if span is None or not ranges:
+            overlaps = False
+        else:
+            overlaps = any(start < span[1] and end > span[0] for start, end in ranges)
+        if overlaps:
+            labels.append(f"{item['label']} ({item['status'].replace('_', '-')})")
+    if not labels:
+        return "no candidate resolved in this span"
+    return "; ".join(labels[:6])
+
+
+def parse_time_span(label: str) -> tuple[float, float] | None:
+    tokens = re.findall(r"(\d+):(\d+(?:\.\d+)?)", label)
+    if len(tokens) >= 2:
+        values = [int(minute) * 60 + float(second) for minute, second in tokens]
+        return (values[0], values[-1])
+    plain = re.findall(r"\d+(?:\.\d+)?", label)
+    if len(plain) >= 2:
+        return (float(plain[0]), float(plain[-1]))
+    return None
+
+
 def render_macro_and_moments(macro_arc: list[dict[str, Any]], key_moments: list[dict[str, Any]]) -> list[str]:
-    lines = ["## 8. Macro arc and key moments", ""]
+    lines = ["## 8.5 Macro arc and key moments", ""]
     for movement in macro_arc[:6]:
-        lines.extend([f"### {movement.get('movement')}", f"- Time: {movement.get('time_range')}", f"- Use: {movement.get('translation_affordance')}", "- Dominant terms:"])
+        lines.extend([f"### {movement.get('movement')}", f"- Time: {movement.get('time_range')}", f"- Use: {soft_handoff_text(movement.get('translation_affordance'))}", "- Dominant terms:"])
         for term in list_dicts(movement.get("dominant_professional_terms"))[:6]:
             lines.append(f"  - {term.get('term')} | support: {term.get('segment_support_count')}")
         lines.append("")
@@ -588,7 +746,44 @@ def render_key_moments_compact(key_moments: list[dict[str, Any]]) -> list[str]:
 
 
 def render_writing_style_guidance() -> list[str]:
-    return ["## 9. Writing instruction", "", "Write Chinese close-listening criticism, not an engineering checklist.", "", "Required report shape:", "", "```text", "1. Identify the song / context if verified.", "2. State the central listening thesis.", "3. Explain vocal and lyric performance using verified lyric context and MSSL vocal anchors.", "4. Explain instrument / source-family objects as confirmed only when family permission allows it; otherwise keep them as candidate / possible / likely-local / weak-local objects.", "5. Explain MIDI / melody / rhythm behavior.", "6. Explain how OME spatial state changes the listening experience.", "7. Keep uncertainty visible when identity, lyrics, or family evidence is not confirmed.", "```", "", "Guard examples:", "", "```text", "青春流行 != automatically first love", "舞曲 != automatically happiness", "低频重 != automatically anger", "空间大 != automatically grandeur", "评论多 != song truth", "```", ""]
+    return [
+        "## 9. Online AI prompt and review examples",
+        "",
+        "Suggested prompt for the online AI:",
+        "",
+        "```text",
+        "请根据这份 MSSL 本地听感资料，写一篇中文听歌复盘 / 乐评草稿。",
+        "请先外部搜索歌名、艺人、歌词、发行背景、制作名单、访谈或相关乐评，把查到的事实补进文章；本地数据负责告诉你这首歌听起来怎样，外部资料负责补歌词、背景和事实血肉。",
+        "如果外部资料很少，就把文章写成以听感为主的复盘；如果查到可靠歌词或背景，就把它们和下面的时间轴、人声、声源对象、段落推进对应起来。",
+        "写作上可以自然一点，不需要逐条复述数据表；把数据转成听众能读懂的乐器、人声、氛围、段落和表现评价。",
+        "```",
+        "",
+        "Useful label reading:",
+        "",
+        "```text",
+        "voice / vocal-like foreground -> 人声",
+        "bass / low-register / low-body -> 贝斯 / 低音声部",
+        "drum / percussion / pulse layer -> 鼓 / 打击乐",
+        "guitar / plucked -> 吉他 / 拨弦乐器",
+        "keyboard / piano -> 键盘 / 钢琴",
+        "synth / pad -> 合成器 / 铺底",
+        "strings / bowed -> 弦乐",
+        "FX / texture / tail / diffuse layer -> 效果声 / 氛围纹理",
+        "harmonic bed -> 和声铺底",
+        "```",
+        "",
+        "Reference review snippets:",
+        "",
+        "The snippets below are tone references only, not a required outline or wording template.",
+        "",
+        "```text",
+        "例 1：这首歌的重心不在炫技段落，而在人声前景、低频锚点和持续铺底之间的拉扯；它更适合写成慢速、克制、暗色的近距离听感，而不是只罗列参数。",
+        "例 2：如果搜索到歌词，可以把歌词意象接回具体人声时间点；比如某一句出现时，人声是否更贴近、配器是否突然变薄、低频是否继续压着情绪。",
+        "例 3：开头先由低频稳住下盘，前景声部贴近，空间没有立刻打开；进入后段，密度和瞬态逐渐增加，歌曲才从悬着的叙述转成更有身体感的推进。",
+        "例 4：拨弦声部和键盘式谐波在这里靠得很近，听感上的区分并不彻底；这种含混本身也可以成为乐评的一部分，而外部制作名单会让描述更具体。",
+        "```",
+        "",
+    ]
 
 
 def render_boundaries(p0: dict[str, Any], critical_brief: dict[str, Any]) -> list[str]:
@@ -628,11 +823,25 @@ def safe_boundary_text(value: Any) -> str:
     return text
 
 
+def soft_handoff_text(value: Any) -> str:
+    text = str(value or "")
+    replacements = {
+        "Do not build a review claim from center_low_impact; treat it as weak or unresolved OME evidence.": "Weak center-low impact cue; useful as background pressure / low-body color.",
+        "Use these as professional anchors for a prose movement; do not mechanically list the table.": "Use these as professional anchors for a prose movement; turn the table into fluent prose.",
+        "Do not build a review claim from": "Background cue from",
+        "do not build a review claim from": "background cue from",
+        "do not mechanically list the table": "turn the table into fluent prose",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
+
+
 def compact_ome_runtime_use(packet: dict[str, Any]) -> str:
     evidence = as_dict(packet.get("evidence"))
     if evidence.get("support_band") == "reduced":
-        return "Treat as weak or unresolved stream evidence; do not build a main review claim from it."
-    return str(packet.get("review_affordance") or "Use as bounded receiver-side stream support.")
+        return "Weak or unresolved stream cue; use as background data."
+    return soft_handoff_text(packet.get("review_affordance") or "Use as receiver-side stream support.")
 
 
 def is_ome_runtime_ready(layer: dict[str, Any]) -> bool:
@@ -673,14 +882,14 @@ def compact_text(value: object, limit: int) -> str:
 
 def compact_spatial_cue(support: dict[str, Any], spatial: dict[str, Any]) -> str:
     if to_float(support.get("active_coverage")) <= 0:
-        return "weak/inactive stream; do not use as an active stream-specific spatial claim"
+        return "weak/inactive stream cue"
     return str(spatial.get("summary") or "no stable spatial summary")
 
 
 def compact_stream_use(stream: dict[str, Any], support: dict[str, Any]) -> str:
     role = str(stream.get("role") or "use as a reconstructed functional stream")
     if to_float(support.get("active_coverage")) <= 0:
-        return "Mention only as weak/inactive fallback evidence; do not build a review claim from it."
+        return "weak/inactive fallback evidence"
     return role
 
 

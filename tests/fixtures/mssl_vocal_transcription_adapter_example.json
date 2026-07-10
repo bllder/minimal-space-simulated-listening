@@ -1,0 +1,56 @@
+{
+  "adapter_name": "Fixture vocal transcription adapter",
+  "adapter_type": "vocal_transcription",
+  "schema": "mssl_vocal_transcription_adapter_v0_1",
+  "status": "attached_vocal_transcription_fragments",
+  "language_hint": "en",
+  "fragment_count": 3,
+  "clarity_summary": {
+    "clear": 1,
+    "partial": 1,
+    "unclear": 1
+  },
+  "fragments": [
+    {
+      "start_seconds": 0.0,
+      "end_seconds": 2.0,
+      "time_range": [
+        0.0,
+        2.0
+      ],
+      "confidence": 0.92,
+      "clarity": "clear",
+      "heard_text": "synthetic fixture phrase one",
+      "basis": "external ASR segment",
+      "boundary": "heard-fragment evidence, not verified lyric truth"
+    },
+    {
+      "start_seconds": 4.0,
+      "end_seconds": 6.0,
+      "time_range": [
+        4.0,
+        6.0
+      ],
+      "confidence": 0.58,
+      "clarity": "partial",
+      "heard_text": "synthetic partial phrase",
+      "basis": "external ASR segment",
+      "boundary": "heard-fragment evidence, not verified lyric truth"
+    },
+    {
+      "start_seconds": 8.0,
+      "end_seconds": 10.0,
+      "time_range": [
+        8.0,
+        10.0
+      ],
+      "confidence": 0.22,
+      "clarity": "unclear",
+      "heard_text": null,
+      "text_policy": "withheld_low_confidence",
+      "basis": "external ASR segment",
+      "boundary": "heard-fragment evidence, not verified lyric truth"
+    }
+  ],
+  "truth_boundary": "ASR-derived heard-lyric fragments. They are what a transcription tool decoded from the mix, not verified lyrics, not lyric meaning, and not singer identity. Unclear fragments must stay unclear; do not extrapolate full lyrics from fragments."
+}

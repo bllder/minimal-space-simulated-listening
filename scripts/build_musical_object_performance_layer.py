@@ -312,11 +312,13 @@ def build_layer(profile: dict[str, Any], auditory_object_behavior_layer: dict[st
             if card:
                 cards.append(card)
 
+    built_families = {str(card.get("object_family")) for card in cards}
     for fallback_id, candidate in folded.items():
-        if fallback_id in PERFORMANCE_FAMILIES:
+        if fallback_id in PERFORMANCE_FAMILIES and fallback_id not in built_families:
             card = build_card(fallback_id, PERFORMANCE_FAMILIES[fallback_id], candidate, symbolic_layer, stream_layer, ome_layer, recognition_layer, behavior_index)
             if card:
                 cards.append(card)
+                built_families.add(fallback_id)
 
     cards = sorted(cards, key=lambda item: performance_rank(item), reverse=True)
     return {

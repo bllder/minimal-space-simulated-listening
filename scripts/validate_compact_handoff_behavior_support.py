@@ -382,8 +382,8 @@ def validate_markdown(markdown: str) -> None:
     required = [
         "## 4.5 Musical Object Behavior Support",
         "Functional behavior summary",
-        "Source-family gate: external recognition not_attached",
-        "verified source-family claims are not authorized",
+        "External source-family evidence: not_attached",
+        "Use this section mainly as behavior/timing material",
         "Foreground / lead-line",
         "Harmonic bed",
         "Low-body grounding",
@@ -392,7 +392,7 @@ def validate_markdown(markdown: str) -> None:
         "pitch/register evidence",
         "external adapter evidence",
         "Bounded candidate detail",
-        "Writing boundary",
+        "Drafting note",
     ]
     missing = [item for item in required if item not in markdown]
     if missing:

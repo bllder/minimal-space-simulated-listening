@@ -9,13 +9,15 @@ abstract: >
   Minimal Space for Simulated Listening is an experimental project for building
   a minimal spatiotemporal domain for simulated listening. It models sound as a
   source-to-receiver mapping relation and translates audio evidence into an
-  O-space, M-domain, and E-space representation for auditory object tracking
-  and human calibration.
+  O-space, M-domain, and E-space representation, bounded source-family object
+  candidates, musical-performance evidence, and an online-AI listening handoff.
 keywords:
   - simulated listening
   - auditory modeling
   - audio evidence
   - spatiotemporal mapping
   - auditory object tracking
+  - source-family object candidates
+  - music listening evidence compiler
 license: MIT
 date-released: "2026-06-17"

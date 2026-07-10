@@ -11,9 +11,11 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import build_musical_object_performance_layer as performance
+import run_listening_experience_pipeline as pipeline
 import seed_external_family_candidates as seeder
 
 
@@ -42,9 +44,68 @@ def main() -> None:
         blocked = [card for card in perf_layer.get("performance_cards", []) if card.get("object_family") in required and card.get("recognition_gate", {}).get("status") != "allowed_by_external_strong_recognition"]
         if blocked:
             raise SystemExit(f"FAILED: required cards were not allowed by external recognition gate: {blocked}")
+        validate_default_second_run_block_wiring(tmpdir)
         print("OK: instrument layer loop validated")
         print(f"Seeded candidates: {seeded_count}")
         print(f"Performance cards: {sorted(families)}")
+
+
+def validate_default_second_run_block_wiring(tmpdir: Path) -> None:
+    script_dir = Path(__file__).resolve().parent
+    profile_path = tmpdir / "wiring_full_song_profile.json"
+    audio_path = tmpdir / "wiring.wav"
+    profile_path.write_text("{}", encoding="utf-8")
+    audio_path.write_bytes(b"RIFF")
+    for name in (
+        "ome_gammatone_envelope_layer.json",
+        "ome_arrangement_contrast_layer.json",
+        "symbolic_timeline_midi_layer.json",
+        "instrument_prior_filterbank_layer.json",
+        "temporal_timbre_object_candidate_layer.json",
+        "musical_object_performance_layer.json",
+    ):
+        (tmpdir / name).write_text("{}", encoding="utf-8")
+
+    commands: list[list[str]] = []
+    original_run = pipeline.subprocess.run
+
+    def record(command: list[str], **_kwargs: Any) -> SimpleNamespace:
+        commands.append([str(item) for item in command])
+        return SimpleNamespace(returncode=0)
+
+    pipeline.subprocess.run = record
+    try:
+        gammatone = tmpdir / "ome_gammatone_envelope_layer.json"
+        arrangement = tmpdir / "ome_arrangement_contrast_layer.json"
+        symbolic = tmpdir / "symbolic_timeline_midi_layer.json"
+        prior = tmpdir / "instrument_prior_filterbank_layer.json"
+        args = SimpleNamespace(external_recognition=[], source_lineup=None)
+        pipeline.run_ome_gammatone_envelope_builder(script_dir, profile_path, tmpdir, audio_path)
+        pipeline.run_ome_arrangement_contrast_builder(script_dir, profile_path, tmpdir, gammatone)
+        pipeline.run_instrument_prior_filterbank_builder(script_dir, tmpdir, gammatone, arrangement, symbolic)
+        pipeline.run_temporal_timbre_object_candidate_builder(script_dir, args, profile_path, tmpdir, prior)
+        pipeline.run_instrument_source_object_builder(script_dir, args, profile_path, tmpdir, prior)
+    finally:
+        pipeline.subprocess.run = original_run
+
+    by_script = {Path(command[1]).name: command for command in commands if len(command) > 1}
+    required_scripts = {
+        "build_ome_gammatone_envelope_layer.py",
+        "build_ome_arrangement_contrast_layer.py",
+        "build_instrument_prior_filterbank_layer.py",
+        "build_temporal_timbre_object_candidate_layer.py",
+        "build_instrument_source_object_layer.py",
+    }
+    missing = sorted(required_scripts - set(by_script))
+    if missing:
+        raise SystemExit(f"FAILED: default second-run-block wiring is missing commands: {missing}")
+    for script_name in ("build_temporal_timbre_object_candidate_layer.py", "build_instrument_source_object_layer.py"):
+        if "--instrument-prior-filterbank" not in by_script[script_name]:
+            raise SystemExit(f"FAILED: {script_name} does not receive instrument prior filterbank output")
+    prior_command = by_script["build_instrument_prior_filterbank_layer.py"]
+    for flag in ("--gammatone-envelope", "--arrangement-contrast", "--symbolic-midi"):
+        if flag not in prior_command:
+            raise SystemExit(f"FAILED: default prior filterbank command is missing {flag}")
 
 
 def build_synthetic_profile() -> dict[str, Any]:

@@ -5,11 +5,40 @@
 > We do not train taste. We build a minimal spatiotemporal domain for simulated listening.  
 > 我们不训练品味；我们构造模拟听觉所需的最小时空与语言承接结构。
 
-## Modeling diagrams
+## Current framework
 
-![Sound modeling framework](./声的建模框架图解.png)
+```mermaid
+flowchart TD
+    A[Local audio] --> B[Full-song structural profile]
+    B --> C[Song identity and lyric-context slots]
+    B --> D[Symbolic MIDI / melody / rhythm timeline]
+    B --> E[OME receiver-side spatial field]
+    E --> F[Gammatone / ERB-like rolling envelopes]
+    F --> G[Arrangement contrast lanes]
+    G --> H[Instrument acoustic prior filterbank]
+    D --> H
+    B --> I[Temporal-timbre object candidates]
+    H --> I
+    J[Optional external recognition] --> I
+    J --> K[External family candidate seeding]
+    I --> K
+    K --> L[Musical object performance]
+    I --> M[Instrument / source-family objects]
+    H --> M
+    L --> M
+    N[Optional current-song lineup] --> M
+    C --> O[Listening evidence pack]
+    D --> O
+    E --> O
+    L --> O
+    M --> O
+    O --> P[Compact handoff: prompt + data + review examples]
+    O --> Q[Full audit trace]
+    P --> R[Online AI + external search]
+    R --> S[Human-readable listening recap / review]
+```
 
-![Overall framework flow](./总体框架流程图.png)
+The two existing root PNGs are earlier conceptual sketches. The Mermaid graph above is the current runtime authority.
 
 ## Project goal
 
@@ -35,16 +64,21 @@ local audio
 -> optional external recognition command / adapter evidence
 -> external strong recognition layer
 -> OME Spatial Filter Bank runtime layer
+-> gammatone / ERB-like rolling envelope layer
+-> OME arrangement contrast layer
+-> instrument prior filterbank layer
 -> temporal-timbre object candidate layer
--> optional instrument / source-family object layer
+-> component competition: positive evidence / counterevidence / candidate gap
 -> musical object performance layer
+-> instrument / source-family object layer
+-> optional vocal transcription command / heard-lyric fragments
 -> lyric context layer
 -> listening-experience evidence pack
--> compact online AI handoff + full audit trace
--> bounded close-listening criticism by an online AI account
+-> compact online AI handoff (listening recap composer) + full audit trace
+-> bounded listening recap / close-listening criticism by an online AI account
 ```
 
-The compact handoff is a report-composer schema. It should foreground identity status, source-family permission, vocal/lyric anchors, instrument-family performance, MIDI/melody support, general audio evidence, and OME spatial state before broad descriptive language.
+The compact handoff is source material for an online AI. Its visible shape is deliberately simple: a light generation prompt that asks for external search, local data tables/timelines, and a few review examples. Detailed audit boundaries stay in JSON layers and the full-trace handoff instead of turning the final writing prompt into a checklist.
 
 Object-family candidates should be formed from time-frequency-timbre continuity and optional external timbre / stem / transcription evidence, then mapped into receiver-side O/M/E space. OME field packets are spatial mapping support, not object identity by themselves.
 
@@ -119,6 +153,24 @@ With lyric context, without exporting full lyrics into the handoff:
   --lyric-alignment "path\to\lyric_alignment.json"
 ```
 
+With bounded heard-lyric fragments from a Whisper-style ASR transcript:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --vocal-transcription-command "python .\scripts\adapters\run_vocal_transcription_adapter.py --input {input} --output-json {output_json} --transcript-json path\to\whisper_output.json"
+```
+
+With a song-specific source lineup correction for the current run only:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mssl.py `
+  --input "path\to\local_audio.wav" `
+  --output-dir outputs `
+  --source-lineup "path\to\user_source_lineup.json"
+```
+
 Optional real MIDI / transcription evidence can be attached as a bounded adapter packet:
 
 ```powershell
@@ -182,15 +234,20 @@ reconstructed_stream_score_layer.md
 symbolic_timeline_midi_layer.json / .md
 external_strong_recognition_layer.json / .md
 ome_spatial_filter_bank_layer.json / .md
+ome_gammatone_envelope_layer.json / .md
+ome_gammatonegram_mid.png / ome_gammatonegram_side.png
+ome_arrangement_contrast_layer.json / .md
+ome_arrangement_timeline.png / ome_arrangement_readable_summary.md
+instrument_prior_filterbank_layer.json / .md
 temporal_timbre_object_candidate_layer.json / .md
-instrument_source_object_layer.json / .md (optional standalone)
 musical_object_performance_layer.json / .md
+instrument_source_object_layer.json / .md
 lyric_context_layer.json / .md
 subjective_descriptor_proxy_layer.json / .md
 ome_stream_descriptor_packets.json / .md
 ```
 
-`online_ai_listening_handoff.md` is the compact online-AI input. The object layer must follow the consolidated boundary in `docs/b_mssl_scope_boundary.md`: object candidates come from time-frequency-timbre evidence and bounded source-family hypotheses before musical performance language or OME spatial mapping is used.
+`online_ai_listening_handoff.md` is the compact online-AI input. Object identity support comes from time-frequency-timbre continuity, bounded prior-family competition, optional MIDI/pitch, and optional external evidence; OME supplies receiver-side mapping. The compact file presents prompt + data + review examples, while detailed audit material remains in the full trace and JSON layers.
 
 ## Documentation map
 

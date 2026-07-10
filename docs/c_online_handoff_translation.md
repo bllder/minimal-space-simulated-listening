@@ -50,9 +50,44 @@ MSSL professional audio report
 
 External context should be aligned to the MSSL timeline. It should not replace the local audio descriptors.
 
+## Online AI handoff packet
+
+The compact handoff is a source-material packet for an online AI. It should contain three practical parts:
+
+```text
+1. a light prompt for generating a Chinese listening recap / review draft
+2. local MSSL listening data and source-family object tables
+3. short reference review snippets
+```
+
+The local data may support questions about:
+
+```text
+整体构成
+人声与歌词
+声源清单
+乐器角色
+段落推进
+表现评价
+```
+
+The compact handoff does not ask the online AI to label every sentence with evidence tags. Detailed provenance and uncertainty remain available in layer JSON and the full trace.
+
+## External search suggestion
+
+The compact handoff should invite the online AI to search for useful external facts: lyrics, release background, credits, artist context, interviews, public reviews, or other references.
+
+The wording should be a helpful prompt, not a strict boundary block. A good handoff line is:
+
+```text
+请先外部搜索歌名、艺人、歌词、发行背景、制作名单、访谈或相关乐评，把查到的事实补进文章；本地数据负责告诉你这首歌听起来怎样，外部资料负责补歌词、背景和事实血肉。
+```
+
+Reference snippets should be examples, not rules.
+
 ## Professional descriptor chain
 
-The handoff must move through this chain before review prose:
+The local compiler moves through this chain before producing the handoff data:
 
 ```text
 machine proxy band
@@ -66,32 +101,27 @@ The goal is to prevent raw terms such as `pressure`, `width`, or OME stream name
 
 ## Handoff parts
 
-The uploadable online-AI handoff should keep three parts separate:
+The uploadable online-AI handoff should contain three practical parts:
 
 ```text
 1. review-direction prompt
 2. professional audio evidence / numeric-to-term translation
-3. review writing style guidance / public-review examples
+3. short public-review-style examples for tone reference
 ```
 
 ## Part 1 — Review-direction prompt
 
-Required content:
+Suggested prompt content:
 
 ```text
 You have not received the audio file.
 You are receiving local MSSL listening evidence.
-Use filename, duration, user-supplied clues, MSSL style candidates, and your own context tools only as identity support.
-If identity is uncertain, do not invent background, exact text, public reception, or song meaning.
-Write a Chinese close-listening review by combining MSSL audio evidence with verified external context.
+Search the available filename/title/artist clues for lyrics, credits, release background, interviews, and related reviews.
+Use the local data for how the recording sounds and the external material for factual context.
+Write a fluent Chinese listening recap or review draft.
 ```
 
-Boundary:
-
-```text
-MSSL evidence can help constrain identity and style hypotheses, but it is not an audio fingerprint.
-Do not claim the numbers alone identify a song.
-```
+This visible prompt is intentionally light. Identity confidence, lyric-source status, object competition, and other audit fields are displayed as data rather than converted into a wall of writing prohibitions.
 
 ## Part 2 — Professional audio evidence
 
@@ -218,7 +248,7 @@ Do not let spatial vocabulary swallow timbre.
 | space.focus_diffuse | focused, pinpoint, soft-edged, diffuse, smeared, phase-colored | diffuse does not prove real spaciousness or real room |
 | space.width_envelopment | narrow, center-held, wide, open, surrounding, wraparound | width and envelopment are receiver-side proxies, not physical geometry |
 
-## Pressure wording rule
+## Internal pressure translation note
 
 Do not output `pressure` as a final descriptor by itself.
 
@@ -230,7 +260,7 @@ Do not output `pressure` as a final descriptor by itself.
 | pressure + spectral_density | dense / packed / compressed-feeling |
 | pressure + harsh high edge | harsh / abrasive / fatiguing |
 
-## Part 3 — Review style guidance
+## Part 3 — Reference review examples
 
 The goal is not to copy public reviews, comments, or seed cases. The goal is to show how human music criticism often combines:
 
@@ -244,9 +274,11 @@ public reception and comments
 body, scene, memory, and time
 ```
 
-Use style examples as style guidance, not as facts for the target song.
+Use the examples as optional tone references, not as a required structure for the target song.
 
-## Claim discipline
+## Internal compiler discipline
+
+These relations belong in layer JSON and the full trace. They are not copied into the compact handoff as a writing checklist.
 
 ```text
 source-family hypothesis != instrument truth

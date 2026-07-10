@@ -3,7 +3,7 @@
 
 Default behavior runs the complete listening-experience continuation:
 
-Audio file -> structural profile -> song identity layer -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> musical object performance layer -> lyric context layer -> descriptor-aware professional evidence -> compact online AI handoff + full audit trace
+Audio file -> structural profile -> song identity layer -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> gammatone rolling envelopes -> arrangement contrast -> instrument prior filterbank -> temporal-timbre object competition -> musical object performance -> explicit source-family objects -> lyric context -> compact online AI handoff + full audit trace
 
 PCM WAV is read directly by the core analyzer. Other common local audio formats
 are decoded to temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -49,6 +49,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--midi-adapter-command", action="append", default=[], help="Command template that writes a MIDI adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
     parser.add_argument("--external-recognition", action="append", default=[], help="Optional JSON packet from external vocal/instrument/stem/effect recognition tool.")
     parser.add_argument("--external-recognition-command", action="append", default=[], help="Command template that writes an external recognition adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
+    parser.add_argument("--vocal-transcription", action="append", default=[], help="Optional MSSL vocal transcription adapter packet with heard-lyric fragments.")
+    parser.add_argument("--vocal-transcription-command", action="append", default=[], help="Command template that writes a vocal transcription adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
+    parser.add_argument("--source-lineup", default=None, help="Optional song-specific source lineup JSON for current-run source-object adjudication.")
     parser.add_argument("--max-prompt-segments", type=int, default=None)
     parser.add_argument("--ffmpeg-bin", default="ffmpeg")
     parser.add_argument("--keep-decoded-wav", action="store_true")
@@ -95,6 +98,9 @@ def run_experience(repo_root: Path, args: argparse.Namespace) -> None:
     append_many(command, "--midi-adapter-command", args.midi_adapter_command)
     append_many(command, "--external-recognition", args.external_recognition)
     append_many(command, "--external-recognition-command", args.external_recognition_command)
+    append_many(command, "--vocal-transcription", args.vocal_transcription)
+    append_many(command, "--vocal-transcription-command", args.vocal_transcription_command)
+    append_optional(command, "--source-lineup", args.source_lineup)
     append_optional(command, "--max-prompt-segments", args.max_prompt_segments)
     append_optional(command, "--ffmpeg-bin", args.ffmpeg_bin)
     if args.keep_decoded_wav:

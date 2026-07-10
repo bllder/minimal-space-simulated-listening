@@ -6,9 +6,11 @@ This checks that the curated fixture packets are usable by the core layers:
 song identity fixture
 + MIDI adapter fixture
 + external recognition fixture
++ vocal transcription fixture
 -> external strong recognition layer
 -> external-seeded object candidates
 -> musical object performance cards
+-> lyric context heard-lyric fragments
 
 It is intentionally no-audio. Real songs are not required for this schema and
 instrument-loop check.
@@ -21,7 +23,9 @@ from pathlib import Path
 from typing import Any
 
 import build_external_strong_recognition_layer as recognition
+import build_lyric_context_layer as lyric_context
 import build_musical_object_performance_layer as performance
+import build_symbolic_timeline_midi_layer as symbolic_midi
 import seed_external_family_candidates as seeder
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +33,7 @@ FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures"
 IDENTITY_FIXTURE = FIXTURE_DIR / "mssl_song_identity_adapter_example.json"
 MIDI_FIXTURE = FIXTURE_DIR / "mssl_midi_adapter_example.json"
 RECOGNITION_FIXTURE = FIXTURE_DIR / "mssl_external_recognition_adapter_example.json"
+VOCAL_TRANSCRIPTION_FIXTURE = FIXTURE_DIR / "mssl_vocal_transcription_adapter_example.json"
 
 REQUIRED_PERFORMANCE_FAMILIES = {
     "voice_like_foreground_line",
@@ -47,12 +52,37 @@ def main() -> None:
     identity_packet = read_json(IDENTITY_FIXTURE)
     midi_packet = read_json(MIDI_FIXTURE)
     recognition_packet = read_json(RECOGNITION_FIXTURE)
+    vocal_transcription_packet = read_json(VOCAL_TRANSCRIPTION_FIXTURE)
 
     validate_identity(identity_packet)
     validate_midi(midi_packet)
+    validate_symbolic_midi_pitch_preservation(midi_packet)
+    validate_vocal_transcription(vocal_transcription_packet)
 
     profile = build_profile(identity_packet, midi_packet)
-    external_layer = recognition.build_layer(profile, [recognition_packet, midi_packet], min_confidence=0.55)
+    midi_only_layer = recognition.build_layer(profile, [midi_packet], min_confidence=0.55)
+    if (midi_only_layer.get("performance_gate") or {}).get("allowed_specific_families"):
+        raise SystemExit("FAILED: MIDI transcription opened the external source-family gate")
+    if int(midi_only_layer.get("ignored_non_family_gate_item_count") or 0) <= 0:
+        raise SystemExit("FAILED: MIDI transcription was not recorded as non-family-gate evidence")
+
+    unscored_layer = recognition.build_layer(
+        profile,
+        [{"adapter_name": "unscored", "adapter_type": "instrument_family_detection", "detections": [{"label": "guitar"}]}],
+        min_confidence=0.55,
+    )
+    if (unscored_layer.get("performance_gate") or {}).get("allowed_specific_families"):
+        raise SystemExit("FAILED: an external label without confidence opened the source-family gate")
+
+    bassoon_layer = recognition.build_layer(
+        profile,
+        [{"adapter_name": "word_boundary", "adapter_type": "instrument_family_detection", "detections": [{"label": "bassoon", "confidence": 0.9}]}],
+        min_confidence=0.55,
+    )
+    if "bass_like_low_body_layer" in (bassoon_layer.get("performance_gate") or {}).get("allowed_specific_families", []):
+        raise SystemExit("FAILED: substring matching misclassified bassoon as bass")
+
+    external_layer = recognition.build_layer(profile, [recognition_packet], min_confidence=0.55)
     profile["external_strong_recognition_layer"] = external_layer
 
     seeded_count = seeder.seed_candidates(profile["temporal_timbre_object_candidate_layer"], external_layer)
@@ -78,11 +108,15 @@ def main() -> None:
     if imprecise:
         raise SystemExit(f"FAILED: fixture performance cards still expose old machine-language fields: {imprecise}")
 
+    heard = lyric_context.build_heard_fragments([vocal_transcription_packet])
+    validate_heard_fragments(heard)
+
     print("OK: fixture adapter flow validated")
     print(f"Identity: {identity_packet.get('title')} / {identity_packet.get('artist')}")
     print(f"External retained families: {[item.get('family') for item in external_layer.get('recognized_families', [])]}")
     print(f"Seeded candidates: {seeded_count}")
     print(f"Performance cards: {sorted(families)}")
+    print(f"Heard lyric fragments: {heard.get('fragment_count')} / clarity {heard.get('clarity_summary')}")
 
 
 def build_profile(identity_packet: dict[str, Any], midi_packet: dict[str, Any]) -> dict[str, Any]:
@@ -142,6 +176,16 @@ def build_symbolic_layer_from_midi_fixture(packet: dict[str, Any]) -> dict[str, 
     }
 
 
+def validate_symbolic_midi_pitch_preservation(packet: dict[str, Any]) -> None:
+    normalized = symbolic_midi.normalize_midi_adapters([packet])
+    pitch_rows = [row for row in normalized if row.get("pitch") is not None]
+    expected = int(packet.get("note_count") or 0)
+    if len(pitch_rows) != expected:
+        raise SystemExit(f"FAILED: symbolic MIDI normalization lost pitch events: expected {expected}, got {len(pitch_rows)}")
+    if any(not isinstance(row.get("time_range"), list) or len(row.get("time_range")) != 2 for row in pitch_rows):
+        raise SystemExit("FAILED: normalized pitch events lost numeric time ranges")
+
+
 def event(time_range: str, event_type: str, density: str, contour: str) -> dict[str, Any]:
     return {
         "time_range": time_range,
@@ -156,6 +200,33 @@ def validate_identity(packet: dict[str, Any]) -> None:
     for key in ("title", "artist", "identity_confidence", "truth_boundary"):
         if packet.get(key) in (None, ""):
             raise SystemExit(f"FAILED: identity fixture missing {key}")
+
+
+def validate_vocal_transcription(packet: dict[str, Any]) -> None:
+    if packet.get("adapter_type") != "vocal_transcription":
+        raise SystemExit("FAILED: vocal transcription fixture has wrong adapter_type")
+    fragments = packet.get("fragments") or []
+    if not fragments:
+        raise SystemExit("FAILED: vocal transcription fixture has no fragments")
+    clarities = {str(fragment.get("clarity")) for fragment in fragments}
+    if not {"clear", "partial", "unclear"} <= clarities:
+        raise SystemExit(f"FAILED: vocal transcription fixture must cover clear/partial/unclear tiers, got {clarities}")
+    for fragment in fragments:
+        if fragment.get("clarity") == "unclear" and fragment.get("heard_text"):
+            raise SystemExit("FAILED: unclear fixture fragment must withhold heard_text")
+    if not packet.get("truth_boundary"):
+        raise SystemExit("FAILED: vocal transcription fixture missing truth_boundary")
+
+
+def validate_heard_fragments(heard: dict[str, Any]) -> None:
+    if heard.get("status") != "attached_vocal_transcription":
+        raise SystemExit(f"FAILED: heard fragments not attached: {heard.get('status')}")
+    clarity = heard.get("clarity_summary") or {}
+    if not clarity.get("clear") or not clarity.get("unclear"):
+        raise SystemExit(f"FAILED: heard fragment clarity summary incomplete: {clarity}")
+    for fragment in heard.get("fragments") or []:
+        if fragment.get("clarity") == "unclear" and fragment.get("heard_text"):
+            raise SystemExit("FAILED: unclear heard fragment leaked text into lyric context layer")
 
 
 def validate_midi(packet: dict[str, Any]) -> None:

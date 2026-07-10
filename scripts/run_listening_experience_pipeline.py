@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the MSSL listening-experience continuation chain.
 
-Audio file -> full_song_profile.json -> conservative tempo refinement -> song identity layer -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> temporal-timbre object candidate layer -> external family candidate seeding -> musical object performance layer -> lyric context layer -> descriptor-aware professional audio terminology report -> compact online-AI handoff + full audit trace
+Audio file -> full_song_profile.json -> conservative tempo refinement -> song identity layer -> reconstructed stream / score layer -> symbolic timeline MIDI layer -> external strong recognition layer -> OME Spatial Filter Bank runtime layer -> gammatone envelope -> arrangement contrast -> instrument prior filterbank -> temporal-timbre object candidate layer -> external family candidate seeding -> musical object performance layer -> explicit source-family object layer -> lyric context layer -> compact online-AI handoff + full audit trace
 
 PCM WAV is read by the core analyzer directly. Other common local audio formats
 are decoded to a temporary PCM WAV through ffmpeg when ffmpeg is available.
@@ -10,6 +10,7 @@ are decoded to a temporary PCM WAV through ffmpeg when ffmpeg is available.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -23,8 +24,12 @@ DEFAULT_RECONSTRUCTED_LAYER_NAME = "reconstructed_stream_score_layer.md"
 DEFAULT_SYMBOLIC_MIDI_LAYER_NAME = "symbolic_timeline_midi_layer.md"
 DEFAULT_EXTERNAL_RECOGNITION_LAYER_NAME = "external_strong_recognition_layer.md"
 DEFAULT_OME_LAYER_NAME = "ome_spatial_filter_bank_layer.md"
+DEFAULT_GAMMATONE_LAYER_NAME = "ome_gammatone_envelope_layer.md"
+DEFAULT_ARRANGEMENT_LAYER_NAME = "ome_arrangement_contrast_layer.md"
+DEFAULT_PRIOR_FILTERBANK_LAYER_NAME = "instrument_prior_filterbank_layer.md"
 DEFAULT_OBJECT_CANDIDATE_LAYER_NAME = "temporal_timbre_object_candidate_layer.md"
 DEFAULT_PERFORMANCE_LAYER_NAME = "musical_object_performance_layer.md"
+DEFAULT_SOURCE_OBJECT_LAYER_NAME = "instrument_source_object_layer.md"
 DEFAULT_LYRIC_CONTEXT_LAYER_NAME = "lyric_context_layer.md"
 NATIVE_WAV_SUFFIXES = {".wav", ".wave"}
 
@@ -58,6 +63,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--midi-adapter-command", action="append", default=[], help="Command template that writes a MIDI adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
     parser.add_argument("--external-recognition", action="append", default=[], help="Optional JSON packet from external vocal/instrument/stem/effect recognition tool.")
     parser.add_argument("--external-recognition-command", action="append", default=[], help="Command template that writes an external recognition adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
+    parser.add_argument("--vocal-transcription", action="append", default=[], help="Optional MSSL vocal transcription adapter packet with heard-lyric fragments.")
+    parser.add_argument("--vocal-transcription-command", action="append", default=[], help="Command template that writes a vocal transcription adapter JSON. Placeholders: {input}, {profile}, {output_dir}, {output_json}.")
+    parser.add_argument("--source-lineup", default=None, help="Optional song-specific source lineup JSON for current-run source-object adjudication.")
     parser.add_argument("--ffmpeg-bin", default="ffmpeg", help="ffmpeg executable used for non-WAV input decoding.")
     parser.add_argument("--keep-structural-md", action="store_true")
     parser.add_argument("--keep-decoded-wav", action="store_true", help="Keep the temporary decoded WAV for inspection.")
@@ -79,6 +87,7 @@ def main() -> None:
                 raise FileNotFoundError(f"Profile JSON not found: {profile_path}")
             output_dir = Path(args.output_dir) if args.output_dir != "outputs" else profile_path.parent
             output_dir.mkdir(parents=True, exist_ok=True)
+            analysis_audio_path = resolve_profile_audio_path(profile_path)
         else:
             input_path = Path(args.input)
             if not input_path.exists():
@@ -96,9 +105,38 @@ def main() -> None:
         symbolic_midi_summary = run_symbolic_timeline_midi_builder(script_dir, args, profile_path, output_dir)
         external_recognition_summary = run_external_strong_recognition_builder(script_dir, args, profile_path, output_dir)
         ome_summary = run_ome_spatial_filter_bank_builder(script_dir, profile_path, output_dir, analysis_audio_path)
-        object_candidate_summary = run_temporal_timbre_object_candidate_builder(script_dir, args, profile_path, output_dir)
+        gammatone_summary = run_ome_gammatone_envelope_builder(script_dir, profile_path, output_dir, analysis_audio_path)
+        gammatone_json = output_dir / "ome_gammatone_envelope_layer.json"
+        current_gammatone_json = gammatone_json if gammatone_summary and gammatone_json.exists() else None
+        arrangement_summary = run_ome_arrangement_contrast_builder(script_dir, profile_path, output_dir, current_gammatone_json)
+        arrangement_json = output_dir / "ome_arrangement_contrast_layer.json"
+        symbolic_midi_json = output_dir / "symbolic_timeline_midi_layer.json"
+        prior_filterbank_summary = run_instrument_prior_filterbank_builder(
+            script_dir,
+            output_dir,
+            current_gammatone_json,
+            arrangement_json if arrangement_json.exists() else None,
+            symbolic_midi_json if symbolic_midi_json.exists() else None,
+        )
+        prior_filterbank_json = output_dir / "instrument_prior_filterbank_layer.json"
+        current_prior_filterbank_json = prior_filterbank_json if prior_filterbank_summary and prior_filterbank_json.exists() else None
+        object_candidate_summary = run_temporal_timbre_object_candidate_builder(
+            script_dir,
+            args,
+            profile_path,
+            output_dir,
+            current_prior_filterbank_json,
+        )
         seeded_object_candidate_summary = run_external_family_candidate_seeder(script_dir, profile_path, output_dir)
         performance_summary = run_musical_object_performance_builder(script_dir, profile_path, output_dir)
+        source_object_summary = run_instrument_source_object_builder(
+            script_dir,
+            args,
+            profile_path,
+            output_dir,
+            current_prior_filterbank_json,
+        )
+        run_vocal_transcription_commands(args, profile_path, output_dir, analysis_audio_path)
         lyric_context_summary = run_lyric_context_builder(script_dir, args, profile_path, output_dir)
         structural_summary = Path(args.structural_summary) if args.structural_summary else None
 
@@ -119,9 +157,13 @@ def main() -> None:
         print(f"Prepared symbolic timeline MIDI layer: {symbolic_midi_summary}")
         print(f"Prepared external strong recognition layer: {external_recognition_summary}")
         print(f"Prepared OME Spatial Filter Bank layer: {ome_summary}")
+        print(f"Prepared OME gammatone envelope layer: {gammatone_summary or 'skipped: no readable PCM WAV source'}")
+        print(f"Prepared OME arrangement contrast layer: {arrangement_summary}")
+        print(f"Prepared instrument prior filterbank layer: {prior_filterbank_summary or 'skipped: gammatone/arrangement input unavailable'}")
         print(f"Prepared temporal-timbre object candidate layer: {object_candidate_summary}")
         print(f"Seeded external family candidates: {seeded_object_candidate_summary}")
         print(f"Prepared musical object performance layer: {performance_summary}")
+        print(f"Prepared instrument / source-family object layer: {source_object_summary}")
         print(f"Prepared lyric context layer: {lyric_context_summary}")
         print(f"Prepared compact online AI handoff: {handoff_path}")
         print(f"Prepared full audit trace handoff: {full_trace_path}")
@@ -139,6 +181,20 @@ def run_song_identity_commands(args: argparse.Namespace, profile_path: Path, out
         args.song_identity_json = generated_paths[-1]
 
 
+def resolve_profile_audio_path(profile_path: Path) -> Path | None:
+    try:
+        profile = json.loads(profile_path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError, TypeError):
+        return None
+    source = Path(str(profile.get("source_audio") or "")) if isinstance(profile, dict) else None
+    if source and source.exists() and source.suffix.lower() in NATIVE_WAV_SUFFIXES:
+        return source
+    suffix = "_full_song_profile.json"
+    stem = profile_path.name[:-len(suffix)] if profile_path.name.endswith(suffix) else profile_path.stem
+    sibling = profile_path.with_name(f"{stem}.wav")
+    return sibling if sibling.exists() else None
+
+
 def run_midi_adapter_commands(args: argparse.Namespace, profile_path: Path, output_dir: Path, analysis_audio_path: Path | None) -> None:
     if not args.midi_adapter_command:
         return
@@ -149,6 +205,12 @@ def run_external_recognition_commands(args: argparse.Namespace, profile_path: Pa
     if not args.external_recognition_command:
         return
     args.external_recognition.extend(run_json_commands(args.external_recognition_command, output_dir, "external_recognition_command", profile_path, analysis_audio_path))
+
+
+def run_vocal_transcription_commands(args: argparse.Namespace, profile_path: Path, output_dir: Path, analysis_audio_path: Path | None) -> None:
+    if not args.vocal_transcription_command:
+        return
+    args.vocal_transcription.extend(run_json_commands(args.vocal_transcription_command, output_dir, "vocal_transcription_command", profile_path, analysis_audio_path))
 
 
 def run_json_commands(templates: list[str], output_dir: Path, prefix: str, profile_path: Path, analysis_audio_path: Path | None) -> list[str]:
@@ -207,8 +269,6 @@ def run_external_strong_recognition_builder(script_dir: Path, args: argparse.Nam
     cmd = [sys.executable, str(script_dir / "build_external_strong_recognition_layer.py"), "--profile", str(profile_path), "--output-dir", str(output_dir), "--output-md", DEFAULT_EXTERNAL_RECOGNITION_LAYER_NAME]
     for path in args.external_recognition:
         cmd.extend(["--recognition-adapter", path])
-    for path in args.midi_adapter:
-        cmd.extend(["--recognition-adapter", path])
     subprocess.run(cmd, check=True)
     return summary_path
 
@@ -223,14 +283,101 @@ def run_ome_spatial_filter_bank_builder(script_dir: Path, profile_path: Path, ou
     return summary_path
 
 
-def run_temporal_timbre_object_candidate_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path) -> Path:
+def run_ome_gammatone_envelope_builder(
+    script_dir: Path,
+    profile_path: Path,
+    output_dir: Path,
+    analysis_audio_path: Path | None,
+) -> Path | None:
+    if not analysis_audio_path or not analysis_audio_path.exists():
+        return None
+    summary_path = output_dir / DEFAULT_GAMMATONE_LAYER_NAME
+    cmd = [
+        sys.executable,
+        str(script_dir / "build_ome_gammatone_envelope_layer.py"),
+        "--input",
+        str(analysis_audio_path),
+        "--profile",
+        str(profile_path),
+        "--output-dir",
+        str(output_dir),
+        "--output-md",
+        DEFAULT_GAMMATONE_LAYER_NAME,
+    ]
+    subprocess.run(cmd, check=True)
+    return summary_path
+
+
+def run_ome_arrangement_contrast_builder(
+    script_dir: Path,
+    profile_path: Path,
+    output_dir: Path,
+    gammatone_json: Path | None,
+) -> Path:
+    summary_path = output_dir / DEFAULT_ARRANGEMENT_LAYER_NAME
+    cmd = [
+        sys.executable,
+        str(script_dir / "build_ome_arrangement_contrast_layer.py"),
+        "--profile",
+        str(profile_path),
+        "--output-dir",
+        str(output_dir),
+        "--output-md",
+        DEFAULT_ARRANGEMENT_LAYER_NAME,
+    ]
+    if gammatone_json and gammatone_json.exists():
+        cmd.extend(["--gammatone-envelope", str(gammatone_json)])
+    subprocess.run(cmd, check=True)
+    return summary_path
+
+
+def run_instrument_prior_filterbank_builder(
+    script_dir: Path,
+    output_dir: Path,
+    gammatone_json: Path | None,
+    arrangement_json: Path | None,
+    symbolic_midi_json: Path | None,
+) -> Path | None:
+    if not gammatone_json or not gammatone_json.exists() or not arrangement_json or not arrangement_json.exists():
+        return None
+    prior_index = script_dir.parent / "references" / "instrument_acoustic_prior_seed.json"
+    if not prior_index.exists():
+        raise FileNotFoundError(f"Instrument acoustic prior seed not found: {prior_index}")
+    summary_path = output_dir / DEFAULT_PRIOR_FILTERBANK_LAYER_NAME
+    cmd = [
+        sys.executable,
+        str(script_dir / "build_instrument_prior_filterbank_layer.py"),
+        "--gammatone-envelope",
+        str(gammatone_json),
+        "--arrangement-contrast",
+        str(arrangement_json),
+        "--prior-index",
+        str(prior_index),
+        "--output-dir",
+        str(output_dir),
+        "--output-md",
+        DEFAULT_PRIOR_FILTERBANK_LAYER_NAME,
+    ]
+    if symbolic_midi_json and symbolic_midi_json.exists():
+        cmd.extend(["--symbolic-midi", str(symbolic_midi_json)])
+    subprocess.run(cmd, check=True)
+    return summary_path
+
+
+def run_temporal_timbre_object_candidate_builder(
+    script_dir: Path,
+    args: argparse.Namespace,
+    profile_path: Path,
+    output_dir: Path,
+    prior_filterbank_json: Path | None,
+) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / DEFAULT_OBJECT_CANDIDATE_LAYER_NAME
     cmd = [sys.executable, str(script_dir / "build_temporal_timbre_object_candidate_layer.py"), "--profile", str(profile_path), "--output-dir", str(output_dir), "--output-md", DEFAULT_OBJECT_CANDIDATE_LAYER_NAME]
     for path in args.external_recognition:
         cmd.extend(["--external-evidence", path])
-    for path in args.midi_adapter:
-        cmd.extend(["--external-evidence", path])
+    if prior_filterbank_json and prior_filterbank_json.exists():
+        cmd.extend(["--instrument-prior-filterbank", str(prior_filterbank_json)])
     subprocess.run(cmd, check=True)
     return summary_path
 
@@ -251,6 +398,39 @@ def run_musical_object_performance_builder(script_dir: Path, profile_path: Path,
     return summary_path
 
 
+def run_instrument_source_object_builder(
+    script_dir: Path,
+    args: argparse.Namespace,
+    profile_path: Path,
+    output_dir: Path,
+    prior_filterbank_json: Path | None,
+) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = output_dir / DEFAULT_SOURCE_OBJECT_LAYER_NAME
+    object_candidates_path = output_dir / "temporal_timbre_object_candidate_layer.json"
+    performance_path = output_dir / "musical_object_performance_layer.json"
+    cmd = [
+        sys.executable,
+        str(script_dir / "build_instrument_source_object_layer.py"),
+        "--object-candidates",
+        str(object_candidates_path),
+        "--profile",
+        str(profile_path),
+        "--output-dir",
+        str(output_dir),
+        "--output-md",
+        DEFAULT_SOURCE_OBJECT_LAYER_NAME,
+    ]
+    if performance_path.exists():
+        cmd.extend(["--musical-object-performance", str(performance_path)])
+    if prior_filterbank_json and prior_filterbank_json.exists():
+        cmd.extend(["--instrument-prior-filterbank", str(prior_filterbank_json)])
+    if args.source_lineup:
+        cmd.extend(["--source-lineup", str(args.source_lineup)])
+    subprocess.run(cmd, check=True)
+    return summary_path
+
+
 def run_lyric_context_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / DEFAULT_LYRIC_CONTEXT_LAYER_NAME
@@ -259,12 +439,17 @@ def run_lyric_context_builder(script_dir: Path, args: argparse.Namespace, profil
         cmd.extend(["--lyrics-file", str(args.lyrics_file)])
     if args.lyric_alignment:
         cmd.extend(["--lyric-alignment", str(args.lyric_alignment)])
+    for path in args.vocal_transcription:
+        cmd.extend(["--vocal-transcription", path])
     subprocess.run(cmd, check=True)
     return summary_path
 
 
 def run_prompt_builder(script_dir: Path, args: argparse.Namespace, profile_path: Path, output_dir: Path, prompt_path: Path, structural_summary: Path | None) -> None:
     cmd = [sys.executable, str(script_dir / "build_listening_experience_prompt_with_descriptors.py"), "--profile", str(profile_path), "--output-dir", str(output_dir), "--max-segments", str(max(1, args.max_prompt_segments)), "--translation-prompt", str(prompt_path)]
+    source_object_json = output_dir / "instrument_source_object_layer.json"
+    if source_object_json.exists():
+        cmd.extend(["--instrument-source-objects", str(source_object_json)])
     if structural_summary:
         cmd.extend(["--structural-summary", str(structural_summary)])
     if args.playlist_context:

@@ -328,10 +328,15 @@ def normalize_midi_adapters(packets: list[dict[str, Any]]) -> list[dict[str, Any
                 "item_index": item_index,
                 "track_family": item.get("track_family") or item.get("family_hint") or item.get("instrument_family") or "unknown",
                 "time_range": item.get("time_range") or [item.get("start_seconds"), item.get("end_seconds")],
+                "start_seconds": item.get("start_seconds"),
+                "end_seconds": item.get("end_seconds"),
+                "pitch": first_nonempty(item.get("pitch"), item.get("midi_pitch"), item.get("note_number")),
+                "velocity": item.get("velocity"),
                 "pitch_contour": item.get("pitch_contour") or item.get("contour"),
                 "note_density": item.get("note_density") or item.get("density"),
                 "rhythmic_alignment": item.get("rhythmic_alignment"),
                 "support": item.get("support") or item.get("confidence"),
+                "basis": item.get("basis"),
                 "boundary": item.get("boundary") or "External MIDI/transcription evidence; not source truth by itself.",
             })
     return tracks

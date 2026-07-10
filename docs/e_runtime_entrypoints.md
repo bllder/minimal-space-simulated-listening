@@ -26,12 +26,17 @@ audio file
 -> MIDI adapter command / symbolic timeline MIDI layer
 -> external recognition command / external strong recognition layer
 -> OME Spatial Filter Bank runtime layer
+-> gammatone / ERB-like rolling envelope layer
+-> OME arrangement contrast layer
+-> instrument prior filterbank layer
 -> temporal-timbre object candidate layer
--> optional instrument / source-family object layer
+-> component competition / positive evidence / counterevidence / candidate gap
 -> musical object performance layer
+-> instrument / source-family object layer
+-> vocal transcription command / heard-lyric fragments
 -> lyric context layer
 -> professional audio terminology report
--> compact online AI handoff + full trace
+-> compact online AI handoff (listening recap composer) + full trace
 ```
 
 The main local artifact is:
@@ -84,7 +89,7 @@ Single human entrypoint. Normal users should start here.
 scripts/run_listening_experience_pipeline.py
 ```
 
-Continuation pipeline. It connects full-song structural analysis, song identity commands, reconstructed stream / score generation, MIDI adapter commands, symbolic timeline MIDI generation, external recognition commands, external family evidence normalization, OME runtime mapping, temporal-timbre object candidates, musical object performance cards, lyric context, professional terminology handoff generation, family gate insertion, and optional context injection.
+Continuation pipeline. It connects full-song structural analysis, song identity commands, reconstructed stream / score generation, MIDI adapter commands, symbolic timeline MIDI generation, external recognition commands, external family evidence normalization, OME runtime mapping, gammatone rolling envelopes, arrangement contrast, instrument-prior competition, temporal-timbre object candidates, musical object performance cards, explicit source-family objects, optional vocal transcription commands / heard-lyric fragments, lyric context, compact handoff generation, family gate insertion, and optional context injection.
 
 ```text
 scripts/run_full_song_analysis.py
@@ -156,7 +161,7 @@ Builds a receiver-side OME spatial field / spatial-band support layer. This maps
 scripts/build_ome_gammatone_envelope_layer.py
 ```
 
-Standalone auditory front-end bridge. It reads audio plus a full-song profile and writes an ERB/gammatone-like Mid/Side envelope layer. The JSON keeps compact analysis-matrix summaries and rolling 1-5 second support windows; the PNGs use a smoothed/downsampled display matrix for readability. It supports arrangement contrast and later bounded source-family object hypotheses, but it does not confirm instruments, separate sources, use trained models, or simulate biological cochlea truth.
+Default experience-path auditory front-end bridge when a readable PCM WAV is available. It reads audio plus a full-song profile and writes an ERB/gammatone-like Mid/Side envelope layer. The JSON keeps compact analysis-matrix summaries and rolling 1-5 second support windows; the PNGs use a smoothed/downsampled display matrix for readability. Profile-only runs without a resolvable WAV skip this layer cleanly.
 
 ```text
 scripts/build_ome_arrangement_contrast_layer.py
@@ -168,7 +173,7 @@ Builds a second-pass OME arrangement contrast layer from an existing full-song p
 references/instrument_acoustic_prior_seed.json
 ```
 
-Second-run-block preparation artifact. This is a hand-coded acoustic prior and filter-template seed for later ranked hypotheses. It is not connected to the default `run_mssl.py` chain and does not identify instruments by itself.
+Second-run-block preparation artifact. This is a hand-coded acoustic prior and filter-template seed used by the default experience path when gammatone/arrangement evidence is available. It does not identify instruments by itself.
 
 ```text
 scripts/validate_instrument_acoustic_prior_index.py
@@ -180,7 +185,7 @@ Validates the instrument acoustic prior seed: required families, MIDI-to-Hz regi
 scripts/build_instrument_prior_filterbank_layer.py
 ```
 
-Standalone second-run-block Step 2 artifact. It consumes OME/gammatone arrangement windows, the instrument acoustic prior index, and optional symbolic MIDI / pitch evidence to produce ranked acoustic hypotheses per 1-5 second window. It is not connected to the default `run_mssl.py` chain yet and does not provide source-family certainty.
+Second-run-block Step 2 runtime artifact. It consumes OME/gammatone arrangement windows, the instrument acoustic prior index, and optional symbolic MIDI / pitch evidence to produce ranked acoustic hypotheses per 1-5 second window. It now runs in the default experience path when the rolling envelope is available. Broad families compete on distinctive local evidence; each window retains at most three families, usually one or two, and may remain unresolved.
 
 ```text
 scripts/validate_instrument_prior_filterbank_layer.py
@@ -200,26 +205,35 @@ Optional standalone input:
 --instrument-prior-filterbank path/to/instrument_prior_filterbank_layer.json
 ```
 
-This consumes ranked acoustic hypotheses as candidate support only. It is not connected to the default `run_mssl.py` chain yet and does not replace external recognition or family-gate logic.
+This consumes ranked acoustic hypotheses as candidate support. The default experience path supplies this input when the prior filterbank was built. It does not replace external recognition or family-gate logic.
 
-When this optional bridge is used without pitch/register evidence or external adapter support, instrument-like and effect-like candidates are capped conservatively and the Markdown includes a prior-bridge diagnostic. Functional object candidates may remain strong when full-mix continuity supports them.
+Without pitch/register evidence or external adapter support, instrument-like and effect-like candidates are capped conservatively. Exact-family candidates also compete inside pitched-harmonic, low/impact, and texture/tail groups. The layer records positive evidence, counterevidence, rank, and gap to the leader; shared functional evidence cannot make every family a winner.
 
 ```text
 scripts/build_instrument_source_object_layer.py
 ```
 
-Standalone optional MVP visibility layer after temporal-timbre object candidates. It reads `temporal_timbre_object_candidate_layer.json` plus optional `instrument_prior_filterbank_layer.json`, `auditory_object_behavior_layer.json`, and `musical_object_performance_layer.json`, then writes `instrument_source_object_layer.json` and `.md`.
+MVP visibility layer after temporal-timbre object candidates and musical object performance. It reads `temporal_timbre_object_candidate_layer.json` plus optional `instrument_prior_filterbank_layer.json`, `auditory_object_behavior_layer.json`, and `musical_object_performance_layer.json`, then writes `instrument_source_object_layer.json` and `.md`.
 
-It groups existing evidence into explicit source-family object cards such as voice / vocal-like, bass / low-register, drum / percussion, guitar / plucked, keyboard / piano, synth / pad / harmonic, strings / bowed, brass / wind, and FX / texture / tail. These are candidate objects, not verified instrumentation or separated stems. This layer is not connected to default `run_mssl.py` yet.
+It groups existing evidence into explicit source-family object cards such as voice / vocal-like, bass / low-register, drum / percussion, guitar / plucked, keyboard / piano, synth / pad / harmonic, strings / bowed, brass / wind, and FX / texture / tail. These are candidate objects, not verified instrumentation or separated stems. This layer now runs inside the default `run_mssl.py` chain after the musical object performance layer and feeds the compact handoff object section plus the section recap timeline.
 
-It records both raw and calibrated confidence. Calibration may cap highly confused fine-grained sustained families, such as strings / bowed or brass / wind, when pitch/register evidence and external verification are missing. The object name stays visible; only the visibility strength is reduced and explained.
+It records both raw and calibrated confidence. Temporal component competition flows into the source-object judgment: insufficient distinctive evidence is capped at `weak-local`, close or trailing alternatives are capped at `possible`, and only a locally leading or externally supported candidate can remain `likely-local`. The object name stays visible; only the visibility strength is reduced and explained.
+
+Optional standalone input:
+
+```text
+--source-lineup path/to/user_source_lineup.json
+```
+
+This attaches song-specific user context such as a known recording lineup. The layer writes a `source_object_judgment_template` that states whether the run is using local acoustic candidate mode, external family-gate support, or user-supplied lineup adjudication. A user lineup applies to the current song run only; it must not become a fixed instrumentation template for other songs.
 
 ```text
 scripts/validate_instrument_source_object_layer.py
 scripts/validate_compact_handoff_instrument_source_objects.py
+scripts/validate_listening_recap_handoff.py
 ```
 
-No-audio validators for the source-family object layer and its compact handoff rendering.
+No-audio validators for the source-family object layer, its compact handoff rendering, and the listening-recap composer.
 
 ```text
 scripts/build_auditory_object_behavior_layer.py
@@ -251,7 +265,13 @@ This consumes behavior cards as bounded performance support only. It is not conn
 scripts/build_lyric_context_layer.py
 ```
 
-Builds bounded lyric context from optional local lyric/alignment files plus MSSL vocal, MIDI, and OME anchors. It does not export full lyrics into report-facing handoff.
+Builds bounded lyric context from optional local lyric/alignment files, optional vocal transcription adapter packets, plus MSSL vocal, MIDI, and OME anchors. It does not export full lyrics into report-facing handoff. Heard-lyric fragments from ASR keep clarity tiers; unclear fragments keep timing but withhold decoded text.
+
+```text
+scripts/adapters/run_vocal_transcription_adapter.py
+```
+
+Normalizes Whisper-style segments JSON, SRT, or WebVTT transcripts into the MSSL vocal transcription adapter packet for `--vocal-transcription` or `--vocal-transcription-command`. It supplies heard-fragment evidence, not verified lyrics and not singer identity.
 
 ```text
 scripts/build_listening_experience_prompt_with_descriptors.py
@@ -266,13 +286,13 @@ Optional standalone input:
 --instrument-source-objects path/to/instrument_source_object_layer.json
 ```
 
-These let behavior-enriched standalone performance and explicit source-family object layers feed compact handoff rendering without writing them back into the profile. They are optional / standalone and are not default `run_mssl.py` integration.
+These let standalone performance and explicit source-family object files override profile-embedded data during direct handoff rendering. The source-family object layer is part of the default path; these flags remain useful for focused rebuilds and validation.
 
 ```text
 scripts/render_compact_online_handoff.py
 ```
 
-Renders the compact online handoff as a report-composer schema: song identity, source-family permission, vocal/lyric anchors, explicit source-family object candidates when available, instrument/source-family performance, optional bounded musical-object behavior support, MIDI/melody/rhythm skeleton, general audio evidence, OME spatial performance state, macro arc, and writing boundaries. Behavior support is timing/action evidence only; it does not create verified source-family certainty or bypass the family gate.
+Renders the compact online handoff as a source-material packet for an online AI: a light generation prompt, song identity hints, source-family object candidates with competition evidence, vocal/lyric anchors, heard-lyric fragments when attached, instrument/source-family performance, MIDI/melody/rhythm skeleton, general audio evidence, OME spatial performance state, a section-by-section recap timeline, macro arc, and short reference review snippets. The visible compact file contains prompt + data + examples; evidence-label checklists and the detailed audit boundary belong in layer JSON and `online_ai_listening_handoff_full_trace.md`.
 
 ## Song identity contract
 
@@ -306,17 +326,32 @@ Lyric context can be supplied through:
 ```text
 --lyrics-file path/to/lyrics.txt
 --lyric-alignment path/to/alignment.json
+--vocal-transcription path/to/vocal_transcription_packet.json
+--vocal-transcription-command "python scripts/adapters/run_vocal_transcription_adapter.py --input {input} --output-json {output_json} ..."
 ```
 
 MSSL does not copy full lyrics into the report-facing handoff. It records source/alignment status and connects verified lyric context to vocal timing, MIDI phrase behavior, and OME spatial anchors.
+
+Vocal transcription packets add heard-lyric fragments with clarity tiers. Clear and partial fragments keep decoded text as bounded heard evidence; unclear fragments keep timing but withhold text. Rendered fragments are capped and the handoff never receives a full lyric sheet from this path.
 
 Boundary:
 
 ```text
 lyric file != lyric truth unless externally verified
 lyric alignment != exact performance truth unless adapter quality is known
+ASR heard fragments != verified lyrics; they may be misheard
 MSSL vocal anchors != singer identity
 ```
+
+## Source lineup contract
+
+A song-specific source lineup can be supplied through:
+
+```text
+--source-lineup path/to/user_source_lineup.json
+```
+
+This input adjudicates the current run only. An exclusive lineup can mark listed source objects as user-supported and unlisted local acoustic matches as confusion/function evidence. It must not become a fixed instrumentation template for other songs.
 
 ## MIDI layer contract
 
@@ -437,8 +472,12 @@ recorded signal evidence
 -> MIDI adapter evidence / symbolic timeline MIDI layer
 -> external family evidence gate
 -> OME receiver-side field mapping
+-> gammatone rolling envelopes / arrangement contrast
+-> bounded prior-family competition
 -> temporal-timbre object candidates
+-> positive evidence / counterevidence / candidate gap
 -> musical object performance cards
+-> explicit instrument / source-family object cards
 -> lyric context anchors
 -> professional terminology report
 -> online handoff
@@ -493,16 +532,16 @@ outputs/<song-folder>/
   symbolic_timeline_midi_layer.json / .md
   external_strong_recognition_layer.json / .md
   ome_spatial_filter_bank_layer.json / .md
-  ome_gammatone_envelope_layer.json / .md (optional standalone)
-  ome_gammatonegram_mid.png (optional standalone)
-  ome_gammatonegram_side.png (optional standalone)
-  ome_arrangement_contrast_layer.json / .md (optional standalone)
-  ome_arrangement_timeline.png (optional standalone)
-  ome_arrangement_readable_summary.md (optional standalone)
+  ome_gammatone_envelope_layer.json / .md
+  ome_gammatonegram_mid.png
+  ome_gammatonegram_side.png
+  ome_arrangement_contrast_layer.json / .md
+  ome_arrangement_timeline.png
+  ome_arrangement_readable_summary.md
   listening_region_locator_layer.json / .md (optional standalone)
-  instrument_prior_filterbank_layer.json / .md (optional standalone)
+  instrument_prior_filterbank_layer.json / .md
   temporal_timbre_object_candidate_layer.json / .md
-  instrument_source_object_layer.json / .md (optional standalone)
+  instrument_source_object_layer.json / .md
   auditory_object_behavior_layer.json / .md (optional standalone)
   musical_object_performance_layer.json / .md
   lyric_context_layer.json / .md
@@ -543,6 +582,12 @@ With Demucs / UVR stem adapter command:
 
 ```powershell
 python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --external-recognition-command "python .\scripts\adapters\run_demucs_adapter.py --input {input} --output-json {output_json} --stems-dir path\to\stems"
+```
+
+With vocal transcription / heard-lyric fragments:
+
+```powershell
+python .\scripts\run_mssl.py experience --input "path\to\local_audio.wav" --vocal-transcription-command "python .\scripts\adapters\run_vocal_transcription_adapter.py --input {input} --output-json {output_json} --transcript-json path\to\whisper_output.json"
 ```
 
 With explicit ffmpeg path:

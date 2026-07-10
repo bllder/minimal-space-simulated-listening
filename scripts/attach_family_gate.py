@@ -61,20 +61,20 @@ def compact_block(layer: dict[str, Any]) -> str:
     gate = as_dict(layer.get("performance_gate"))
     fams = list_dicts(layer.get("recognized_families"))
     lines = [
-        "## 2.8 Family gate post-pass",
+        "## 2.8 External source-family data",
         "",
         f"- Status: {layer.get('status') or 'not_attached'}",
         f"- Adapter packets: {layer.get('adapter_packet_count') or 0}",
         f"- Retained detections: {layer.get('retained_detection_count') or 0}",
-        f"- Allowed specific families: {', '.join(list_strings(gate.get('allowed_specific_families'))) or 'none'}",
+        f"- External family hints: {', '.join(list_strings(gate.get('allowed_specific_families'))) or 'none attached'}",
         "",
     ]
     if not fams:
-        lines.append("No adapter family evidence is attached. Do not claim confirmed instruments or stems. Local acoustic source-family object candidates may still appear as possible / likely-local / weak-local objects when another MSSL layer supports them.")
+        lines.append("No external adapter family data is attached. Use the local source-family object table as listening material, and let online search / credits / lyrics / context add factual detail where useful.")
         return "\n".join(lines).rstrip() + "\n"
-    lines.extend(["| Family | Tier | Confidence |", "|---|---|---:|"])
+    lines.extend(["| Family | Tier | Confidence | How this helps |", "|---|---|---:|---|"])
     for item in fams:
-        lines.append(f"| {item.get('family')} | {item.get('evidence_tier')} | {item.get('best_confidence')} |")
+        lines.append(f"| {item.get('family')} | {item.get('evidence_tier')} | {item.get('best_confidence')} | Adds factual source-family color for the review draft. |")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -97,7 +97,12 @@ def trace_block(layer: dict[str, Any]) -> str:
 
 
 def update_compact(text: str, section: str) -> str:
-    if "## 2. Source-family permission table" in text:
+    existing_headings = (
+        "## 2. Source-family permission table",
+        "## 2. External source-family evidence table",
+        "## 2.8 External source-family data",
+    )
+    if any(heading in text for heading in existing_headings):
         return text
     return insert_before(text, section, "## 4. Instrument / vocal / FX performance cards")
 

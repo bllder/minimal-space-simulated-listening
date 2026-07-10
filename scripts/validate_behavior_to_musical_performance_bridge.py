@@ -226,6 +226,9 @@ def event(time_range: str, event_type: str, density: str, contour: str, phrase: 
 def validate_layer(layer: dict[str, Any], behavior_layer: dict[str, Any]) -> None:
     behavior_by_id = {card.get("object_candidate_id"): card for card in list_dicts(behavior_layer.get("behavior_cards"))}
     cards = list_dicts(layer.get("performance_cards"))
+    families = [str(card.get("object_family")) for card in cards]
+    if len(families) != len(set(families)):
+        fail(f"Duplicate performance-card families found: {families}")
     if not cards:
         fail("No performance cards were produced")
     families = {card.get("object_family") for card in cards}

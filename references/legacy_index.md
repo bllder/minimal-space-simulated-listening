@@ -41,12 +41,13 @@ It must not be used as the current project baseline.
 When work concerns OME Spatial Filter Bank, online handoff, or report-facing stream language, use this authority order before consulting any legacy material:
 
 1. `README.md`
-2. `docs/ome_spatial_filter_bank_design.md`
-3. `docs/ome_spatial_filter_bank_handoff_contract.md`
-4. `docs/a_professional_term_index.md`
-5. `scripts/professional_term_index.py`
-6. `docs/subjective_attribute_translation_index.md`
-7. `scripts/ome_spatial_handoff_contract.py`
+2. `AGENTS.md`
+3. `docs/b_mssl_scope_boundary.md`
+4. `docs/e_runtime_entrypoints.md`
+5. `docs/c_online_handoff_translation.md`
+6. `docs/a_professional_term_index.md`
+7. `scripts/professional_term_index.py`
+8. `scripts/ome_spatial_handoff_contract.py`
 
 Required result-first chain:
 

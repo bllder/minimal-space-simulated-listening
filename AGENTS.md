@@ -136,13 +136,19 @@ local audio
 -> MIDI adapter command / symbolic timeline MIDI layer
 -> external recognition command / external strong recognition layer
 -> OME Spatial Filter Bank runtime layer
+-> gammatone / ERB-like rolling envelope layer
+-> OME arrangement contrast layer
+-> instrument prior filterbank layer
 -> temporal-timbre object candidate layer
+-> component competition with positive evidence / counterevidence / candidate gap
 -> external family candidate seeding
 -> musical object performance layer
+-> instrument / source-family object layer
+-> vocal transcription command / heard-lyric fragments
 -> lyric context layer
 -> listening-experience evidence pack
--> compact online AI handoff + full audit trace
--> bounded close-listening criticism by an online AI account
+-> compact online AI handoff (listening recap composer) + full audit trace
+-> bounded listening recap / close-listening criticism by an online AI account
 ```
 
 Core entrypoint:
@@ -183,6 +189,9 @@ scripts/build_reconstructed_stream_score_layers.py
 scripts/build_symbolic_timeline_midi_layer.py
 scripts/build_external_strong_recognition_layer.py
 scripts/build_ome_spatial_filter_bank_layer.py
+scripts/build_ome_gammatone_envelope_layer.py
+scripts/build_ome_arrangement_contrast_layer.py
+scripts/build_instrument_prior_filterbank_layer.py
 scripts/build_temporal_timbre_object_candidate_layer.py
 scripts/build_instrument_source_object_layer.py
 scripts/seed_external_family_candidates.py
@@ -199,6 +208,7 @@ Implemented adapter wrappers / normalizers:
 scripts/adapters/run_basic_pitch_adapter.py
 scripts/adapters/run_demucs_adapter.py
 scripts/adapters/run_song_identity_adapter.py
+scripts/adapters/run_vocal_transcription_adapter.py
 scripts/adapters/normalize_external_recognition_packet.py
 ```
 
@@ -207,6 +217,12 @@ Implemented validators:
 ```text
 scripts/validate_instrument_source_object_layer.py
 scripts/validate_compact_handoff_instrument_source_objects.py
+scripts/validate_listening_recap_handoff.py
+scripts/validate_instrument_acoustic_prior_index.py
+scripts/validate_instrument_prior_filterbank_layer.py
+scripts/validate_instrument_prior_to_object_candidate_bridge.py
+scripts/validate_ome_gammatone_envelope_layer.py
+scripts/validate_ome_arrangement_contrast_layer.py
 scripts/validate_instrument_layer_loop.py
 scripts/validate_fixture_adapter_flow.py
 ```
@@ -217,6 +233,8 @@ Current command slots exposed by `run_mssl.py`:
 --song-identity-command
 --midi-adapter-command
 --external-recognition-command
+--vocal-transcription-command
+--source-lineup
 ```
 
 These slots let the main pipeline call local external tools, collect JSON, and fold it back into MSSL evidence. They must not be reduced back to “user manually prepares everything.”
@@ -442,7 +460,7 @@ It is not a machine behavior layer. It must describe performance expression, not
 
 Specific verified instrument/effect performance cards require the external family gate. Without external family evidence, performance certainty must remain bounded, but local source-family object candidates should still remain visible as candidates instead of being erased into only functional labels.
 
-### Done: compact report-composer handoff
+### Done: compact listening-recap composer handoff
 
 Implemented:
 
@@ -450,23 +468,26 @@ Implemented:
 scripts/render_compact_online_handoff.py
 ```
 
-The compact handoff is a report-composer schema, not a debug dump. It must guide the online AI to combine identity, family permission, vocal/lyric anchors, instrument performance, MIDI, general audio, and OME state.
+The compact handoff is a source-material packet, not a debug dump or prohibition checklist. Its visible content is: a light online-AI prompt with an explicit external-search request, local listening/object/timeline data, and short review examples. Detailed audit fields stay in layer JSON and the full trace.
+
+### Done: default second-run block and component competition
+
+The default experience path now runs:
+
+```text
+OME spatial field
+-> gammatone rolling envelopes
+-> arrangement contrast
+-> bounded instrument-prior family competition
+-> temporal object competition
+-> explicit source-family object judgment
+```
+
+Broad prior families are capped at three per window and usually retain one or two. Exact-family candidates record positive evidence, counterevidence, rank, and gap to the leader. Insufficient distinctive evidence cannot be promoted by generic functional support.
 
 ---
 
 ## What Still Must Be Done
-
-### Must do: run fixture validator locally after pulling latest main
-
-Run:
-
-```text
-python scripts/validate_fixture_adapter_flow.py
-```
-
-Expected: the fixture validator proves that song identity, MIDI adapter, and external recognition fixtures can produce musical performance cards for voice, bass, drums, and guitar.
-
-If it fails, fix the adapter fixture flow before asking the user to run real audio.
 
 ### Must do: eventually test with real external tool outputs
 

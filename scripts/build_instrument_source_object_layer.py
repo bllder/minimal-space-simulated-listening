@@ -142,6 +142,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--instrument-prior-filterbank", default=None, help="Optional instrument_prior_filterbank_layer.json.")
     parser.add_argument("--auditory-object-behavior", default=None, help="Optional auditory_object_behavior_layer.json.")
     parser.add_argument("--musical-object-performance", default=None, help="Optional musical_object_performance_layer.json.")
+    parser.add_argument("--source-lineup", default=None, help="Optional user-supplied source lineup constraint JSON.")
     parser.add_argument("--profile", default=None, help="Optional *_full_song_profile.json.")
     parser.add_argument("--output-dir", default=None, help="Output directory. Defaults beside --object-candidates.")
     parser.add_argument("--output-json", default=DEFAULT_JSON_NAME)
@@ -156,6 +157,7 @@ def main() -> None:
     prior_layer = read_optional_json(args.instrument_prior_filterbank)
     behavior_layer = read_optional_json(args.auditory_object_behavior)
     performance_layer = read_optional_json(args.musical_object_performance)
+    source_lineup = read_optional_json(args.source_lineup)
     profile = read_optional_json(args.profile)
 
     layer = build_layer(
@@ -163,6 +165,7 @@ def main() -> None:
         prior_layer=prior_layer or {},
         behavior_layer=behavior_layer or {},
         performance_layer=performance_layer or {},
+        source_lineup=source_lineup or {},
         profile=profile or {},
     )
 
@@ -182,6 +185,7 @@ def build_layer(
     prior_layer: dict[str, Any],
     behavior_layer: dict[str, Any],
     performance_layer: dict[str, Any],
+    source_lineup: dict[str, Any],
     profile: dict[str, Any],
 ) -> dict[str, Any]:
     candidates = list_dicts(object_layer.get("object_candidates"))
@@ -193,10 +197,14 @@ def build_layer(
         "performance_by_family": group_by(performance_cards, "object_family"),
         "prior_windows": list_dicts(prior_layer.get("windows")),
         "allowed_specific": set(list_strings(as_dict(performance_layer.get("recognition_gate")).get("allowed_specific_families"))),
+        "temporal_component_competition": as_dict(object_layer.get("component_competition_diagnostic")),
     }
 
     objects = [build_source_object(object_id, spec, indexes) for object_id, spec in SOURCE_OBJECT_SPECS.items()]
+    component_competition_summary = summarize_source_object_competition(objects, indexes)
+    objects = apply_source_lineup_constraints(objects, source_lineup)
     summary = summarize_objects(objects)
+    judgment_template = build_source_object_judgment_template(source_lineup=source_lineup, indexes=indexes, component_competition_summary=component_competition_summary)
     return {
         "version": VERSION,
         "status": "attached_explicit_source_family_objects",
@@ -207,6 +215,7 @@ def build_layer(
             "instrument_prior_filterbank_layer": prior_layer.get("status") or "not_attached",
             "auditory_object_behavior_layer": behavior_layer.get("status") or "not_attached",
             "musical_object_performance_layer": performance_layer.get("status") or "not_attached",
+            "source_lineup": source_lineup.get("status") or "not_attached",
             "profile": profile.get("analysis_label") or ("attached" if profile else "not_attached"),
         },
         "object_visibility_rule": (
@@ -214,6 +223,8 @@ def build_layer(
             "Boundary, missing evidence, confusion groups, and external verification "
             "status are fields on the object, not reasons to erase the object name."
         ),
+        "source_object_judgment_template": judgment_template,
+        "component_competition_summary": component_competition_summary,
         "source_family_object_count": len(objects),
         "visible_object_count": len([item for item in objects if item.get("visibility_status") != "not_supported"]),
         "source_family_objects": objects,
@@ -244,9 +255,13 @@ def build_source_object(object_id: str, spec: dict[str, Any], indexes: dict[str,
     missing = collect_missing_evidence(primary_candidates, supporting_candidates, behavior_cards, prior_windows, exact_verification)
     prior_summary = summarize_prior_windows(prior_windows, set(spec["prior_families"]))
     top_priors = collect_top_priors(prior_windows, set(spec["prior_families"]))
-    raw_score = clamp(max(primary_score, 0.72 * supporting_score, 0.84 * prior_score, 0.68 * behavior_score, 0.62 * performance_score))
+    functional_context_weight = 0.72 if spec["group"] == "voice_source_family_object" else 0.38
+    behavior_weight = 0.68 if spec["group"] == "voice_source_family_object" else 0.52
+    performance_weight = 0.62 if spec["group"] == "voice_source_family_object" else 0.50
+    raw_score = clamp(max(primary_score, functional_context_weight * supporting_score, 0.84 * prior_score, behavior_weight * behavior_score, performance_weight * performance_score))
     raw_status = visibility_status_for(raw_score, bool(primary_candidates), bool(prior_windows), bool(exact_verification))
     confusion = confusion_for(object_id, spec, indexes, raw_score)
+    judgment_evidence = summarize_component_judgment(primary_candidates, supporting_candidates)
     calibration = calibrate_source_object(
         object_id=object_id,
         spec=spec,
@@ -257,6 +272,7 @@ def build_source_object(object_id: str, spec: dict[str, Any], indexes: dict[str,
         has_external_verification=bool(exact_verification),
         missing_evidence=missing,
         confusion=confusion,
+        judgment_evidence=judgment_evidence,
     )
     score = to_float(calibration.get("calibrated_confidence"))
     visibility_status = str(calibration.get("calibrated_visibility_status") or raw_status)
@@ -283,6 +299,7 @@ def build_source_object(object_id: str, spec: dict[str, Any], indexes: dict[str,
         "top_prior_support": top_priors,
         "missing_evidence": missing,
         "confused_with": confusion,
+        "judgment_evidence": judgment_evidence,
         "online_ai_handoff_role": spec["handoff_role"],
         "safe_handoff_sentence": handoff_sentence,
         "evidence_used": {
@@ -309,6 +326,202 @@ def visibility_status_for(score: float, has_primary: bool, has_prior: bool, veri
     return "weak_local"
 
 
+def apply_source_lineup_constraints(objects: list[dict[str, Any]], source_lineup: dict[str, Any]) -> list[dict[str, Any]]:
+    if not source_lineup:
+        return objects
+    entries = list_dicts(source_lineup.get("lineup"))
+    allowed_ids = {str(item.get("source_object_id")) for item in entries if item.get("source_object_id")}
+    if not allowed_ids:
+        allowed_ids = source_ids_from_family_hints(entries)
+    if not allowed_ids:
+        return objects
+    exclusive = bool(source_lineup.get("exclusive", True))
+    by_id = {str(item.get("source_object_id")): item for item in entries if item.get("source_object_id")}
+    constrained: list[dict[str, Any]] = []
+    for item in objects:
+        object_id = str(item.get("source_object_id") or "")
+        if object_id in allowed_ids:
+            item = dict(item)
+            lineup_entry = as_dict(by_id.get(object_id))
+            item["visibility_status"] = "user_supported"
+            item["verification_status"] = "user_supplied_lineup"
+            item["confidence"] = round_float(max(to_float(item.get("confidence")), to_float(lineup_entry.get("confidence") or 1.0)))
+            item["lineup_support"] = {
+                "status": "included_by_user_supplied_lineup",
+                "count": lineup_entry.get("count"),
+                "role": lineup_entry.get("role") or lineup_entry.get("display_name"),
+                "basis": lineup_entry.get("basis") or source_lineup.get("basis") or "user supplied source lineup",
+                "boundary": "User-supplied lineup for this recording; not automatic source separation.",
+            }
+            calibration = dict(as_dict(item.get("calibration")))
+            adjustments = list_dicts(calibration.get("applied_adjustments"))
+            adjustments.append(
+                {
+                    "rule": "user_source_lineup_support",
+                    "reason": "User supplied this source object as part of the actual recording lineup.",
+                }
+            )
+            calibration["status"] = "user_lineup_supported"
+            calibration["applied_adjustments"] = adjustments
+            calibration["calibrated_visibility_status"] = "user_supported"
+            item["calibration"] = calibration
+            item["safe_handoff_sentence"] = append_sentence(
+                item.get("safe_handoff_sentence"),
+                "User-supplied lineup says this recording contains this source object."
+            )
+            constrained.append(item)
+            continue
+        if exclusive:
+            item = dict(item)
+            item["visibility_status"] = "not_supported"
+            item["verification_status"] = "excluded_by_user_supplied_lineup"
+            item["confidence"] = 0.0
+            item["lineup_support"] = {
+                "status": "excluded_by_user_supplied_lineup",
+                "basis": source_lineup.get("basis") or "user supplied exclusive source lineup",
+                "boundary": "Do not treat this as a performed source object for this recording.",
+            }
+            calibration = dict(as_dict(item.get("calibration")))
+            adjustments = list_dicts(calibration.get("applied_adjustments"))
+            adjustments.append(
+                {
+                    "rule": "exclusive_user_source_lineup_exclusion",
+                    "reason": "User supplied an exclusive lineup and this source object is not in it.",
+                }
+            )
+            calibration["status"] = "excluded_by_user_lineup"
+            calibration["applied_adjustments"] = adjustments
+            calibration["calibrated_visibility_status"] = "not_supported"
+            item["calibration"] = calibration
+            item["missing_evidence"] = sorted(set(list_strings(item.get("missing_evidence")) + ["not in user supplied lineup"]))
+            item["safe_handoff_sentence"] = (
+                f"{item.get('display_name')}: excluded by user-supplied lineup; local acoustic support, if any, "
+                "should be interpreted as timbre/arrangement confusion from the listed sources."
+            )
+            constrained.append(item)
+        else:
+            constrained.append(item)
+    return constrained
+
+
+def build_source_object_judgment_template(
+    *,
+    source_lineup: dict[str, Any],
+    indexes: dict[str, Any],
+    component_competition_summary: dict[str, Any],
+) -> dict[str, Any]:
+    entries = list_dicts(source_lineup.get("lineup"))
+    allowed_ids = {str(item.get("source_object_id")) for item in entries if item.get("source_object_id")}
+    if not allowed_ids:
+        allowed_ids = source_ids_from_family_hints(entries)
+    allowed_specific = sorted(str(item) for item in indexes.get("allowed_specific", set()) if item)
+    has_lineup = bool(allowed_ids)
+    exclusive = bool(source_lineup.get("exclusive", True))
+    if has_lineup and exclusive:
+        mode = "user_supplied_exclusive_lineup"
+        current_run_rule = (
+            "Use the song-specific lineup as the top adjudication input for this run; "
+            "objects outside the lineup are treated as acoustic confusion or arrangement roles."
+        )
+    elif has_lineup:
+        mode = "user_supplied_nonexclusive_lineup"
+        current_run_rule = (
+            "Use the song-specific lineup as positive support for listed objects while allowing other "
+            "local candidates to remain visible when evidence supports them."
+        )
+    elif allowed_specific:
+        mode = "external_family_gate_supported"
+        current_run_rule = (
+            "Use external family-gate support to upgrade matching objects while keeping unverified "
+            "local objects in candidate language."
+        )
+    else:
+        mode = "local_acoustic_candidate_mode"
+        current_run_rule = (
+            "Use local time-frequency-timbre, prior, behavior, and performance evidence to show rough "
+            "source-family candidates with missing evidence and confusion fields attached."
+        )
+
+    return {
+        "version": "source_object_judgment_template_v0_1",
+        "mode": mode,
+        "applies_to": "current_song_run_only",
+        "current_run_rule": current_run_rule,
+        "lineup_source_object_ids": sorted(allowed_ids),
+        "external_allowed_specific_families": allowed_specific,
+        "evidence_priority": [
+            "song-specific user-supplied lineup or recording context",
+            "external recognition, stem, transcription, or adapter packets",
+            "symbolic MIDI / pitch / register evidence",
+            "OME / gammatone / arrangement windows and acoustic priors",
+            "full-mix temporal-timbre continuity",
+        ],
+        "decision_rules": [
+            {
+                "when": "exclusive_user_lineup_available",
+                "action": (
+                    "Show listed source objects as user-supported for this run; treat unlisted acoustic "
+                    "matches as confusion/function, not as performed source objects."
+                ),
+            },
+            {
+                "when": "nonexclusive_user_lineup_available",
+                "action": (
+                    "Upgrade listed source objects, but still allow other bounded local candidates if "
+                    "the evidence supports them."
+                ),
+            },
+            {
+                "when": "external_family_gate_available_without_exclusive_lineup",
+                "action": (
+                    "Upgrade matching source-family objects; keep other supported local objects visible "
+                    "as possible, likely-local, weak-local, or confused-with candidates."
+                ),
+            },
+            {
+                "when": "local_acoustic_evidence_only",
+                "action": (
+                    "Expose rough source-family object candidates and attach missing evidence, confidence, "
+                    "and confusion fields instead of hiding object names."
+                ),
+            },
+            {
+                "when": "fine_grained_family_confused_without_pitch_or_external_support",
+                "action": "Keep the object name visible but cap or downgrade the status and record the confusion.",
+            },
+        ],
+        "component_competition": component_competition_summary,
+        "boundary": (
+            "This template adjudicates evidence for the current song run only; it is not a fixed "
+            "instrumentation template for all songs."
+        ),
+    }
+
+
+def source_ids_from_family_hints(entries: list[dict[str, Any]]) -> set[str]:
+    aliases = {
+        "voice_object": {"voice", "vocal", "vocals", "singing", "two vocals", "dual vocals"},
+        "guitar_plucked_object": {"guitar", "acoustic guitar", "electric guitar", "plucked", "strummed guitar"},
+        "bass_low_register_object": {"bass", "low register"},
+        "drum_percussion_object": {"drum", "drums", "percussion"},
+        "keyboard_piano_object": {"keyboard", "piano", "keys"},
+        "synth_pad_harmonic_object": {"synth", "pad", "synth pad"},
+        "strings_bowed_object": {"strings", "bowed strings"},
+        "brass_wind_object": {"brass", "wind", "winds"},
+        "fx_texture_tail_object": {"fx", "effect", "texture", "tail"},
+    }
+    allowed: set[str] = set()
+    for entry in entries:
+        text = " ".join(
+            str(entry.get(key) or "").lower()
+            for key in ("family_hint", "source_family", "display_name", "role", "instrument")
+        )
+        for object_id, keys in aliases.items():
+            if any(key in text for key in keys):
+                allowed.add(object_id)
+    return allowed
+
+
 def calibrate_source_object(
     *,
     object_id: str,
@@ -320,11 +533,37 @@ def calibrate_source_object(
     has_external_verification: bool,
     missing_evidence: list[str],
     confusion: list[dict[str, Any]],
+    judgment_evidence: dict[str, Any],
 ) -> dict[str, Any]:
     score = raw_score
     applied: list[dict[str, Any]] = []
     missing_pitch = "pitch/register evidence" in set(missing_evidence)
     strongest_confusion = max((to_float(item.get("relative_support")) for item in confusion), default=0.0)
+    competition_status = str(judgment_evidence.get("status") or "competition_data_not_available")
+
+    if not has_external_verification and spec.get("group") != "voice_source_family_object":
+        if competition_status == "insufficient_distinctive_evidence":
+            cap = 0.41
+            if score > cap:
+                applied.append(
+                    {
+                        "rule": "insufficient_component_evidence_cap",
+                        "reason": "The exact-family candidate lacks distinctive positive evidence after counterevidence and competition are applied.",
+                        "cap": cap,
+                    }
+                )
+                score = min(score, cap)
+        elif competition_status in {"trailing_alternative", "ambiguous_with_close_competitor", "close_alternative"}:
+            cap = 0.54
+            if score > cap:
+                applied.append(
+                    {
+                        "rule": "ambiguous_or_trailing_component_cap",
+                        "reason": "The source-family name remains visible, but its local signature does not separate clearly from the leading competitor.",
+                        "cap": cap,
+                    }
+                )
+                score = min(score, cap)
 
     if (
         spec.get("requires_pitch_or_external_for_likely")
@@ -374,6 +613,7 @@ def calibrate_source_object(
         "has_primary_candidate": has_primary,
         "has_prior_support": has_prior,
         "strongest_confusion_support": round_float(strongest_confusion),
+        "component_competition_status": competition_status,
         "applied_adjustments": applied,
         "boundary": (
             "Calibration changes object visibility strength only. It keeps explicit source-family "
@@ -614,6 +854,9 @@ def render_markdown(layer: dict[str, Any]) -> str:
         "",
         str(layer.get("truth_boundary")),
         "",
+        "## Judgment Template",
+        "",
+        *render_judgment_template(layer.get("source_object_judgment_template")),
         "## Object Map",
         "",
     ]
@@ -629,8 +872,35 @@ def render_markdown(layer: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_judgment_template(value: Any) -> list[str]:
+    template = as_dict(value)
+    if not template:
+        return ["- Judgment mode: not recorded", ""]
+    lines = [
+        f"- Judgment mode: {template.get('mode')}",
+        f"- Applies to: {template.get('applies_to')}",
+        f"- Current-run rule: {template.get('current_run_rule')}",
+        f"- Boundary: {template.get('boundary')}",
+        "",
+    ]
+    priorities = list_strings(template.get("evidence_priority"))
+    if priorities:
+        lines.append("- Evidence priority:")
+        for item in priorities:
+            lines.append(f"  - {item}")
+        lines.append("")
+    rules = list_dicts(template.get("decision_rules"))
+    if rules:
+        lines.append("- Decision rules:")
+        for row in rules:
+            lines.append(f"  - {row.get('when')}: {row.get('action')}")
+        lines.append("")
+    return lines
+
+
 def render_object_markdown(item: dict[str, Any]) -> list[str]:
     calibration = as_dict(item.get("calibration"))
+    judgment = as_dict(item.get("judgment_evidence"))
     lines = [
         f"### {item.get('display_name')}",
         "",
@@ -645,10 +915,23 @@ def render_object_markdown(item: dict[str, Any]) -> list[str]:
         f"- Prior families: {format_prior_summary(item.get('prior_family_support'))}",
         f"- Missing evidence: {', '.join(list_strings(item.get('missing_evidence'))) or 'none flagged'}",
         f"- Confused with: {format_confusion(item.get('confused_with'))}",
+        f"- Competition judgment: {judgment.get('status') or 'not available'}; rank {judgment.get('rank_in_group') or 'n/a'}; gap to leader {judgment.get('candidate_gap') if judgment.get('candidate_gap') is not None else 'n/a'}",
+        f"- Positive evidence: {format_metric_evidence(judgment.get('positive_evidence'))}",
+        f"- Counterevidence: {format_metric_evidence(judgment.get('counterevidence'))}",
+        f"- Competition reading: {judgment.get('decision') or 'not available'}",
         f"- Handoff sentence: {item.get('safe_handoff_sentence')}",
         f"- Boundary: {item.get('boundary')}",
         "",
     ]
+    lineup = as_dict(item.get("lineup_support"))
+    if lineup:
+        lines.extend(
+            [
+                f"- User lineup: {lineup.get('status')}",
+                f"- User lineup basis: {lineup.get('basis')}",
+                "",
+            ]
+        )
     behavior = list_dicts(item.get("behavior_support"))
     if behavior:
         lines.append("- Behavior support:")
@@ -662,6 +945,11 @@ def render_object_markdown(item: dict[str, Any]) -> list[str]:
             lines.append(f"  - {row.get('display_name')} ({row.get('family')}, {row.get('score')}) at {format_range(row.get('time_range'))}")
         lines.append("")
     return lines
+
+
+def format_metric_evidence(value: Any) -> str:
+    rows = list_dicts(value)
+    return "; ".join(f"{row.get('reading')} ({row.get('value')})" for row in rows[:4]) or "none recorded"
 
 
 def format_calibration(calibration: dict[str, Any]) -> str:
@@ -700,12 +988,112 @@ def collect_by_families(index: dict[str, list[dict[str, Any]]], families: list[s
     return rows
 
 
+def summarize_component_judgment(
+    primary_candidates: list[dict[str, Any]],
+    supporting_candidates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    rows = []
+    for candidate in primary_candidates:
+        competition = as_dict(candidate.get("component_competition"))
+        if not competition:
+            continue
+        rows.append(
+            {
+                "object_candidate_id": candidate.get("object_candidate_id"),
+                "object_family": candidate.get("object_family"),
+                "competition_group": competition.get("competition_group"),
+                "rank_in_group": competition.get("rank_in_group"),
+                "adjusted_candidate_score": competition.get("adjusted_candidate_score"),
+                "gap_to_group_leader": competition.get("gap_to_group_leader"),
+                "leader_margin_over_runner_up": competition.get("leader_margin_over_runner_up"),
+                "ambiguity_status": competition.get("ambiguity_status"),
+                "positive_evidence": list_dicts(competition.get("positive_evidence")),
+                "counterevidence": list_dicts(competition.get("counterevidence")),
+            }
+        )
+    rows.sort(key=lambda row: to_float(row.get("adjusted_candidate_score")), reverse=True)
+    functional_context = [
+        {
+            "object_candidate_id": row.get("object_candidate_id"),
+            "object_family": row.get("object_family"),
+            "candidate_score": round_float(candidate_score(row)),
+            "role": "supporting functional context, not exact-family identity evidence",
+        }
+        for row in supporting_candidates[:4]
+    ]
+    if not rows:
+        return {
+            "status": "competition_data_not_available",
+            "positive_evidence": [],
+            "counterevidence": [],
+            "candidate_gap": None,
+            "functional_context": functional_context,
+            "decision": "Keep any visible source-family name bounded because no executable family competition result was supplied.",
+        }
+    best = rows[0]
+    status = str(best.get("ambiguity_status") or "unresolved")
+    if status == "leading_local_candidate":
+        decision = "This family leads its local competition group, subject to the recorded evidence limits."
+    elif status in {"ambiguous_with_close_competitor", "close_alternative"}:
+        decision = "This family remains visible but is not clearly separated from a close acoustic alternative."
+    elif status == "externally_supported_competitor":
+        decision = "External family evidence supports this competitor; local acoustic counterevidence remains visible."
+    else:
+        decision = "Distinctive evidence is weak or another family has a clearer local signature."
+    return {
+        "status": status,
+        "best_primary_candidate": best.get("object_candidate_id"),
+        "competition_group": best.get("competition_group"),
+        "rank_in_group": best.get("rank_in_group"),
+        "adjusted_candidate_score": best.get("adjusted_candidate_score"),
+        "candidate_gap": best.get("gap_to_group_leader"),
+        "leader_margin_over_runner_up": best.get("leader_margin_over_runner_up"),
+        "positive_evidence": best.get("positive_evidence"),
+        "counterevidence": best.get("counterevidence"),
+        "primary_candidate_competition": rows,
+        "functional_context": functional_context,
+        "decision": decision,
+        "boundary": "Positive evidence, counterevidence, and candidate margin support a bounded source-family object judgment only.",
+    }
+
+
+def summarize_source_object_competition(objects: list[dict[str, Any]], indexes: dict[str, Any]) -> dict[str, Any]:
+    rows = []
+    for item in objects:
+        judgment = as_dict(item.get("judgment_evidence"))
+        if judgment.get("status") == "competition_data_not_available":
+            continue
+        rows.append(
+            {
+                "source_object_id": item.get("source_object_id"),
+                "display_name": item.get("display_name"),
+                "status": judgment.get("status"),
+                "rank_in_group": judgment.get("rank_in_group"),
+                "adjusted_candidate_score": judgment.get("adjusted_candidate_score"),
+                "candidate_gap": judgment.get("candidate_gap"),
+                "leader_margin_over_runner_up": judgment.get("leader_margin_over_runner_up"),
+            }
+        )
+    return {
+        "status": "available" if rows else "not_available",
+        "temporal_layer_status": as_dict(indexes.get("temporal_component_competition")).get("status") or "not_attached",
+        "source_objects_with_competition": len(rows),
+        "judgments": rows,
+        "rule": "Functional support supplies context; exact source-family visibility is calibrated by positive evidence, counterevidence, and the gap to competing candidates.",
+    }
+
+
 def candidate_score(candidate: dict[str, Any]) -> float:
     support = as_dict(candidate.get("support_summary"))
     strength = claim_score(candidate.get("claim_strength"))
     active_mean = to_float(support.get("active_mean_support") or support.get("mean_support"))
     max_support = to_float(support.get("max_support"))
     coverage = to_float(support.get("active_coverage"))
+    competition = as_dict(candidate.get("component_competition"))
+    if competition:
+        adjusted = to_float(competition.get("adjusted_candidate_score"))
+        bounded_strength = min(strength, adjusted + 0.12)
+        return clamp(0.76 * adjusted + 0.24 * bounded_strength)
     return clamp(max(strength, 0.52 * active_mean + 0.28 * max_support + 0.20 * coverage))
 
 
@@ -772,7 +1160,13 @@ def valid_range(start: Any, end: Any) -> list[float]:
 
 def parse_time(value: str) -> float | None:
     try:
-        return float(str(value).strip().rstrip("s"))
+        text = str(value).strip().rstrip("s")
+        if ":" not in text:
+            return float(text)
+        total = 0.0
+        for part in text.split(":"):
+            total = total * 60.0 + float(part)
+        return total
     except (TypeError, ValueError):
         return None
 
@@ -837,6 +1231,15 @@ def round_float(value: Any) -> float:
 
 def clamp(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
+
+
+def append_sentence(base: Any, sentence: str) -> str:
+    text = str(base or "").strip()
+    if not text:
+        return sentence
+    if text.endswith("."):
+        return f"{text} {sentence}"
+    return f"{text}. {sentence}"
 
 
 def compact_sentence(value: Any, limit: int) -> str:

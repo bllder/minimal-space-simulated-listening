@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -65,6 +66,13 @@ GROUPS = {
 }
 
 NON_SPECIFIC_FAMILIES = {"mixed_accompaniment_bed"}
+
+NON_FAMILY_GATE_ADAPTER_TYPES = {
+    "midi_transcription",
+    "symbolic_midi",
+    "pitch_transcription",
+    "note_transcription",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -119,7 +127,17 @@ def build_layer(profile: dict[str, Any], packets: list[dict[str, Any]], min_conf
         raw_items.extend(extract_items(packet, packet_index))
 
     normalized = []
+    ignored_non_family_gate_items = []
     for item in raw_items:
+        adapter_type = str(item.get("adapter_type") or "").lower().replace("-", "_").replace(" ", "_")
+        if adapter_type in NON_FAMILY_GATE_ADAPTER_TYPES:
+            ignored_non_family_gate_items.append({
+                "adapter_name": item.get("adapter_name"),
+                "adapter_type": item.get("adapter_type"),
+                "label": item.get("label"),
+                "reason": "symbolic MIDI / pitch evidence cannot authorize source-family recognition",
+            })
+            continue
         family = normalize_family(item)
         confidence = confidence_value(item)
         if not family:
@@ -142,11 +160,20 @@ def build_layer(profile: dict[str, Any], packets: list[dict[str, Any]], min_conf
     by_family = aggregate_by_family(retained)
     allowed_specific = sorted(family for family in by_family.keys() if family not in NON_SPECIFIC_FAMILIES)
 
+    if retained:
+        status = "attached_external_recognition_evidence"
+    elif packets:
+        status = "attached_packets_no_retained_family_recognition"
+    else:
+        status = "no_external_recognition_adapter_attached"
+
     return {
         "version": "external_strong_recognition_layer_v0_2",
-        "status": "attached_external_recognition_evidence" if packets else "no_external_recognition_adapter_attached",
+        "status": status,
         "adapter_packet_count": len(packets),
         "raw_detection_count": len(raw_items),
+        "ignored_non_family_gate_item_count": len(ignored_non_family_gate_items),
+        "ignored_non_family_gate_items": ignored_non_family_gate_items[:32],
         "retained_detection_count": len(retained),
         "min_confidence": min_confidence,
         "recognized_families": list(by_family.values()),
@@ -208,12 +235,12 @@ def normalize_family(item: dict[str, Any]) -> str | None:
     label = str(item.get("label") or "").lower().strip()
     if not label:
         return None
-    normalized_label = label.replace("_", " ").replace("-", " ")
+    normalized_label = normalize_token(label)
     for family, aliases in FAMILY_ALIASES.items():
-        family_plain = family.replace("_", " ").lower()
+        family_plain = normalize_token(family)
         if family.lower() == label or family_plain in normalized_label:
             return family
-        if any(alias in normalized_label for alias in aliases):
+        if any(phrase_match(normalized_label, alias) for alias in aliases):
             return family
     return None
 
@@ -222,10 +249,21 @@ def confidence_value(item: dict[str, Any]) -> float:
     value = item.get("confidence")
     try:
         if value is None or value == "":
-            return 1.0
+            return 0.0
         return max(0.0, min(1.0, float(value)))
     except (TypeError, ValueError):
-        return 1.0
+        return 0.0
+
+
+def normalize_token(value: Any) -> str:
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).split())
+
+
+def phrase_match(text: str, phrase: str) -> bool:
+    normalized = normalize_token(phrase)
+    if not normalized:
+        return False
+    return re.search(rf"(?<![a-z0-9]){re.escape(normalized)}(?![a-z0-9])", text) is not None
 
 
 def aggregate_by_family(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:

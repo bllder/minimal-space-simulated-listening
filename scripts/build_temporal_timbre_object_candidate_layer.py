@@ -17,9 +17,10 @@ boundary.
 from __future__ import annotations
 
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -255,8 +256,9 @@ def build_layer(profile: dict[str, Any], external_packets: list[dict[str, Any]],
     candidates = []
     for family_id, spec in CANDIDATE_FAMILIES.items():
         candidate = build_candidate(family_id, spec, segments, ome_layer, external_index, prior_support_index)
-        if should_keep_candidate(candidate):
-            candidates.append(candidate)
+        candidates.append(candidate)
+    competition_diagnostic = apply_component_competition(candidates)
+    candidates = [candidate for candidate in candidates if should_keep_candidate(candidate)]
     candidates = sorted(candidates, key=lambda item: (claim_rank(str(item.get("claim_strength"))), to_float(as_dict(item.get("support_summary")).get("mean_support")), to_float(as_dict(item.get("support_summary")).get("max_support"))), reverse=True)
     prior_diagnostic = prior_bridge_diagnostic(prior_support_index, external_index, candidates)
     return {
@@ -267,6 +269,7 @@ def build_layer(profile: dict[str, Any], external_packets: list[dict[str, Any]],
         "candidate_generation_rule": "Object-family candidates are formed from professional-term-anchored time-frequency-timbre continuity, source/effect-family hypotheses, optional external evidence, optional instrument-prior evidence, and optional OME mapping support. They are not settled separated stems, true instrument identities, or exact effect-chain claims.",
         "evidence_sources": {"profile_segments": len(segments), "external_adapter_packet_count": len(external_packets), "ome_mapping_status": ome_layer.get("status") or "not_attached", "instrument_prior_filterbank_status": prior_support_index.get("status")},
         "prior_bridge_diagnostic": prior_diagnostic,
+        "component_competition_diagnostic": competition_diagnostic,
         "candidate_family_groups": group_family_ids(),
         "object_candidates": candidates,
         "next_layer_hint": {"behavior_layer": "Only after object candidates exist should MSSL summarize entry, flow, masking, tail attachment, support, and release behavior.", "ome_mapping_role": "OME maps supported object candidates into receiver-side spatial evidence; it does not generate object identity by itself."},
@@ -409,7 +412,33 @@ def source_hint_score(segment: dict[str, Any], terms: list[str]) -> float:
 
 
 def index_external_packets(packets: list[dict[str, Any]]) -> dict[str, Any]:
-    return {"packet_count": len(packets), "text": "\n".join(json.dumps(packet, ensure_ascii=False).lower() for packet in packets)}
+    items: list[dict[str, Any]] = []
+    eligible_packet_count = 0
+    ignored_types = {"midi_transcription", "symbolic_midi", "pitch_transcription", "note_transcription"}
+    for packet in packets:
+        adapter_type = str(packet.get("adapter_type") or packet.get("type") or "").lower().replace("-", "_").replace(" ", "_")
+        if adapter_type in ignored_types:
+            continue
+        eligible_packet_count += 1
+        for key in ("detections", "tracks", "events", "stems", "classes", "recognitions"):
+            for row in list_dicts(packet.get(key)):
+                label = next(
+                    (
+                        row.get(field)
+                        for field in ("family_hint", "instrument_family", "instrument", "stem", "source", "class_name", "label", "name")
+                        if row.get(field) not in (None, "")
+                    ),
+                    None,
+                )
+                confidence = first_float(row, "confidence", "support", "probability", "score")
+                if label and confidence is not None and confidence >= 0.55:
+                    items.append({"label": normalize_phrase(label), "confidence": clamp(confidence)})
+    return {
+        "packet_count": eligible_packet_count,
+        "attached_packet_count": len(packets),
+        "retained_item_count": len(items),
+        "items": items,
+    }
 
 
 def index_instrument_prior_filterbank(layer: dict[str, Any] | None) -> dict[str, Any]:
@@ -448,7 +477,6 @@ def calibrate_claim_strength(
     pitch_available = prior_pitch_register_available(prior_support_index)
     should_cap = (
         group in {"instrument_like_timbre_family", "effect_like_texture_family"}
-        and prior_support_index.get("status") == "available"
         and external_packets == 0
         and external_support not in {"moderate", "pronounced", "dominant"}
         and not pitch_available
@@ -590,6 +618,285 @@ PRIOR_SUPPORT_RULES: dict[str, dict[str, Any]] = {
 }
 
 
+COMPONENT_COMPETITION_RULES: dict[str, dict[str, Any]] = {
+    "guitar_like_plucked_melodic_layer": {"group": "pitched_harmonic_component", "signature": "plucked_harmonic"},
+    "piano_like_percussive_harmonic_layer": {"group": "pitched_harmonic_component", "signature": "key_struck_harmonic"},
+    "synth_pad_like_sustained_harmonic_bed": {"group": "pitched_harmonic_component", "signature": "wide_sustained_harmonic"},
+    "string_like_sustained_harmonic_layer": {"group": "pitched_harmonic_component", "signature": "bowed_sustained_harmonic"},
+    "brass_wind_like_sustained_lead_layer": {"group": "pitched_harmonic_component", "signature": "pressure_sustained_contour"},
+    "electronic_lead_like_melodic_layer": {"group": "pitched_harmonic_component", "signature": "bright_melodic_contour"},
+    "bass_like_low_body_layer": {"group": "low_or_impact_component", "signature": "pitched_low_continuity"},
+    "drum_like_transient_pulse_layer": {"group": "low_or_impact_component", "signature": "recurrent_transient"},
+    "impact_fx_like_transient_burst": {"group": "low_or_impact_component", "signature": "local_impact_burst"},
+    "reverb_tail_like_diffuse_field": {"group": "texture_or_tail_component", "signature": "diffuse_decay"},
+    "noise_riser_like_effect_flow": {"group": "texture_or_tail_component", "signature": "moving_noise_texture"},
+    "glitch_grain_like_texture_layer": {"group": "texture_or_tail_component", "signature": "fragmented_transient_texture"},
+}
+
+CLAIM_ORDER = {"weak": 1, "medium": 2, "strong": 3}
+
+SIGNATURE_POSITIVE_TERMS: dict[str, list[tuple[str, float, str]]] = {
+    "plucked_harmonic": [("harmonic", 0.25, "stable harmonic partial support"), ("transient", 0.20, "repeated articulated attacks"), ("mid", 0.15, "mid-band body"), ("contour", 0.15, "trackable pitch/contour support"), ("continuity", 0.10, "continuity across windows"), ("prior", 0.10, "matching plucked-family prior"), ("external", 0.05, "external family evidence")],
+    "key_struck_harmonic": [("harmonic", 0.23, "harmonic partial support"), ("transient", 0.27, "key-strike-like articulation"), ("onset", 0.15, "onset density"), ("mid", 0.12, "mid-band body"), ("contour", 0.08, "pitch/contour support"), ("prior", 0.10, "matching keyboard prior"), ("external", 0.05, "external family evidence")],
+    "wide_sustained_harmonic": [("harmonic", 0.24, "harmonic support"), ("sustain", 0.22, "sustained continuity"), ("wide", 0.18, "wide/spread receiver field"), ("low_transient", 0.12, "restrained attacks"), ("mid", 0.08, "mid-band support"), ("prior", 0.11, "matching electronic/keyboard prior"), ("external", 0.05, "external family evidence")],
+    "bowed_sustained_harmonic": [("harmonic", 0.28, "harmonic support"), ("sustain", 0.22, "sustained continuity"), ("low_transient", 0.16, "limited attack dominance"), ("mid", 0.12, "mid-band body"), ("contour", 0.07, "pitch/contour support"), ("prior", 0.10, "matching bowed-family prior"), ("external", 0.05, "external family evidence")],
+    "pressure_sustained_contour": [("harmonic", 0.24, "harmonic support"), ("sustain", 0.16, "sustained continuity"), ("mid", 0.16, "mid-band projection"), ("contour", 0.14, "trackable pitch/contour support"), ("pressure", 0.12, "pressure-forward support"), ("prior", 0.12, "matching brass/woodwind prior"), ("external", 0.06, "external family evidence")],
+    "bright_melodic_contour": [("harmonic", 0.18, "harmonic support"), ("brightness", 0.18, "upper-band brightness"), ("contour", 0.20, "trackable melodic contour"), ("motion", 0.12, "receiver-field motion"), ("onset", 0.10, "articulation"), ("prior", 0.14, "matching electronic/keyboard prior"), ("external", 0.08, "external family evidence")],
+    "pitched_low_continuity": [("low", 0.30, "low-band body"), ("harmonic", 0.19, "pitched harmonic support"), ("continuity", 0.18, "continuous low-body support"), ("pressure", 0.12, "pressure support"), ("low_brightness", 0.08, "limited upper-band dominance"), ("prior", 0.09, "matching low-register prior"), ("external", 0.04, "external family evidence")],
+    "recurrent_transient": [("percussive", 0.27, "percussive bias"), ("onset", 0.24, "onset density"), ("recurrence", 0.15, "recurrent active windows"), ("pressure", 0.10, "pressure peaks"), ("high", 0.08, "upper transient energy"), ("prior", 0.10, "matching percussion prior"), ("external", 0.06, "external family evidence")],
+    "local_impact_burst": [("percussive", 0.25, "percussive bias"), ("onset", 0.23, "onset density"), ("pressure", 0.18, "local pressure peak"), ("localness", 0.16, "short local coverage"), ("low", 0.06, "low-band impact support"), ("prior", 0.08, "matching impact prior"), ("external", 0.04, "external family evidence")],
+    "diffuse_decay": [("wide", 0.24, "wide/spread receiver field"), ("decorrelation", 0.16, "decorrelated field"), ("high", 0.12, "upper-band tail energy"), ("low_transient", 0.18, "restrained attack dominance"), ("sustain", 0.15, "decay continuity"), ("prior", 0.10, "matching diffuse/FX prior"), ("external", 0.05, "external family evidence")],
+    "moving_noise_texture": [("noise", 0.22, "noise-dominant texture"), ("high", 0.16, "upper-band texture"), ("motion", 0.18, "time-varying receiver field"), ("wide", 0.14, "wide/spread support"), ("onset", 0.08, "event articulation"), ("prior", 0.14, "matching FX prior"), ("external", 0.08, "external family evidence")],
+    "fragmented_transient_texture": [("noise", 0.20, "noise-dominant texture"), ("percussive", 0.20, "fragmented percussive support"), ("onset", 0.18, "dense local onsets"), ("high", 0.14, "upper-band grains"), ("decorrelation", 0.10, "decorrelated texture"), ("prior", 0.12, "matching granular/FX prior"), ("external", 0.06, "external family evidence")],
+}
+
+SIGNATURE_COUNTER_TERMS: dict[str, list[tuple[str, float, str]]] = {
+    "plucked_harmonic": [("noise", 0.25, "noise dominance weakens a plucked-harmonic reading"), ("low", 0.18, "low-band dominance is nonspecific"), ("no_contour", 0.27, "pitch/contour evidence is absent"), ("low_transient", 0.30, "articulation is too restrained")],
+    "key_struck_harmonic": [("noise", 0.24, "noise dominance weakens a struck-key reading"), ("low_transient", 0.38, "attack evidence is weak"), ("no_contour", 0.18, "pitch evidence is absent"), ("localness", 0.20, "support is too local for a continuing keyboard object")],
+    "wide_sustained_harmonic": [("transient", 0.34, "attack dominance contradicts a pad-like sustain"), ("localness", 0.24, "support is too local"), ("narrow", 0.24, "receiver field is narrow"), ("noise", 0.18, "noise dominates harmonic sustain")],
+    "bowed_sustained_harmonic": [("transient", 0.35, "attack dominance weakens a bowed-sustain reading"), ("noise", 0.25, "noise dominates harmonic continuity"), ("no_contour", 0.22, "pitch/contour evidence is absent"), ("localness", 0.18, "support is too local")],
+    "pressure_sustained_contour": [("transient", 0.25, "attack dominance weakens a sustained wind/brass reading"), ("noise", 0.22, "noise dominance is nonspecific"), ("no_contour", 0.30, "pitch/contour evidence is absent"), ("low_pressure", 0.23, "pressure support is weak")],
+    "bright_melodic_contour": [("low", 0.22, "low-band dominance weakens a bright lead reading"), ("no_contour", 0.36, "melodic contour evidence is absent"), ("low_motion", 0.18, "motion evidence is weak"), ("noise", 0.24, "noise dominance weakens a melodic reading")],
+    "pitched_low_continuity": [("high", 0.24, "upper-band dominance contradicts low-body identity"), ("no_low", 0.32, "low-band support is weak"), ("noise", 0.20, "noise dominance weakens pitched-low evidence"), ("localness", 0.24, "support is too local for a continuing low object")],
+    "recurrent_transient": [("harmonic", 0.22, "harmonic sustain is not distinctive percussion evidence"), ("low_onset", 0.38, "onset evidence is weak"), ("low_percussive", 0.28, "percussive evidence is weak"), ("sustain", 0.12, "continuous sustain weakens a pulse reading")],
+    "local_impact_burst": [("low_onset", 0.32, "onset evidence is weak"), ("low_percussive", 0.28, "percussive evidence is weak"), ("continuity", 0.24, "persistent support contradicts a local burst"), ("low_pressure", 0.16, "pressure evidence is weak")],
+    "diffuse_decay": [("transient", 0.30, "attack dominance weakens a decay-tail reading"), ("narrow", 0.30, "receiver field is narrow"), ("low", 0.16, "low-band dominance is nonspecific"), ("localness", 0.24, "tail continuity is weak")],
+    "moving_noise_texture": [("harmonic", 0.26, "stable harmonic support weakens a noise-riser reading"), ("low_motion", 0.30, "motion evidence is weak"), ("low_brightness", 0.24, "upper-band texture is weak"), ("continuity", 0.20, "persistent stationary support is not a rise")],
+    "fragmented_transient_texture": [("harmonic", 0.26, "stable harmonic support weakens a granular reading"), ("low_onset", 0.28, "fragmented onset evidence is weak"), ("low_percussive", 0.22, "percussive grain evidence is weak"), ("continuity", 0.24, "persistent smooth support is not fragmented")],
+}
+
+
+def apply_component_competition(candidates: list[dict[str, Any]]) -> dict[str, Any]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for candidate in candidates:
+        family_id = str(candidate.get("object_family") or "")
+        rule = COMPONENT_COMPETITION_RULES.get(family_id)
+        if not rule:
+            continue
+        metrics = component_metrics(candidate)
+        positive_rows, positive_score = metric_evidence_rows(SIGNATURE_POSITIVE_TERMS[str(rule["signature"])], metrics)
+        counter_rows, counter_score = metric_evidence_rows(SIGNATURE_COUNTER_TERMS[str(rule["signature"])], metrics)
+        base_score = component_base_score(candidate, metrics)
+        adjusted_score = clamp(0.44 * base_score + 0.50 * positive_score - 0.24 * counter_score + 0.06 * max(metrics["prior"], metrics["external"]))
+        candidate["component_competition"] = {
+            "competition_group": rule["group"],
+            "signature": rule["signature"],
+            "base_candidate_score": round_float(base_score),
+            "positive_evidence_score": round_float(positive_score),
+            "counterevidence_score": round_float(counter_score),
+            "adjusted_candidate_score": round_float(adjusted_score),
+            "positive_evidence": positive_rows,
+            "counterevidence": counter_rows,
+            "boundary": "Component competition distinguishes overlapping local source-family candidates; it does not settle source identity.",
+        }
+        grouped[str(rule["group"])].append(candidate)
+
+    group_rows: list[dict[str, Any]] = []
+    for group_id, rows in grouped.items():
+        ordered = sorted(rows, key=lambda row: to_float(as_dict(row.get("component_competition")).get("adjusted_candidate_score")), reverse=True)
+        leader_score = to_float(as_dict(ordered[0].get("component_competition")).get("adjusted_candidate_score")) if ordered else 0.0
+        runner_score = to_float(as_dict(ordered[1].get("component_competition")).get("adjusted_candidate_score")) if len(ordered) > 1 else 0.0
+        leader_margin = max(0.0, leader_score - runner_score)
+        ambiguous = len(ordered) > 1 and leader_margin < 0.07
+        ranking = []
+        for rank, candidate in enumerate(ordered, start=1):
+            competition = as_dict(candidate.get("component_competition"))
+            adjusted = to_float(competition.get("adjusted_candidate_score"))
+            gap = max(0.0, leader_score - adjusted)
+            positive = to_float(competition.get("positive_evidence_score"))
+            counter = to_float(competition.get("counterevidence_score"))
+            calibration = dict(as_dict(candidate.get("claim_strength_calibration")))
+            pitch_available = bool(calibration.get("pitch_register_evidence_available"))
+            external_score = to_float(as_dict(as_dict(candidate.get("evidence")).get("source_family_support")).get("external_adapter_score"))
+            externally_supported = external_score >= 0.55
+            if externally_supported:
+                status = "externally_supported_competitor"
+            elif positive < 0.34 or adjusted < 0.34 or counter >= positive:
+                status = "insufficient_distinctive_evidence"
+            elif ambiguous and rank <= 2:
+                status = "ambiguous_with_close_competitor"
+            elif rank == 1:
+                status = "leading_local_candidate"
+            elif gap <= 0.08:
+                status = "close_alternative"
+            else:
+                status = "trailing_alternative"
+
+            current_claim = str(candidate.get("claim_strength") or "weak")
+            final_claim = current_claim
+            cap_reason = None
+            if not externally_supported and not pitch_available:
+                if status == "insufficient_distinctive_evidence" or (rank > 1 and gap >= 0.08):
+                    final_claim = cap_claim_strength(final_claim, "weak")
+                    cap_reason = "distinctive evidence is weak or a competing family has a clearer local signature"
+                elif ambiguous or rank == 1:
+                    final_claim = cap_claim_strength(final_claim, "medium")
+                    if final_claim != current_claim:
+                        cap_reason = "local acoustic evidence cannot authorize a strong exact-family claim"
+
+            competition.update(
+                {
+                    "rank_in_group": rank,
+                    "candidate_count_in_group": len(ordered),
+                    "leader_candidate_id": ordered[0].get("object_candidate_id") if ordered else None,
+                    "gap_to_group_leader": round_float(gap),
+                    "leader_margin_over_runner_up": round_float(leader_margin),
+                    "ambiguity_status": status,
+                    "claim_strength_before_competition": current_claim,
+                    "claim_strength_after_competition": final_claim,
+                    "claim_cap_reason": cap_reason,
+                }
+            )
+            candidate["component_competition"] = competition
+            candidate["claim_strength"] = final_claim
+            calibration["component_competition_status"] = status
+            calibration["component_competition_group"] = group_id
+            calibration["component_competition_rank"] = rank
+            calibration["component_competition_gap_to_leader"] = round_float(gap)
+            calibration["claim_strength"] = final_claim
+            if final_claim != current_claim:
+                calibration["pre_competition_claim_strength"] = current_claim
+                calibration["competition_claim_cap"] = final_claim
+                if calibration.get("status") == "not_capped":
+                    calibration["status"] = "competition_calibrated"
+            candidate["claim_strength_calibration"] = calibration
+            refresh_candidate_sentence(candidate)
+            ranking.append(
+                {
+                    "object_candidate_id": candidate.get("object_candidate_id"),
+                    "object_family": candidate.get("object_family"),
+                    "rank": rank,
+                    "adjusted_candidate_score": round_float(adjusted),
+                    "gap_to_leader": round_float(gap),
+                    "ambiguity_status": status,
+                }
+            )
+        group_rows.append(
+            {
+                "competition_group": group_id,
+                "leader_candidate_id": ordered[0].get("object_candidate_id") if ordered else None,
+                "leader_margin_over_runner_up": round_float(leader_margin),
+                "ambiguous_top_pair": ambiguous,
+                "ranking": ranking,
+            }
+        )
+    return {
+        "status": "component_competition_applied",
+        "competition_group_count": len(group_rows),
+        "groups": group_rows,
+        "rule": "Exact source-family candidates compete on distinctive positive evidence, counterevidence, and score margin. Shared functional evidence cannot make every family a winner.",
+    }
+
+
+def component_metrics(candidate: dict[str, Any]) -> dict[str, float]:
+    evidence = as_dict(candidate.get("evidence"))
+    spectral = as_dict(evidence.get("spectral_envelope_support"))
+    temporal = as_dict(evidence.get("temporal_continuity"))
+    contour = as_dict(evidence.get("pitch_or_contour_support"))
+    source = as_dict(evidence.get("source_family_support"))
+    ome_means = as_dict(as_dict(evidence.get("ome_mapping_support")).get("receiver_field_means"))
+    support = as_dict(candidate.get("support_summary"))
+    prior = as_dict(candidate.get("instrument_prior_hypothesis_support"))
+    matched_windows = list_dicts(prior.get("matched_windows"))
+    prior_score = max((to_float(row.get("match_score")) for row in matched_windows), default=0.0)
+    coverage = clamp(to_float(support.get("active_coverage")))
+    longest = max(0, int(temporal.get("longest_consecutive_active_run") or 0))
+    contour_value = contour.get("dominant_melody_contour_proxy") or contour.get("dominant_phrase_shape")
+    contour_present = 0.0 if str(contour_value or "").lower() in {"", "none", "unknown", "blurred_contour", "no stable contour proxy"} else 1.0
+    harmonic = clamp(to_float(spectral.get("mean_harmonic_proxy")))
+    percussive = clamp(to_float(spectral.get("mean_percussive_proxy")))
+    onset = clamp(to_float(spectral.get("mean_onset_density_proxy")))
+    width = clamp(max(to_float(spectral.get("mean_stereo_width_proxy")), to_float(ome_means.get("perceived_width"))))
+    spread = clamp(to_float(ome_means.get("perceived_spread")))
+    phase = to_float(spectral.get("mean_phase_correlation"))
+    metrics = {
+        "low": clamp(to_float(spectral.get("mean_low_ratio"))),
+        "mid": clamp(to_float(spectral.get("mean_mid_ratio"))),
+        "high": clamp(to_float(spectral.get("mean_high_ratio"))),
+        "harmonic": harmonic,
+        "percussive": percussive,
+        "onset": onset,
+        "transient": max(percussive, onset),
+        "low_transient": 1.0 - max(percussive, onset),
+        "noise": 1.0 - harmonic,
+        "brightness": clamp(to_float(spectral.get("mean_spectral_centroid_hz")) / 5000.0),
+        "low_brightness": 1.0 - clamp(to_float(spectral.get("mean_spectral_centroid_hz")) / 5000.0),
+        "width": width,
+        "wide": max(width, spread),
+        "narrow": 1.0 - max(width, spread),
+        "decorrelation": clamp((1.0 - phase) * 0.5),
+        "pressure": clamp(to_float(ome_means.get("perceived_pressure"))),
+        "low_pressure": 1.0 - clamp(to_float(ome_means.get("perceived_pressure"))),
+        "motion": clamp(to_float(ome_means.get("perceived_motion"))),
+        "low_motion": 1.0 - clamp(to_float(ome_means.get("perceived_motion"))),
+        "contour": contour_present,
+        "no_contour": 1.0 - contour_present,
+        "continuity": max(coverage, clamp(longest / 4.0)),
+        "sustain": max(coverage, clamp(longest / 4.0), 1.0 - onset),
+        "recurrence": max(coverage, clamp(longest / 3.0)),
+        "localness": 1.0 - min(1.0, coverage * 1.7),
+        "no_low": 1.0 - clamp(to_float(spectral.get("mean_low_ratio")) * 2.2),
+        "low_onset": 1.0 - onset,
+        "low_percussive": 1.0 - percussive,
+        "prior": clamp(prior_score),
+        "external": clamp(to_float(source.get("external_adapter_score"))),
+    }
+    return metrics
+
+
+def metric_evidence_rows(terms: list[tuple[str, float, str]], metrics: dict[str, float]) -> tuple[list[dict[str, Any]], float]:
+    rows = []
+    score = 0.0
+    for field, weight, reading in terms:
+        value = clamp(metrics.get(field, 0.0))
+        contribution = weight * value
+        score += contribution
+        if contribution >= 0.025:
+            rows.append({"field": field, "value": round_float(value), "contribution": round_float(contribution), "reading": reading})
+    rows.sort(key=lambda row: to_float(row.get("contribution")), reverse=True)
+    return rows[:6], clamp(score)
+
+
+def component_base_score(candidate: dict[str, Any], metrics: dict[str, float]) -> float:
+    support = as_dict(candidate.get("support_summary"))
+    active_mean = to_float(support.get("active_mean_support") or support.get("mean_support"))
+    maximum = to_float(support.get("max_support"))
+    coverage = to_float(support.get("active_coverage"))
+    return clamp(0.46 * active_mean + 0.24 * maximum + 0.12 * coverage + 0.10 * metrics["prior"] + 0.08 * metrics["external"])
+
+
+def cap_claim_strength(value: str, maximum: str) -> str:
+    return value if CLAIM_ORDER.get(value, 0) <= CLAIM_ORDER.get(maximum, 0) else maximum
+
+
+def refresh_candidate_sentence(candidate: dict[str, Any]) -> None:
+    family_id = str(candidate.get("object_family") or "")
+    spec = CANDIDATE_FAMILIES.get(family_id)
+    if not spec:
+        return
+    evidence = as_dict(candidate.get("evidence"))
+    sentence = build_continuous_object_sentence(
+        spec,
+        str(candidate.get("claim_strength") or "weak"),
+        as_dict(evidence.get("temporal_continuity")),
+        as_dict(evidence.get("timbre_continuity")),
+        as_dict(evidence.get("spectral_envelope_support")),
+        as_dict(evidence.get("pitch_or_contour_support")),
+        as_dict(evidence.get("ome_mapping_support")),
+        list_dicts(candidate.get("professional_terminology_anchors")),
+    )
+    competition = as_dict(candidate.get("component_competition"))
+    competition_note = (
+        f" Component competition: {competition.get('ambiguity_status')}; rank "
+        f"{competition.get('rank_in_group')} of {competition.get('candidate_count_in_group')}; "
+        f"gap to group leader {competition.get('gap_to_group_leader')}."
+    )
+    card = dict(as_dict(candidate.get("object_continuity_card")))
+    card["continuous_object_sentence"] = sentence + competition_note
+    card["handoff_sentence"] = sentence + competition_note
+    candidate["object_continuity_card"] = card
+
+
 def prior_segment_support_score(family_id: str, bounds: dict[str, Any], prior_support_index: dict[str, Any]) -> float:
     time_range = time_range_from_bounds(bounds)
     if not time_range:
@@ -722,10 +1029,13 @@ def prior_window_missing_evidence(all_priors: list[dict[str, Any]], selected_pri
 
 
 def external_hint_score(external_index: dict[str, Any], family_id: str, terms: list[str]) -> float:
-    text = str(external_index.get("text") or "")
-    if not text: return 0.0
-    keys = [family_id.replace("_", " "), family_id.replace("_", "-")] + terms
-    return clamp(sum(1 for key in keys if key and key.lower() in text) / max(1, len(keys)))
+    keys = [normalize_phrase(family_id), *[normalize_phrase(term) for term in terms]]
+    best = 0.0
+    for item in list_dicts(external_index.get("items")):
+        label = str(item.get("label") or "")
+        if any(phrase_contains(label, key) for key in keys if key):
+            best = max(best, to_float(item.get("confidence")))
+    return clamp(best)
 
 
 def source_family_summary(family_id: str, spec: dict[str, Any], active: list[dict[str, Any]], external_index: dict[str, Any]) -> dict[str, Any]:
@@ -735,7 +1045,7 @@ def source_family_summary(family_id: str, spec: dict[str, Any], active: list[dic
             name = str(source.get("source") or ""); text = f"{name} {source.get('basis', '')}".lower()
             if any(str(term).lower() in text for term in terms): matched_sources[name] += 1
     external_score = external_hint_score(external_index, family_id, terms)
-    return {"full_mix_source_hint_counts": dict(matched_sources), "external_adapter_support": scalar_band(external_score), "external_adapter_packet_count": int(external_index.get("packet_count") or 0), "professional_term_anchor": safe_term("source_family_hypotheses"), "boundary": "Source/effect-family support is a bounded hint. It must not be promoted to instrument, stem, sample, or effects-chain certainty."}
+    return {"full_mix_source_hint_counts": dict(matched_sources), "external_adapter_support": scalar_band(external_score), "external_adapter_score": round_float(external_score), "external_adapter_packet_count": int(external_index.get("packet_count") or 0), "professional_term_anchor": safe_term("source_family_hypotheses"), "boundary": "Source/effect-family support is a bounded hint. It must not be promoted to instrument, stem, sample, or effects-chain certainty."}
 
 
 def support_summary_for(segment_values: list[dict[str, Any]], active: list[dict[str, Any]]) -> dict[str, Any]:
@@ -766,9 +1076,10 @@ def spectral_profile_summary(active: list[dict[str, Any]]) -> dict[str, Any]:
     snapshots = [as_dict(item.get("feature_snapshot")) for item in active]
     if not snapshots: return {"dominant_band": "unknown", "harmonic_percussive_state": "insufficient", "professional_term_anchors": [safe_term("band_energy")]}
     low = mean(snapshot.get("low_ratio") for snapshot in snapshots); mid = mean(snapshot.get("mid_ratio") for snapshot in snapshots); high = mean(snapshot.get("high_ratio") for snapshot in snapshots); harmonic = mean(snapshot.get("harmonic_proxy") for snapshot in snapshots); percussive = mean(snapshot.get("percussive_proxy") for snapshot in snapshots)
+    onset = mean(snapshot.get("onset_density_proxy") for snapshot in snapshots); centroid = mean(snapshot.get("spectral_centroid_hz") for snapshot in snapshots); width = mean(snapshot.get("stereo_width_proxy") for snapshot in snapshots); phase = mean(snapshot.get("phase_correlation") for snapshot in snapshots)
     dominant_band = max({"low": low, "mid": mid, "high": high}.items(), key=lambda item: item[1])[0]
     hp_state = "plucked_or_articulated_harmonic_bias" if harmonic >= 0.68 and percussive >= 0.42 else "sustained_harmonic_bias" if harmonic >= 0.68 else "percussive_transient_bias" if percussive >= 0.52 else "noisy_or_air_texture_bias" if high >= 0.35 and harmonic < 0.55 else "mixed_or_texture_bias"
-    return {"dominant_band": dominant_band, "mean_low_ratio": round_float(low), "mean_mid_ratio": round_float(mid), "mean_high_ratio": round_float(high), "harmonic_percussive_state": hp_state, "professional_term_anchors": [safe_term("band_energy"), safe_term("harmonic_proxy"), safe_term("percussive_proxy"), safe_term("spectral_flatness")]}
+    return {"dominant_band": dominant_band, "mean_low_ratio": round_float(low), "mean_mid_ratio": round_float(mid), "mean_high_ratio": round_float(high), "mean_harmonic_proxy": round_float(harmonic), "mean_percussive_proxy": round_float(percussive), "mean_onset_density_proxy": round_float(onset), "mean_spectral_centroid_hz": round_float(centroid), "mean_stereo_width_proxy": round_float(width), "mean_phase_correlation": round_float(phase), "harmonic_percussive_state": hp_state, "professional_term_anchors": [safe_term("band_energy"), safe_term("harmonic_proxy"), safe_term("percussive_proxy"), safe_term("spectral_flatness")]}
 
 
 def contour_support_summary(active: list[dict[str, Any]]) -> dict[str, Any]:
@@ -780,7 +1091,7 @@ def contour_support_summary(active: list[dict[str, Any]]) -> dict[str, Any]:
 def ome_mapping_summary(active: list[dict[str, Any]], ome_layer: dict[str, Any]) -> dict[str, Any]:
     if not active: return {"status": "insufficient_active_object_support"}
     weighted = weighted_e_space(active)
-    return {"status": "mapped_from_segment_e_space", "ome_runtime_status": ome_layer.get("status") or "not_attached", "professional_term_anchors": [safe_term("left_right_balance"), safe_term("width"), safe_term("spread"), safe_term("phase_correlation"), safe_term("near_far"), safe_term("envelopment")], "dominant_position": lateral_position(weighted.get("left_right", 0.0)), "width_tendency": width_tendency(weighted.get("perceived_width", 0.0), weighted.get("perceived_spread", 0.0)), "pressure_tendency": scalar_band(weighted.get("perceived_pressure", 0.0)), "distance_presence": distance_tendency(weighted.get("near_far", 0.0)), "summary": spatial_sentence(weighted), "boundary": "OME support maps an already-supported object candidate into receiver-side space; it does not generate the object identity."}
+    return {"status": "mapped_from_segment_e_space", "ome_runtime_status": ome_layer.get("status") or "not_attached", "professional_term_anchors": [safe_term("left_right_balance"), safe_term("width"), safe_term("spread"), safe_term("phase_correlation"), safe_term("near_far"), safe_term("envelopment")], "dominant_position": lateral_position(weighted.get("left_right", 0.0)), "width_tendency": width_tendency(weighted.get("perceived_width", 0.0), weighted.get("perceived_spread", 0.0)), "pressure_tendency": scalar_band(weighted.get("perceived_pressure", 0.0)), "distance_presence": distance_tendency(weighted.get("near_far", 0.0)), "receiver_field_means": {key: round_float(value) for key, value in weighted.items()}, "summary": spatial_sentence(weighted), "boundary": "OME support maps an already-supported object candidate into receiver-side space; it does not generate the object identity."}
 
 
 def claim_strength_for(support: dict[str, Any], temporal: dict[str, Any], timbre: dict[str, Any], source_family: dict[str, Any], spec: dict[str, Any]) -> str:
@@ -834,7 +1145,32 @@ def feature_snapshot(segment: dict[str, Any]) -> dict[str, Any]:
 
 
 def active_time_ranges(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [{"time_range": item.get("time_range"), "support": item.get("support"), "support_band": item.get("support_band")} for item in active[:12]]
+    ordered = sorted(active, key=lambda item: int(item.get("index", -1)))
+    groups: list[list[dict[str, Any]]] = []
+    for item in ordered:
+        if not groups or int(item.get("index", -1)) > int(groups[-1][-1].get("index", -1)) + 1:
+            groups.append([item])
+        else:
+            groups[-1].append(item)
+    ranges = []
+    for group in groups[:16]:
+        first_bounds = as_dict(group[0].get("time_bounds"))
+        last_bounds = as_dict(group[-1].get("time_bounds"))
+        start = to_float(first_bounds.get("start_seconds"))
+        end = to_float(last_bounds.get("end_seconds"))
+        if end <= start:
+            continue
+        supports = [to_float(item.get("support")) for item in group]
+        ranges.append(
+            {
+                "time_range": [round_float(start), round_float(end)],
+                "time_label": f"{group[0].get('time_range')} -> {group[-1].get('time_range')}",
+                "mean_support": round_float(sum(supports) / len(supports)),
+                "max_support": round_float(max(supports)),
+                "segment_count": len(group),
+            }
+        )
+    return ranges
 
 
 def representative_segments(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -993,6 +1329,28 @@ def list_floats(value: Any) -> list[float]:
         except (TypeError, ValueError):
             continue
     return results
+
+
+def first_float(mapping: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        value = mapping.get(key)
+        if value in (None, ""):
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def normalize_phrase(value: Any) -> str:
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).split())
+
+
+def phrase_contains(text: str, phrase: str) -> bool:
+    if not phrase:
+        return False
+    return re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", text) is not None
 
 
 def time_range_from_bounds(bounds: dict[str, Any]) -> list[float]:

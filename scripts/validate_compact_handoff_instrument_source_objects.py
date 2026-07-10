@@ -84,6 +84,13 @@ def build_source_object_layer() -> dict[str, Any]:
         "version": "instrument_source_object_layer_v0_1",
         "status": "attached_explicit_source_family_objects",
         "truth_boundary": "Explicit source-family object candidates only. Not confirmed sources, separated stems, performer/person claims, exact instrument recognition, lyric evidence, genre evidence, or creator intent.",
+        "source_object_judgment_template": {
+            "version": "source_object_judgment_template_v0_1",
+            "mode": "local_acoustic_candidate_mode",
+            "applies_to": "current_song_run_only",
+            "current_run_rule": "Use local evidence to show rough source-family candidates with missing evidence and confusion fields attached.",
+            "boundary": "This template adjudicates evidence for the current song run only; it is not a fixed instrumentation template for all songs.",
+        },
         "source_family_object_count": len(ids),
         "visible_object_count": len(ids),
         "source_family_objects": [
@@ -111,6 +118,13 @@ def build_source_object_layer() -> dict[str, Any]:
                 "online_ai_handoff_role": "explicit source-family candidate for MVP handoff",
                 "missing_evidence": ["pitch/register evidence", "external verification"],
                 "confused_with": [],
+                "judgment_evidence": {
+                    "status": "leading_local_candidate" if object_id in {"bass_low_register_object", "voice_object"} else "ambiguous_with_close_competitor",
+                    "rank_in_group": 1,
+                    "candidate_gap": 0.0,
+                    "positive_evidence": [{"reading": "synthetic positive evidence", "value": 0.72}],
+                    "counterevidence": [{"reading": "synthetic counterevidence", "value": 0.31}],
+                },
             }
             for object_id, display, status in ids
         ],
@@ -130,9 +144,13 @@ def validate_markdown(markdown: str) -> None:
         "Strings / bowed object",
         "Brass / wind object",
         "FX / texture / tail object",
-        "candidate / possible / likely-local / weak-local",
-        "Calibration",
-        "Do not hide bass/guitar/drum/synth/voice/FX object names",
+        "source-family object candidates with confidence",
+        "Judgment mode",
+        "current_song_run_only",
+        "Component competition",
+        "Positive evidence",
+        "Counterevidence",
+        "Data reading note",
     ]
     missing = [item for item in required if item not in markdown]
     if missing:
@@ -140,6 +158,8 @@ def validate_markdown(markdown: str) -> None:
     lower = markdown.lower()
     if "use functional object language only" in lower:
         fail("Compact handoff still tells the online AI to use functional language only")
+    if "[听辨]" in markdown or "evidence/source tags" in lower:
+        fail("Compact handoff should not force evidence labels into the review")
 
 
 def assert_no_forbidden_claims(text: str) -> None:

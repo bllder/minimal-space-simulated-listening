@@ -92,6 +92,7 @@ def main() -> int:
         validate_layer(layer)
         validate_markdown(markdown)
         assert_no_forbidden_claims(output_json.read_text(encoding="utf-8") + "\n" + markdown)
+        validate_user_lineup_constraint(tmpdir, object_path, prior_path, behavior_path, performance_path)
         print("OK: instrument/source-family object layer validated")
         print(f"Source-family objects: {layer.get('source_family_object_count')}")
         print(f"Visible objects: {layer.get('visible_object_count')}")
@@ -131,7 +132,7 @@ def build_object_layer() -> dict[str, Any]:
 
 def candidate(family: str, group: str, claim: str, time_range: list[float]) -> dict[str, Any]:
     start, end = time_range
-    return {
+    row = {
         "object_candidate_id": f"{family}_01",
         "object_family": family,
         "object_family_group": group,
@@ -162,6 +163,29 @@ def candidate(family: str, group: str, claim: str, time_range: list[float]) -> d
             },
         },
     }
+    if group != "functional_object_family":
+        competition_group = (
+            "low_or_impact_component"
+            if family in {"bass_like_low_body_layer", "drum_like_transient_pulse_layer"}
+            else "texture_or_tail_component"
+            if family in {"noise_riser_like_effect_flow"}
+            else "pitched_harmonic_component"
+        )
+        row["component_competition"] = {
+            "competition_group": competition_group,
+            "signature": "synthetic_signature",
+            "adjusted_candidate_score": 0.60 if claim == "medium" else 0.35,
+            "positive_evidence_score": 0.58,
+            "counterevidence_score": 0.22,
+            "positive_evidence": [{"field": "synthetic_positive", "value": 0.72, "contribution": 0.18, "reading": "synthetic distinctive support"}],
+            "counterevidence": [{"field": "synthetic_counter", "value": 0.32, "contribution": 0.08, "reading": "synthetic competing support"}],
+            "rank_in_group": 1,
+            "candidate_count_in_group": 2,
+            "gap_to_group_leader": 0.0,
+            "leader_margin_over_runner_up": 0.05,
+            "ambiguity_status": "ambiguous_with_close_competitor" if claim == "medium" else "insufficient_distinctive_evidence",
+        }
+    return row
 
 
 def build_prior_layer() -> dict[str, Any]:
@@ -245,9 +269,41 @@ def build_performance_layer() -> dict[str, Any]:
     }
 
 
+def build_user_lineup() -> dict[str, Any]:
+    return {
+        "schema": "mssl_user_source_lineup_v0_1",
+        "status": "user_supplied_exclusive_lineup",
+        "exclusive": True,
+        "basis": "synthetic user correction: two vocals and one guitar only",
+        "lineup": [
+            {
+                "source_object_id": "voice_object",
+                "display_name": "two vocal parts",
+                "count": 2,
+                "confidence": 1.0,
+                "basis": "user supplied lineup",
+            },
+            {
+                "source_object_id": "guitar_plucked_object",
+                "display_name": "one guitar",
+                "count": 1,
+                "confidence": 1.0,
+                "basis": "user supplied lineup",
+            },
+        ],
+    }
+
+
 def validate_layer(layer: dict[str, Any]) -> None:
     if layer.get("version") != "instrument_source_object_layer_v0_1":
         fail("Unexpected layer version")
+    judgment = as_dict(layer.get("source_object_judgment_template"))
+    if judgment.get("mode") != "local_acoustic_candidate_mode":
+        fail(f"Default synthetic fixture should use local acoustic judgment mode, got {judgment.get('mode')}")
+    if judgment.get("applies_to") != "current_song_run_only":
+        fail("Judgment template must apply to the current song run only")
+    if "not a fixed instrumentation template for all songs" not in str(judgment.get("boundary")):
+        fail("Judgment template must state it is not a fixed instrumentation template")
     objects = list_dicts(layer.get("source_family_objects"))
     by_id = {str(item.get("source_object_id")): item for item in objects}
     missing = sorted(REQUIRED_OBJECT_IDS - set(by_id))
@@ -261,8 +317,24 @@ def validate_layer(layer: dict[str, Any]) -> None:
             fail(f"{object_id} missing safe_handoff_sentence")
         if item.get("verification_status") != "local_acoustic_candidate_not_verified":
             fail(f"{object_id} should remain local candidate in this fixture")
+        if not list_dicts(item.get("time_ranges")):
+            fail(f"{object_id} should preserve numeric active time ranges")
         if "external verification" not in list_strings(item.get("missing_evidence")):
             fail(f"{object_id} did not preserve missing external verification")
+        if object_id != "voice_object":
+            judgment = as_dict(item.get("judgment_evidence"))
+            if judgment.get("status") == "competition_data_not_available":
+                fail(f"{object_id} did not consume temporal component competition")
+            if not list_dicts(judgment.get("positive_evidence")):
+                fail(f"{object_id} missing positive judgment evidence")
+            if not list_dicts(judgment.get("counterevidence")):
+                fail(f"{object_id} missing counterevidence")
+            if judgment.get("candidate_gap") is None:
+                fail(f"{object_id} missing candidate gap")
+            if judgment.get("status") == "ambiguous_with_close_competitor" and item.get("visibility_status") == "likely_local":
+                fail(f"{object_id} should not be likely_local when its top family competition is ambiguous")
+            if judgment.get("status") == "insufficient_distinctive_evidence" and item.get("visibility_status") not in {"weak_local", "not_supported"}:
+                fail(f"{object_id} should remain weak when distinctive component evidence is insufficient")
     display_names = " ".join(str(item.get("display_name")) for item in objects)
     for expected in ("Voice", "Bass", "Drum", "Guitar", "Keyboard", "Synth", "FX"):
         if expected not in display_names:
@@ -280,6 +352,61 @@ def validate_layer(layer: dict[str, Any]) -> None:
             fail(f"{calibrated_id} should be calibrated to possible")
     if int(layer.get("visible_object_count") or 0) < len(REQUIRED_OBJECT_IDS):
         fail("Visible object count is too low")
+    competition = as_dict(layer.get("component_competition_summary"))
+    if competition.get("status") != "available":
+        fail("Source-object component competition summary was not attached")
+
+
+def validate_user_lineup_constraint(
+    tmpdir: Path,
+    object_path: Path,
+    prior_path: Path,
+    behavior_path: Path,
+    performance_path: Path,
+) -> None:
+    lineup_path = tmpdir / "user_source_lineup.json"
+    lineup_output_dir = tmpdir / "lineup"
+    lineup_path.write_text(json.dumps(build_user_lineup(), ensure_ascii=False, indent=2), encoding="utf-8")
+    cmd = [
+        sys.executable,
+        "-B",
+        str(BUILDER),
+        "--object-candidates",
+        str(object_path),
+        "--instrument-prior-filterbank",
+        str(prior_path),
+        "--auditory-object-behavior",
+        str(behavior_path),
+        "--musical-object-performance",
+        str(performance_path),
+        "--source-lineup",
+        str(lineup_path),
+        "--output-dir",
+        str(lineup_output_dir),
+    ]
+    subprocess.run(cmd, cwd=PROJECT_ROOT, check=True, capture_output=True, text=True)
+    layer = json.loads((lineup_output_dir / OUTPUT_JSON).read_text(encoding="utf-8"))
+    judgment = as_dict(layer.get("source_object_judgment_template"))
+    if judgment.get("mode") != "user_supplied_exclusive_lineup":
+        fail(f"User lineup run should use exclusive lineup judgment mode, got {judgment.get('mode')}")
+    if judgment.get("applies_to") != "current_song_run_only":
+        fail("User lineup judgment must remain current-run-only")
+    if "not a fixed instrumentation template for all songs" not in str(judgment.get("boundary")):
+        fail("User lineup judgment must not become a global instrumentation template")
+    visible = [
+        str(item.get("source_object_id"))
+        for item in list_dicts(layer.get("source_family_objects"))
+        if item.get("visibility_status") != "not_supported"
+    ]
+    if visible != ["voice_object", "guitar_plucked_object"]:
+        fail(f"User lineup should leave only voice and guitar visible, got {visible}")
+    by_id = {str(item.get("source_object_id")): item for item in list_dicts(layer.get("source_family_objects"))}
+    for object_id in visible:
+        if by_id[object_id].get("verification_status") != "user_supplied_lineup":
+            fail(f"{object_id} did not receive user_supplied_lineup verification status")
+    for object_id, item in by_id.items():
+        if object_id not in set(visible) and item.get("verification_status") != "excluded_by_user_supplied_lineup":
+            fail(f"{object_id} should be excluded by user supplied lineup")
 
 
 def validate_markdown(markdown: str) -> None:
@@ -295,6 +422,9 @@ def validate_markdown(markdown: str) -> None:
         "Strings / bowed object",
         "Brass / wind object",
         "FX / texture / tail object",
+        "## Judgment Template",
+        "Judgment mode",
+        "current_song_run_only",
         "Visibility status",
         "Calibration",
         "Confused with",

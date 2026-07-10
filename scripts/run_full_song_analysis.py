@@ -289,7 +289,7 @@ def analyze_full_song(samples: np.ndarray, meta: WavMetadata, args: argparse.Nam
     optional_adapters = build_optional_adapter_registry()
 
     return {
-        "version": "mssl_full_song_analysis_v4_2_human_calibrated",
+        "version": "mssl_full_song_analysis_v4_3_evidence_profile",
         "analysis_label": args.analysis_label or Path(meta.input_path).stem,
         "source_audio": meta.input_path,
         "preflight": {
@@ -304,7 +304,7 @@ def analyze_full_song(samples: np.ndarray, meta: WavMetadata, args: argparse.Nam
         "policy": {
             "not_one_second_validation": True,
             "segmentation_unit": "music-like structural segments with frame-level evidence underneath",
-            "foundation_first": "V4.2 reports song structure, MIDI-like skeleton, adapter evidence, lyric-alignment status, optional human P4 calibration, and then MSSL spatial interpretation.",
+            "foundation_first": "V4.3 builds the structural evidence profile used by the MSSL identity, MIDI, OME, object, performance, source-family, lyric-context, and handoff layers.",
             "mssl_boundary": "MSSL is not a genre classifier, source separator, singer identifier, ASR system, or true 3D localization engine.",
             "style_status": "heuristic style profile candidates, not authoritative genre recognition",
             "space_status": "receiver-side perceived-space proxy from stereo evidence, not physical room reconstruction",
@@ -320,12 +320,9 @@ def analyze_full_song(samples: np.ndarray, meta: WavMetadata, args: argparse.Nam
             "Mechanism to OME Translation",
             "Spatiotemporal Mapping Packet",
             "O to M to E Mapping",
-            "Object Candidate Building",
-            "Temporal Spatial Object Tracking",
-            "Auditory Scene Graph",
-            "Human P4 Listening-Language Calibration",
-            "Listening Report",
-        ],
+            "Segment-level Functional Object Evidence",
+            "Full-Song Structural Evidence Profile",
+        ] + (["Optional User Listening-Language Calibration"] if human_calibration else []),
         "analysis_parameters": {
             "frame_seconds": safe_float(args.frame_seconds),
             "hop_seconds": safe_float(args.hop_seconds),

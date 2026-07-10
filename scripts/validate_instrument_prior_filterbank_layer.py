@@ -243,9 +243,30 @@ def validate_layer(layer: dict[str, Any]) -> None:
         broad = list_dicts(window.get("broad_family_hypotheses"))
         ranked = list_dicts(window.get("ranked_instrument_hypotheses"))
         if not broad:
-            fail(f"{window.get('window_id')} missing broad family hypotheses")
+            if ranked:
+                fail(f"{window.get('window_id')} has exact priors without a retained broad family")
+            if not window.get("unresolved_reason"):
+                fail(f"{window.get('window_id')} needs an unresolved reason when no family survives")
+            competition = as_dict(window.get("family_competition"))
+            if competition.get("status") != "no_family_survived":
+                fail(f"{window.get('window_id')} did not preserve an explicit no-family result")
+            continue
         if not ranked and not window.get("unresolved_reason"):
             fail(f"{window.get('window_id')} missing ranked hypotheses or unresolved reason")
+        if len(broad) > 3:
+            fail(f"{window.get('window_id')} retained too many broad families: {len(broad)}")
+        broad_families = {str(item.get("family")) for item in broad}
+        exact_family_counts: dict[str, int] = {}
+        for family_row in broad:
+            if family_row.get("rank") is None or family_row.get("gap_to_leader") is None:
+                fail(f"{window.get('window_id')} broad family is missing competition rank/gap")
+            if not list_dicts(family_row.get("positive_evidence")):
+                fail(f"{window.get('window_id')} broad family is missing positive evidence")
+            if "counterevidence" not in family_row:
+                fail(f"{window.get('window_id')} broad family is missing counterevidence field")
+        competition = as_dict(window.get("family_competition"))
+        if int(to_float(competition.get("retained_family_count"))) != len(broad):
+            fail(f"{window.get('window_id')} family competition count is inconsistent")
         for lane in list_strings(window.get("dominant_arrangement_lanes")):
             if lane not in ALLOWED_LANES:
                 fail(f"Unknown dominant lane: {lane}")
@@ -255,6 +276,14 @@ def validate_layer(layer: dict[str, Any]) -> None:
             fail(f"Unknown lane support keys: {unknown_lanes}")
 
         for hypothesis in ranked:
+            family = str(hypothesis.get("family") or "")
+            if family not in broad_families:
+                fail(f"{window.get('window_id')} exact prior escaped retained broad families: {family}")
+            exact_family_counts[family] = exact_family_counts.get(family, 0) + 1
+            if exact_family_counts[family] > 2:
+                fail(f"{window.get('window_id')} retained too many exact priors for {family}")
+            if not as_dict(hypothesis.get("family_competition")):
+                fail(f"{window.get('window_id')} exact prior is missing family competition context")
             score = to_float(hypothesis.get("score"))
             if score > NO_PITCH_CAP + 0.0001:
                 fail(f"No-pitch exact score exceeded cap: {hypothesis.get('instrument_id')}={score}")

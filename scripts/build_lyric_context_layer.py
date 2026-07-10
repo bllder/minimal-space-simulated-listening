@@ -14,6 +14,7 @@ from typing import Any
 
 DEFAULT_JSON_NAME = "lyric_context_layer.json"
 DEFAULT_MD_NAME = "lyric_context_layer.md"
+MAX_HEARD_FRAGMENTS = 24
 
 
 def parse_args() -> argparse.Namespace:
@@ -24,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-md", default=DEFAULT_MD_NAME)
     parser.add_argument("--lyrics-file", default=None)
     parser.add_argument("--lyric-alignment", default=None)
+    parser.add_argument("--vocal-transcription", action="append", default=[], help="Optional MSSL vocal transcription adapter packet with heard-lyric fragments.")
     parser.add_argument("--no-write-profile", action="store_true")
     return parser.parse_args()
 
@@ -57,11 +59,13 @@ def build_layer(profile: dict[str, Any], args: argparse.Namespace) -> dict[str, 
     lyrics_status = inspect_lyrics_file(lyrics_file) if lyrics_file else {"status": "not_attached"}
     alignment = read_json(alignment_file) if alignment_file else {}
     alignment_items = normalize_alignment(alignment)
+    transcription_packets = [read_json(Path(path)) for path in getattr(args, "vocal_transcription", []) or []]
+    heard_fragments = build_heard_fragments(transcription_packets)
     vocal_anchors = build_vocal_anchors(profile)
     identity = as_dict(profile.get("song_identity_layer"))
     return {
-        "version": "lyric_context_layer_v0_1",
-        "status": layer_status(lyrics_status, alignment_items),
+        "version": "lyric_context_layer_v0_2",
+        "status": layer_status(lyrics_status, alignment_items, heard_fragments),
         "song_identity_status": identity.get("status") or "not_attached",
         "lyrics_source": lyrics_status,
         "alignment_status": {
@@ -69,13 +73,53 @@ def build_layer(profile: dict[str, Any], args: argparse.Namespace) -> dict[str, 
             "anchor_count": len(alignment_items),
             "anchors": alignment_items[:32],
         },
+        "heard_lyric_fragments": heard_fragments,
         "vocal_performance_anchors": vocal_anchors,
         "online_ai_task": {
             "rule": "Use verified song identity to look up lyrics externally. Connect lyric meaning only to MSSL-supported vocal timing, phrase density, MIDI contour, and OME spatial state.",
             "no_full_lyrics_policy": "Do not copy full lyrics into MSSL outputs. Use short references only when the final online AI context permits it.",
+            "heard_fragments_rule": "Heard fragments are ASR-derived excerpts and may be misheard. Quote them only as heard fragments, keep unclear passages reported as unclear, and never expand fragments into full or continuous lyrics.",
             "if_no_alignment": "Use section-level vocal anchors, not line-by-line lyric claims.",
         },
-        "truth_boundary": "MSSL does not prove lyric text, lyric meaning, singer identity, or exact line timing unless an external lyric/alignment source is attached. This layer only provides safe anchors for online close listening.",
+        "truth_boundary": "MSSL does not prove lyric text, lyric meaning, singer identity, or exact line timing unless an external lyric/alignment source is attached. ASR heard fragments are bounded transcription evidence, not lyric truth. This layer only provides safe anchors for online close listening.",
+    }
+
+
+def build_heard_fragments(packets: list[dict[str, Any]]) -> dict[str, Any]:
+    fragments: list[dict[str, Any]] = []
+    for packet in packets:
+        if str(packet.get("adapter_type") or "") != "vocal_transcription":
+            continue
+        fragments.extend(list_dicts(packet.get("fragments")))
+    if not fragments:
+        return {"status": "not_attached", "adapter_packet_count": len(packets), "fragment_count": 0}
+    fragments.sort(key=lambda item: to_float(item.get("start_seconds")))
+    clarity_summary = {"clear": 0, "partial": 0, "unclear": 0}
+    kept: list[dict[str, Any]] = []
+    for fragment in fragments:
+        clarity = str(fragment.get("clarity") or "unclear")
+        clarity_summary[clarity] = clarity_summary.get(clarity, 0) + 1
+        if len(kept) >= MAX_HEARD_FRAGMENTS:
+            continue
+        entry = {
+            "time_range": fragment.get("time_range") or [fragment.get("start_seconds"), fragment.get("end_seconds")],
+            "clarity": clarity,
+            "confidence": fragment.get("confidence"),
+        }
+        if clarity == "unclear":
+            entry["heard_text"] = None
+            entry["text_policy"] = "withheld_low_confidence"
+        else:
+            entry["heard_text"] = fragment.get("heard_text")
+        kept.append(entry)
+    return {
+        "status": "attached_vocal_transcription",
+        "adapter_packet_count": len(packets),
+        "fragment_count": len(fragments),
+        "rendered_fragment_count": len(kept),
+        "clarity_summary": clarity_summary,
+        "fragments": kept,
+        "policy": "ASR fragments are bounded heard-lyric evidence with clarity tiers, not verified lyrics and not a full lyric sheet. Unclear fragments keep timing but withhold decoded text.",
     }
 
 
@@ -155,9 +199,11 @@ def build_vocal_anchors(profile: dict[str, Any]) -> list[dict[str, Any]]:
     return anchors
 
 
-def layer_status(lyrics_status: dict[str, Any], alignment_items: list[dict[str, Any]]) -> str:
+def layer_status(lyrics_status: dict[str, Any], alignment_items: list[dict[str, Any]], heard_fragments: dict[str, Any] | None = None) -> str:
     if alignment_items:
         return "lyric_alignment_attached"
+    if as_dict(heard_fragments).get("status") == "attached_vocal_transcription":
+        return "vocal_transcription_fragments_attached"
     if lyrics_status.get("status") == "attached_lyrics_file_not_exported":
         return "lyrics_file_attached_without_alignment"
     return "no_local_lyrics_context_attached"
@@ -183,9 +229,12 @@ def render_markdown(layer: dict[str, Any]) -> str:
         f"- Alignment status: {alignment.get('status')}",
         f"- Anchor count: {alignment.get('anchor_count')}",
         "",
+    ]
+    lines.extend(render_heard_fragments_md(as_dict(layer.get("heard_lyric_fragments"))))
+    lines.extend([
         "## Vocal anchors",
         "",
-    ]
+    ])
     anchors = list_dicts(layer.get("vocal_performance_anchors"))
     if not anchors:
         lines.append("- No local vocal anchor is strong enough yet. Use section-level caution.")
@@ -194,6 +243,29 @@ def render_markdown(layer: dict[str, Any]) -> str:
             lines.append(f"- {item.get('anchor_id')}: {item.get('source')} | {item.get('dominant_event_type') or item.get('review_use') or item.get('display_name')}")
     lines.extend(["", f"Boundary: {layer.get('truth_boundary')}"])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_heard_fragments_md(heard: dict[str, Any]) -> list[str]:
+    lines = ["## Heard lyric fragments (ASR)", ""]
+    if heard.get("status") != "attached_vocal_transcription":
+        lines.extend(["- No vocal transcription adapter packet is attached.", ""])
+        return lines
+    clarity = as_dict(heard.get("clarity_summary"))
+    lines.extend([
+        f"- Fragments: {heard.get('fragment_count')} total / {heard.get('rendered_fragment_count')} rendered",
+        f"- Clarity: clear {clarity.get('clear', 0)} / partial {clarity.get('partial', 0)} / unclear {clarity.get('unclear', 0)}",
+        f"- Policy: {heard.get('policy')}",
+        "",
+        "| Time | Clarity | Heard fragment |",
+        "|---|---|---|",
+    ])
+    for fragment in list_dicts(heard.get("fragments")):
+        time_range = fragment.get("time_range")
+        label = "-".join(str(value) for value in time_range) + "s" if isinstance(time_range, list) else str(time_range)
+        text = fragment.get("heard_text") if fragment.get("clarity") != "unclear" else "(unclear - text withheld)"
+        lines.append(f"| {label} | {fragment.get('clarity')} | {text} |")
+    lines.append("")
+    return lines
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -218,6 +290,15 @@ def first_nonempty(*values: Any) -> Any:
         if value not in (None, ""):
             return value
     return None
+
+
+def to_float(value: Any) -> float:
+    try:
+        if value is None:
+            return 0.0
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def dominant(values: list[str]) -> str | None:

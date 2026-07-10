@@ -214,6 +214,7 @@ def validate_layer(layer: dict[str, Any]) -> None:
     no_family_matched_seen = False
     functional_strong_seen = False
     filtered_count = 0
+    competition_groups: dict[str, list[dict[str, Any]]] = {}
     for candidate in list_dicts(layer.get("object_candidates")):
         object_identity_values.add(str(candidate.get("object_family")))
         object_identity_values.add(str(candidate.get("object_candidate_id")))
@@ -222,6 +223,15 @@ def validate_layer(layer: dict[str, Any]) -> None:
             functional_strong_seen = True
         if group in {"instrument_like_timbre_family", "effect_like_texture_family"} and candidate.get("claim_strength") == "strong":
             fail(f"{candidate.get('object_family')} should not be strong without pitch/external evidence")
+        if group in {"instrument_like_timbre_family", "effect_like_texture_family"}:
+            competition = as_dict(candidate.get("component_competition"))
+            if not competition:
+                fail(f"{candidate.get('object_family')} is missing executable component competition")
+            if not list_dicts(competition.get("positive_evidence")):
+                fail(f"{candidate.get('object_family')} is missing positive competition evidence")
+            if competition.get("gap_to_group_leader") is None or competition.get("rank_in_group") is None:
+                fail(f"{candidate.get('object_family')} is missing competition rank/gap")
+            competition_groups.setdefault(str(competition.get("competition_group")), []).append(candidate)
         support = as_dict(candidate.get("instrument_prior_hypothesis_support"))
         evidence_support = as_dict(as_dict(candidate.get("evidence")).get("instrument_prior_hypothesis_support"))
         if support != evidence_support:
@@ -273,6 +283,13 @@ def validate_layer(layer: dict[str, Any]) -> None:
     leaked = sorted(exact_prior_ids & object_identity_values)
     if leaked:
         fail(f"Exact prior ids leaked into object identity fields: {leaked}")
+    diagnostic = as_dict(layer.get("component_competition_diagnostic"))
+    if diagnostic.get("status") != "component_competition_applied":
+        fail("Component competition diagnostic was not attached")
+    for group_id, rows in competition_groups.items():
+        non_weak = [row for row in rows if row.get("claim_strength") in {"medium", "strong"}]
+        if len(non_weak) > 2:
+            fail(f"Competition group {group_id} left too many simultaneous non-weak family candidates: {len(non_weak)}")
 
 
 def validate_markdown(markdown: str) -> None:

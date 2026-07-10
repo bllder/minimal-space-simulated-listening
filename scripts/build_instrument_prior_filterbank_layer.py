@@ -51,6 +51,9 @@ FAMILY_IDS = [
 
 NO_PITCH_CONFIDENCE_CAP = 0.55
 NO_EXTERNAL_EVIDENCE_CONFIDENCE_CAP = 0.68
+MAX_BROAD_FAMILIES_PER_WINDOW = 3
+MAX_EXACT_PRIORS_PER_FAMILY = 2
+BROAD_FAMILY_MIN_SCORE = 0.32
 
 
 def parse_args() -> argparse.Namespace:
@@ -62,7 +65,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=None, help="Output directory. Defaults beside the arrangement contrast layer.")
     parser.add_argument("--output-json", default=DEFAULT_JSON_NAME)
     parser.add_argument("--output-md", default=DEFAULT_MD_NAME)
-    parser.add_argument("--max-hypotheses-per-window", type=int, default=8)
+    parser.add_argument("--max-hypotheses-per-window", type=int, default=4)
     parser.add_argument("--min-score", type=float, default=0.25)
     return parser.parse_args()
 
@@ -212,14 +215,14 @@ def score_window(
     time_range = list_floats(window.get("time_range"))
     local_pitches = pitch_events_for_window(time_range, pitch_events)
     midi_support = summarize_pitch_support(local_pitches, pitch_events_provided=pitch_source_present)
-    hypotheses = [score_prior(window, prior, local_pitches, pitch_source_present) for prior in priors]
-    hypotheses = [item for item in hypotheses if to_float(item.get("score")) >= min_score]
-    hypotheses.sort(key=lambda item: to_float(item.get("score")), reverse=True)
-    hypotheses = hypotheses[:max_hypotheses_per_window]
-    broad_hypotheses = build_broad_family_hypotheses(hypotheses, min_score)
+    all_hypotheses = [score_prior(window, prior, local_pitches, pitch_source_present) for prior in priors]
+    all_hypotheses = [item for item in all_hypotheses if to_float(item.get("score")) >= min_score]
+    all_hypotheses.sort(key=lambda item: to_float(item.get("score")), reverse=True)
+    broad_hypotheses = build_broad_family_hypotheses(window, all_hypotheses, midi_support, min_score)
+    hypotheses = select_ranked_hypotheses(all_hypotheses, broad_hypotheses, max_hypotheses_per_window)
     unresolved_reason = None
     if not hypotheses:
-        unresolved_reason = "No acoustic prior exceeded the conservative minimum score for this local window."
+        unresolved_reason = "No acoustic family survived local component competition strongly enough for a bounded exact-prior ranking."
 
     local_evidence_summary = {
         "arrangement_lane_support": window.get("arrangement_lane_support"),
@@ -237,6 +240,7 @@ def score_window(
         "local_evidence_summary": local_evidence_summary,
         "broad_family_hypotheses": broad_hypotheses,
         "ranked_instrument_hypotheses": hypotheses,
+        "family_competition": summarize_window_family_competition(broad_hypotheses, all_hypotheses),
         "unresolved_reason": unresolved_reason,
     }
 
@@ -394,34 +398,262 @@ def score_noise_or_inharmonic(window: dict[str, Any], template: dict[str, Any]) 
     return template_result(status_from_score(score), score, basis)
 
 
-def build_broad_family_hypotheses(hypotheses: list[dict[str, Any]], min_score: float) -> list[dict[str, Any]]:
+FAMILY_POSITIVE_TERMS: dict[str, list[tuple[str, float, str]]] = {
+    "voice": [("foreground", 0.28, "foreground contour lane"), ("harmonic", 0.20, "harmonic continuity"), ("mid", 0.18, "mid-band body"), ("sustained", 0.12, "phrase continuity"), ("pitch", 0.12, "local pitch evidence"), ("pressure", 0.10, "foreground pressure")],
+    "low_register": [("low", 0.34, "low-band body"), ("low_body", 0.24, "low-body lane"), ("harmonic", 0.14, "pitched low support"), ("pressure", 0.10, "pressure support"), ("sustained", 0.08, "continuing low support"), ("pitch", 0.10, "local register evidence")],
+    "plucked_strings": [("harmonic", 0.23, "harmonic partial support"), ("transient", 0.22, "plucked attack support"), ("foreground", 0.15, "foreground/harmonic lane"), ("mid", 0.13, "mid-band body"), ("pitch", 0.17, "local pitch evidence"), ("pressure", 0.10, "articulation pressure")],
+    "keyboard": [("harmonic", 0.21, "harmonic support"), ("transient", 0.26, "key-strike attack support"), ("foreground", 0.13, "foreground/harmonic lane"), ("mid", 0.12, "mid-band body"), ("pitch", 0.16, "local pitch evidence"), ("pressure", 0.12, "attack pressure")],
+    "bowed_strings": [("harmonic", 0.28, "harmonic continuity"), ("sustained", 0.25, "sustained envelope"), ("low_transient", 0.14, "restrained attack"), ("mid", 0.12, "mid-band body"), ("foreground", 0.09, "foreground/harmonic lane"), ("pitch", 0.12, "local pitch evidence")],
+    "woodwinds": [("harmonic", 0.24, "harmonic continuity"), ("sustained", 0.20, "sustained airflow-like envelope"), ("foreground", 0.20, "foreground contour lane"), ("mid", 0.13, "mid-band projection"), ("pitch", 0.14, "local pitch evidence"), ("low_transient", 0.09, "restrained attack")],
+    "brass": [("harmonic", 0.22, "harmonic continuity"), ("sustained", 0.17, "sustained envelope"), ("foreground", 0.18, "foreground contour lane"), ("mid", 0.13, "mid-band projection"), ("pressure", 0.15, "pressure-forward support"), ("pitch", 0.15, "local pitch evidence")],
+    "percussion": [("transient", 0.30, "transient plane"), ("percussive", 0.24, "percussive envelope"), ("pressure", 0.16, "pressure peaks"), ("noise", 0.10, "inharmonic/noise component"), ("high", 0.08, "upper transient energy"), ("low_body", 0.12, "low impact body")],
+    "electronic_fx": [("noise", 0.20, "noise/inharmonic texture"), ("diffuse", 0.18, "diffuse tail/spread"), ("wide", 0.14, "wide receiver field"), ("high", 0.12, "upper texture"), ("motion", 0.12, "contrast/motion"), ("sustained", 0.12, "sustained pad/tail support"), ("transient", 0.07, "event articulation"), ("pitch", 0.05, "optional pitch support")],
+}
+
+FAMILY_COUNTER_TERMS: dict[str, list[tuple[str, float, str]]] = {
+    "voice": [("noise", 0.35, "noise dominance is not distinctive voice evidence"), ("transient", 0.25, "attack dominance weakens a continuous foreground reading"), ("no_foreground", 0.40, "foreground contour support is weak")],
+    "low_register": [("no_low", 0.45, "low-band body is weak"), ("high", 0.25, "upper-band dominance contradicts a low object"), ("local_transient", 0.30, "isolated impact can mimic low-register body")],
+    "plucked_strings": [("low_transient", 0.38, "articulation is weak"), ("noise", 0.24, "noise dominance is nonspecific"), ("no_harmonic", 0.22, "harmonic support is weak"), ("no_foreground", 0.16, "foreground/harmonic lane is weak")],
+    "keyboard": [("low_transient", 0.40, "key-strike evidence is weak"), ("noise", 0.22, "noise dominance is nonspecific"), ("no_harmonic", 0.22, "harmonic support is weak"), ("local_transient", 0.16, "isolated impact can mimic a struck key")],
+    "bowed_strings": [("transient", 0.38, "attack dominance weakens bowed sustain"), ("noise", 0.26, "noise dominance is nonspecific"), ("no_harmonic", 0.22, "harmonic continuity is weak"), ("localness", 0.14, "support is too local")],
+    "woodwinds": [("transient", 0.25, "attack dominance weakens sustained wind support"), ("noise", 0.20, "broad noise is not breath-formant evidence"), ("no_foreground", 0.30, "foreground contour support is weak"), ("no_harmonic", 0.25, "harmonic continuity is weak")],
+    "brass": [("transient", 0.22, "attack dominance weakens sustained brass support"), ("noise", 0.18, "noise dominance is nonspecific"), ("no_foreground", 0.25, "foreground contour support is weak"), ("low_pressure", 0.20, "pressure projection is weak"), ("no_harmonic", 0.15, "harmonic continuity is weak")],
+    "percussion": [("low_transient", 0.42, "transient evidence is weak"), ("low_percussive", 0.35, "percussive envelope is weak"), ("smooth_sustain", 0.23, "smooth sustained support weakens percussion")],
+    "electronic_fx": [("no_texture", 0.35, "texture/tail/spread evidence is weak"), ("stable_harmonic_center", 0.25, "stable centered harmonic support is nonspecific"), ("low_motion", 0.20, "contrast/motion evidence is weak"), ("no_noise_or_tail", 0.20, "neither noise nor diffuse-tail evidence is present")],
+}
+
+
+def build_broad_family_hypotheses(
+    window: dict[str, Any],
+    hypotheses: list[dict[str, Any]],
+    midi_support: dict[str, Any],
+    min_score: float,
+) -> list[dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for hypothesis in hypotheses:
         family = str(hypothesis.get("family") or "unknown")
         grouped[family].append(hypothesis)
     broad: list[dict[str, Any]] = []
+    metrics = family_window_metrics(window, midi_support)
     for family in FAMILY_IDS:
         rows = grouped.get(family, [])
         if not rows:
             continue
+        eligible, eligibility_basis = family_eligibility(family, metrics)
+        if not eligible:
+            continue
         top = max(to_float(row.get("score")) for row in rows)
         average_top = mean(sorted((to_float(row.get("score")) for row in rows), reverse=True)[:3])
-        score = round_float(min(NO_EXTERNAL_EVIDENCE_CONFIDENCE_CAP, max(top + 0.06, average_top + 0.08)))
-        if score < min_score:
+        prior_score = min(NO_EXTERNAL_EVIDENCE_CONFIDENCE_CAP, max(top + 0.04, average_top + 0.06))
+        positive_rows, positive_score = family_metric_rows(FAMILY_POSITIVE_TERMS[family], metrics)
+        counter_rows, counter_score = family_metric_rows(FAMILY_COUNTER_TERMS[family], metrics)
+        distinctive_score = clamp(positive_score - 0.30 * counter_score)
+        score = round_float(min(NO_EXTERNAL_EVIDENCE_CONFIDENCE_CAP, 0.55 * prior_score + 0.45 * distinctive_score))
+        if score < max(BROAD_FAMILY_MIN_SCORE, min_score + 0.04):
             continue
-        basis = [f"best matching prior score={round_float(top)}", f"supporting priors={len(rows)}"]
+        basis = [f"best matching prior score={round_float(top)}", f"local distinctive-family score={round_float(distinctive_score)}", f"supporting priors={len(rows)}"]
         contradictions = sorted({item for row in rows[:3] for item in list_strings(row.get("contradictions"))})[:3]
         broad.append(
             {
                 "family": family,
                 "score": score,
+                "prior_match_score": round_float(prior_score),
+                "distinctive_family_score": round_float(distinctive_score),
+                "positive_evidence": positive_rows,
+                "counterevidence": counter_rows,
+                "eligibility_basis": eligibility_basis,
                 "basis": basis,
                 "contradictions": contradictions,
                 "boundary": "Broad acoustic family hypothesis only.",
             }
         )
     broad.sort(key=lambda item: to_float(item.get("score")), reverse=True)
-    return broad[:6]
+    if not broad:
+        return []
+    leader_score = to_float(broad[0].get("score"))
+    runner_score = to_float(broad[1].get("score")) if len(broad) > 1 else 0.0
+    leader_margin = max(0.0, leader_score - runner_score)
+    selected = [broad[0]]
+    if len(broad) > 1:
+        second_gap = leader_score - to_float(broad[1].get("score"))
+        if second_gap <= 0.08 or to_float(broad[1].get("score")) >= 0.46:
+            selected.append(broad[1])
+    if len(broad) > 2:
+        third_gap = leader_score - to_float(broad[2].get("score"))
+        if leader_score >= 0.45 and third_gap <= 0.05:
+            selected.append(broad[2])
+    selected = selected[:MAX_BROAD_FAMILIES_PER_WINDOW]
+    for rank, row in enumerate(selected, start=1):
+        gap = max(0.0, leader_score - to_float(row.get("score")))
+        if rank <= 2 and leader_margin < 0.06:
+            status = "ambiguous_top_family"
+        elif rank == 1:
+            status = "leading_family"
+        elif gap <= 0.08:
+            status = "close_family_alternative"
+        else:
+            status = "bounded_family_alternative"
+        row["rank"] = rank
+        row["gap_to_leader"] = round_float(gap)
+        row["leader_margin_over_runner_up"] = round_float(leader_margin)
+        row["ambiguity_status"] = status
+    return selected
+
+
+def family_window_metrics(window: dict[str, Any], midi_support: dict[str, Any]) -> dict[str, float]:
+    bands = broad_band_values(window)
+    low = clamp(bands["low_band"])
+    mid = clamp(bands["mid_band"])
+    high = clamp(bands["high_band"])
+    harmonic = harmonic_support(window)
+    transient = transient_support(window)
+    sustained = sustained_support(window)
+    noise = noise_support(window)
+    foreground = max(lane_value(window, "foreground_contour_lane"), lane_value(window, "harmonic_ridge_lane") * 0.72)
+    diffuse = max(lane_value(window, "diffuse_tail_lane"), lane_value(window, "noise_texture_lane"), lane_value(window, "spatial_spread_lane"))
+    pressure = lane_value(window, "pressure_peak_lane")
+    low_body = lane_value(window, "low_body_lane")
+    novelty = clamp(to_float(as_dict(window.get("relative_contrast")).get("novelty")))
+    pitch = 1.0 if midi_support.get("status") == "provided" else 0.0
+    local_transient = transient * (1.0 - sustained)
+    return {
+        "low": low,
+        "mid": mid,
+        "high": high,
+        "harmonic": harmonic,
+        "no_harmonic": 1.0 - harmonic,
+        "transient": transient,
+        "transient_lane": lane_value(window, "transient_plane_lane"),
+        "low_transient": 1.0 - transient,
+        "percussive": transient,
+        "low_percussive": 1.0 - transient,
+        "sustained": sustained,
+        "smooth_sustain": sustained * (1.0 - transient),
+        "noise": noise,
+        "foreground": foreground,
+        "no_foreground": 1.0 - foreground,
+        "low_body": low_body,
+        "no_low": 1.0 - max(low, low_body),
+        "pressure": pressure,
+        "low_pressure": 1.0 - pressure,
+        "diffuse": diffuse,
+        "wide": max(lane_value(window, "spatial_spread_lane"), diffuse * 0.72),
+        "motion": max(novelty, transient * 0.65),
+        "low_motion": 1.0 - max(novelty, transient * 0.65),
+        "localness": max(0.0, transient - sustained),
+        "local_transient": local_transient,
+        "pitch": pitch,
+        "no_texture": 1.0 - diffuse,
+        "no_noise_or_tail": 1.0 - max(noise, diffuse),
+        "stable_harmonic_center": harmonic * sustained * (1.0 - diffuse),
+    }
+
+
+def family_eligibility(family: str, metrics: dict[str, float]) -> tuple[bool, list[str]]:
+    low = metrics["low"]
+    mid = metrics["mid"]
+    high = metrics["high"]
+    harmonic = metrics["harmonic"]
+    transient = metrics["transient"]
+    foreground = metrics["foreground"]
+    sustained = metrics["sustained"]
+    pressure = metrics["pressure"]
+    low_body = metrics["low_body"]
+    diffuse = metrics["diffuse"]
+    noise = metrics["noise"]
+    pitch = metrics["pitch"]
+    transient_lane = metrics["transient_lane"]
+    if family == "voice":
+        ok = foreground >= 0.46 and harmonic >= 0.28 and mid >= 0.26
+        basis = ["foreground contour >= 0.46", "harmonic support >= 0.28", "mid-band support >= 0.26"]
+    elif family == "low_register":
+        ok = low >= 0.46 and (low_body >= 0.42 or (pitch > 0.0 and low_body >= 0.30))
+        basis = ["low-band body >= 0.46", "low-body lane >= 0.42 or pitch-backed >= 0.30"]
+    elif family == "plucked_strings":
+        ok = harmonic >= 0.27 and transient >= 0.22 and foreground >= 0.28 and mid >= 0.24
+        basis = ["harmonic support >= 0.27", "articulation >= 0.22", "foreground/harmonic lane >= 0.28"]
+    elif family == "keyboard":
+        ok = harmonic >= 0.27 and transient >= 0.46 and foreground >= 0.28
+        basis = ["harmonic support >= 0.27", "key-strike-like transient >= 0.46", "foreground/harmonic lane >= 0.28"]
+    elif family == "bowed_strings":
+        ok = harmonic >= 0.32 and sustained >= 0.32 and transient <= 0.38 and foreground >= 0.27
+        basis = ["harmonic sustain >= 0.32", "transient <= 0.38", "foreground/harmonic lane >= 0.27"]
+    elif family == "woodwinds":
+        ok = harmonic >= 0.36 and sustained >= 0.34 and foreground >= 0.48 and transient <= 0.42
+        basis = ["harmonic sustain >= 0.36", "foreground contour >= 0.48", "transient <= 0.42"]
+    elif family == "brass":
+        ok = harmonic >= 0.36 and sustained >= 0.32 and foreground >= 0.46 and pressure >= 0.42 and transient <= 0.50
+        basis = ["harmonic sustain >= 0.36", "foreground contour >= 0.46", "pressure >= 0.42"]
+    elif family == "percussion":
+        ok = transient >= 0.50 and transient_lane >= 0.42 and (pressure >= 0.38 or noise >= 0.30 or low_body >= 0.44)
+        basis = ["transient >= 0.50", "transient lane >= 0.42", "pressure/noise/low-impact support"]
+    else:
+        ok = diffuse >= 0.28 or noise >= 0.42 or high >= 0.44
+        basis = ["diffuse/spread >= 0.28 or noise >= 0.42 or high-band texture >= 0.44"]
+    return ok, basis
+
+
+def family_metric_rows(terms: list[tuple[str, float, str]], metrics: dict[str, float]) -> tuple[list[dict[str, Any]], float]:
+    rows = []
+    score = 0.0
+    for field, weight, reading in terms:
+        value = clamp(metrics.get(field, 0.0))
+        contribution = weight * value
+        score += contribution
+        if contribution >= 0.025:
+            rows.append({"field": field, "value": round_float(value), "contribution": round_float(contribution), "reading": reading})
+    rows.sort(key=lambda row: to_float(row.get("contribution")), reverse=True)
+    return rows[:6], clamp(score)
+
+
+def select_ranked_hypotheses(
+    hypotheses: list[dict[str, Any]],
+    broad_hypotheses: list[dict[str, Any]],
+    max_hypotheses_per_window: int,
+) -> list[dict[str, Any]]:
+    broad_by_family = {str(row.get("family")): row for row in broad_hypotheses}
+    hypotheses_by_family: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for hypothesis in hypotheses:
+        family = str(hypothesis.get("family") or "")
+        if family in broad_by_family:
+            hypotheses_by_family[family].append(hypothesis)
+    selected = []
+    ordered_families = [str(row.get("family")) for row in broad_hypotheses]
+    for depth in range(MAX_EXACT_PRIORS_PER_FAMILY):
+        for family in ordered_families:
+            rows = hypotheses_by_family.get(family, [])
+            if depth >= len(rows):
+                continue
+            broad = broad_by_family[family]
+            item = dict(rows[depth])
+            item["family_competition"] = {
+                "family_rank": broad.get("rank"),
+                "family_score": broad.get("score"),
+                "gap_to_family_leader": broad.get("gap_to_leader"),
+                "ambiguity_status": broad.get("ambiguity_status"),
+                "boundary": "Exact prior remains subordinate to the retained broad-family competition result.",
+            }
+            selected.append(item)
+            if len(selected) >= max_hypotheses_per_window:
+                return selected
+    return selected
+
+
+def summarize_window_family_competition(
+    broad_hypotheses: list[dict[str, Any]],
+    all_hypotheses: list[dict[str, Any]],
+) -> dict[str, Any]:
+    retained = [str(row.get("family")) for row in broad_hypotheses]
+    all_families = sorted({str(row.get("family")) for row in all_hypotheses if row.get("family")})
+    return {
+        "status": "retained_bounded_family_set" if retained else "no_family_survived",
+        "retained_family_count": len(retained),
+        "retained_families": retained,
+        "filtered_family_count": max(0, len(all_families) - len(retained)),
+        "filtered_families": [family for family in all_families if family not in set(retained)],
+        "maximum_retained_families": MAX_BROAD_FAMILIES_PER_WINDOW,
+        "rule": "Families compete on local distinctive evidence; shared lane support alone does not retain every compatible family.",
+    }
 
 
 def summarize_layer(windows: list[dict[str, Any]]) -> dict[str, Any]:
