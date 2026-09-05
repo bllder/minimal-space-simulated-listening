@@ -1,0 +1,5 @@
+# Install torch/torchaudio for your CPU or GPU before installing these extras.
+demucs>=4,<5
+librosa>=0.11,<2
+soundfile>=0.12,<1
+matplotlib>=3.8,<4

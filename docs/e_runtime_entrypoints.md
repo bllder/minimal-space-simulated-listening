@@ -611,3 +611,37 @@ python .\scripts\run_mssl.py structural --input "path\to\local_audio.wav"
 ## Cleanup rule
 
 Do not add new top-level runner scripts unless they are wired through `scripts/run_mssl.py` or replace an existing entrypoint.
+
+
+## Optional vocal separation and pitch analysis
+
+This standalone adapter analyzes a vocal stem. It does not alter the default MSSL
+pipeline or automatically attach its results to the compact handoff.
+
+Install FFmpeg and PyTorch for the current machine, then the optional dependencies:
+
+```sh
+python -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r requirements-optional/requirements-vocal-pitch.txt
+python -m demucs --two-stems vocals -n htdemucs --shifts 0 -d cpu -o outputs/separated "path/to/song.wav"
+python scripts/adapters/analyze_vocal_pitch.py --input "outputs/separated/htdemucs/song/vocals.wav" --output-dir outputs/vocal_pitch
+```
+
+Use an existing dry vocal or estimated vocal stem directly when available.
+`--fmin`, `--fmax` (Hz), and `--probability` are adjustable. Defaults reproduce the
+initial method: 16 kHz mono, 1024-sample frames, 320-sample hop, 75–900 Hz,
+pYIN probability ≥0.7 and both relative/absolute RMS gating.
+
+Outputs: `pitch.csv`, `summary.json`, `vocal_pitch.png`. Silence yields
+`no_confident_pitch` and null pitch percentiles. Plots cover the entire input.
+One-second windows with ≥85% retained frames and a 10–90 percentile span below
+85 cents are listed as locally stable candidates, not singing scores. These
+thresholds are heuristics, not a validated vocal assessment scale.
+
+Reference melody alignment is required to evaluate note accuracy. Vibrato,
+slides, recording effects and separation artifacts must not be treated as errors
+by default. This method does not diagnose breath support or replace listening.
+Do not commit recordings, separated stems, pitch dumps or generated plots.
+
+Upstream methods: [Demucs](https://github.com/facebookresearch/demucs),
+[librosa pYIN](https://github.com/librosa/librosa/blob/main/librosa/core/pitch.py).
